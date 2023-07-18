@@ -8,4 +8,5 @@ edition = "2021"
 [dependencies]
 regex = "1.9.1"
 const_format = "0.2.31"
+sha256 = "1.2.1"
 
