@@ -1,9 +1,11 @@
 // #![feature(adt_const_params)]
+#![feature(fs_try_exists)]
+
 use const_format::{concatcp, formatcp};
+use nix::unistd::{access, AccessFlags};
 use pwd::Passwd;
 use regex::Regex;
-use std::{env, fs};
-use nix::unistd::{access, AccessFlags};
+use std::{env, fmt, fs};
 
 const INVISIBLE_START: &str = "\x01";
 const INVISIBLE_END: &str = "\x02";
@@ -134,23 +136,98 @@ fn replace_homes(path: &str, cur_user: &str) -> String {
     }
 }
 
+fn file_exists(path: &str) -> bool {
+    fs::try_exists(path).unwrap_or(false)
+}
+
+fn buildinfo(path: &str) -> Vec<&'static str> {
+    let mut res = Vec::new();
+    if file_exists("CMakeLists.txt") {
+        res.push("cmake");
+    }
+    if file_exists("configure") {
+        res.push("./configure");
+    }
+    if file_exists("Makefile") {
+        res.push("make");
+    }
+    if file_exists("install") {
+        res.push("./install");
+    }
+    if file_exists("jr") {
+        res.push("./jr");
+    }
+    // TODO *.qbs, *.pro, up->Cargo.toml
+    res
+}
+
+struct StatusLine {
+    hostname: String,
+    username: String,
+    workdir: String,
+    read_only: bool,
+    build_info: String,
+}
+
+impl StatusLine {
+    fn new() -> Self {
+        let hostname = fs::read_to_string("/etc/hostname").unwrap_or(String::from("<host>"));
+        let hostname = String::from(hostname.trim());
+        let username = env::var("USER").unwrap_or(String::from("<user>"));
+        let workdir = env::var("PWD").unwrap_or(String::new());
+        let read_only = access(&workdir[..], AccessFlags::W_OK).is_err();
+        let build_info = buildinfo(&workdir).join(" ");
+        StatusLine {
+            hostname,
+            username,
+            workdir,
+            read_only,
+            build_info,
+        }
+    }
+}
+
+impl fmt::Display for StatusLine {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let host_str = format!(
+            "{STYLE_BOLD}{COLOR_YELLOW}(at {}{STYLE_BOLD}{COLOR_YELLOW}){STYLE_RESET}",
+            colorize(&self.hostname)
+        );
+        let user_str = format!(
+            "{STYLE_BOLD}{COLOR_BLUE}[as {}{STYLE_BOLD}{COLOR_BLUE}]{STYLE_RESET}",
+            colorize(&self.username)
+        );
+        let hostuser = format!("{host_str} {user_str}");
+
+        let workdir_str = replace_homes(&self.workdir, &self.username);
+        let read_only_str = if self.read_only {
+            concatcp!(COLOR_RED, "R/O", STYLE_RESET, " ")
+        } else {
+            ""
+        };
+        let pwd = format!("{read_only_str}{workdir_str}");
+
+        let buildinfo = if !self.build_info.is_empty() {
+            format!(
+                "{STYLE_BOLD}{COLOR_PURPLE}[{}]{STYLE_RESET}",
+                self.build_info
+            )
+        } else {
+            String::new()
+        };
+
+        write!(
+            f,
+            "{}",
+            vec![hostuser, buildinfo, pwd]
+                .into_iter()
+                .filter(|el| !el.is_empty())
+                .collect::<Vec<String>>()
+                .join(" ")
+        )
+    }
+}
+
 fn main() {
-    let hostname = fs::read_to_string("/etc/hostname").unwrap_or(String::from("<host>"));
-    let hostname = hostname.trim();
-    let username = env::var("USER").unwrap_or(String::from("<user>"));
-    let workdir = env::var("PWD").unwrap_or(String::new());
-    let read_only = access(&workdir[..], AccessFlags::W_OK).is_err();
-
-    let host_str = format!(
-        "{STYLE_BOLD}{COLOR_YELLOW}(at {}{STYLE_BOLD}{COLOR_YELLOW}){STYLE_RESET}",
-        colorize(&hostname)
-    );
-    let user_str = format!(
-        "{STYLE_BOLD}{COLOR_BLUE}[as {}{STYLE_BOLD}{COLOR_BLUE}]{STYLE_RESET}",
-        colorize(&username)
-    );
-    let workdir_str = replace_homes(&workdir, &username);
-    let read_only_str = if read_only { concatcp!(COLOR_RED, "R/O", STYLE_RESET, " ") } else { "" };
-
-    println!("{} {} -> {}{}", host_str, user_str, read_only_str, workdir_str);
+    println!("{}", StatusLine::new());
 }
