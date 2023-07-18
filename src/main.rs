@@ -3,6 +3,7 @@ use const_format::{concatcp, formatcp};
 use pwd::Passwd;
 use regex::Regex;
 use std::{env, fs};
+use nix::unistd::{access, AccessFlags};
 
 const INVISIBLE_START: &str = "\x01";
 const INVISIBLE_END: &str = "\x02";
@@ -104,7 +105,7 @@ COLOR_TABLE=(255 203 153 100 0)
 const COLOR_TABLE: [u8; 5] = [255, 203, 153, 100, 0];
 fn colorize(s: &str) -> String {
     if s == "root" {
-        concatcp!(STYLE_BOLD, COLOR_RED, "root", STYLE_RESET)
+        String::from(concatcp!(STYLE_BOLD, COLOR_RED, "root", STYLE_RESET))
     } else {
         let hash =
             usize::from_str_radix(&sha256::digest(format!("{}\n", s))[..4], 16).unwrap() % 115;
@@ -138,6 +139,7 @@ fn main() {
     let hostname = hostname.trim();
     let username = env::var("USER").unwrap_or(String::from("<user>"));
     let workdir = env::var("PWD").unwrap_or(String::new());
+    let read_only = access(&workdir[..], AccessFlags::W_OK).is_err();
 
     let host_str = format!(
         "{STYLE_BOLD}{COLOR_YELLOW}(at {}{STYLE_BOLD}{COLOR_YELLOW}){STYLE_RESET}",
@@ -148,6 +150,7 @@ fn main() {
         colorize(&username)
     );
     let workdir_str = replace_homes(&workdir, &username);
+    let read_only_str = if read_only { concatcp!(COLOR_RED, "R/O", STYLE_RESET, " ") } else { "" };
 
-    println!("{} {} -> {}", host_str, user_str, workdir_str);
+    println!("{} {} -> {}{}", host_str, user_str, read_only_str, workdir_str);
 }
