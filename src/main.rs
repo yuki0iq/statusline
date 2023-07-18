@@ -103,26 +103,27 @@ COLOR_TABLE=(255 203 153 100 0)
 */
 const COLOR_TABLE: [u8; 5] = [255, 203, 153, 100, 0];
 fn colorize(s: &str) -> String {
-    let hash = usize::from_str_radix(&sha256::digest(format!("{}\n", s))[..4], 16).unwrap() % 115;
-    let b = COLOR_TABLE[hash / 25];
-    let g = COLOR_TABLE[hash / 5 % 5];
-    let r = COLOR_TABLE[hash % 5];
-    format!("{}{s}{STYLE_RESET}", rgb(r, g, b))
+    if s == "root" {
+        concatcp!(STYLE_BOLD, COLOR_RED, "root", STYLE_RESET)
+    } else {
+        let hash =
+            usize::from_str_radix(&sha256::digest(format!("{}\n", s))[..4], 16).unwrap() % 115;
+        let b = COLOR_TABLE[hash / 25];
+        let g = COLOR_TABLE[hash / 5 % 5];
+        let r = COLOR_TABLE[hash % 5];
+        format!("{}{s}{STYLE_RESET}", rgb(r, g, b))
+    }
 }
 
-fn replace_homes(path: &str) -> String {
+fn replace_homes(path: &str, cur_user: &str) -> String {
     let invalid_homes = Regex::new(r"^/$|^(/bin|/dev|/proc|/usr|/var)(/|$)").unwrap();
-    for passwd in Passwd::iter() {
-        if !invalid_homes.is_match(&passwd.dir) && path.contains(&passwd.dir) {
-            println!("{} {}", passwd.name, passwd.dir);
-        }
-    }
     if let Some((username, homedir)) = Passwd::iter()
         .filter(|passwd| !invalid_homes.is_match(&passwd.dir))
         .filter(|passwd| path.contains(&passwd.dir))
         .map(|passwd| (passwd.name, passwd.dir))
         .next()
     {
+        let username = if username != cur_user { &username } else { "" };
         path.replace(
             &homedir,
             &format!("{STYLE_BOLD}{COLOR_YELLOW}~{username}{STYLE_RESET}"),
@@ -138,5 +139,15 @@ fn main() {
     let username = env::var("USER").unwrap_or(String::from("<user>"));
     let workdir = env::var("PWD").unwrap_or(String::new());
 
-    println!("{STYLE_BOLD}{COLOR_YELLOW}(at {}{STYLE_BOLD}{COLOR_YELLOW}){STYLE_RESET} {STYLE_BOLD}{COLOR_BLUE}[as {}{STYLE_BOLD}{COLOR_BLUE}]{STYLE_RESET} -> {}", colorize(&hostname), colorize(&username), replace_homes(&workdir));
+    let host_str = format!(
+        "{STYLE_BOLD}{COLOR_YELLOW}(at {}{STYLE_BOLD}{COLOR_YELLOW}){STYLE_RESET}",
+        colorize(&hostname)
+    );
+    let user_str = format!(
+        "{STYLE_BOLD}{COLOR_BLUE}[as {}{STYLE_BOLD}{COLOR_BLUE}]{STYLE_RESET}",
+        colorize(&username)
+    );
+    let workdir_str = replace_homes(&workdir, &username);
+
+    println!("{} {} -> {}", host_str, user_str, workdir_str);
 }
