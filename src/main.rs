@@ -1,7 +1,7 @@
 #![feature(fs_try_exists)]
 
 use const_format::{concatcp, formatcp};
-use nix::unistd::{access, AccessFlags};
+use nix::unistd::{access, getuid, AccessFlags};
 use pwd::Passwd;
 use regex::Regex;
 use std::{
@@ -214,6 +214,10 @@ fn autojoin(vec: Vec<String>) -> String {
         .join(" ")
 }
 
+fn is_self_root() -> bool {
+    getuid().is_root()
+}
+
 struct StatusLine {
     hostname: String,
     read_only: bool,
@@ -312,10 +316,30 @@ impl fmt::Display for StatusLine {
             String::new()
         };
 
-        write!(f, "{}", autojoin(vec![hostuser, buildinfo, pwd]))
+        let root_str = format!(
+            "{STYLE_BOLD}{}{STYLE_RESET}",
+            if is_self_root() {
+                concatcp!(COLOR_RED, "#")
+            } else {
+                concatcp!(COLOR_GREEN, "$")
+            },
+        );
+
+        let top_left_line = format!("{}", autojoin(vec![hostuser, buildinfo, pwd]));
+        let top_line = top_left_line; // TODO add time
+        let top_line = format!(
+            "{}{}{}",
+            concatcp!(INVISIBLE_START, CURSOR_SAVE, CURSOR_UP, CURSOR_HOME),
+            top_line,
+            concatcp!(CURSOR_RESTORE, INVISIBLE_END)
+        );
+
+        let bottom_line = autojoin(vec![root_str]); // TODO add jobs and retval
+
+        write!(f, "\n\n{}{} ", top_line, bottom_line)
     }
 }
 
 fn main() {
-    println!("{}", StatusLine::new());
+    print!("{}", StatusLine::new());
 }
