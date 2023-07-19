@@ -1,4 +1,5 @@
 #![feature(fs_try_exists)]
+#![feature(let_chains)]
 
 use const_format::{concatcp, formatcp};
 use nix::unistd::{access, getuid, AccessFlags};
@@ -218,7 +219,44 @@ fn is_self_root() -> bool {
     getuid().is_root()
 }
 
+enum PromptMode {
+    TextMode,
+    NerdfontMode
+}
+
+impl PromptMode {
+    fn new() -> Self {
+        if let Ok(val) = env::var("PS1_MODE") && val.to_lowercase() == "text" {
+            PromptMode::TextMode
+        } else {
+            PromptMode::NerdfontMode
+        }
+    }
+
+    fn host_text(&self) -> &str {
+        match &self {
+            PromptMode::TextMode => "on",
+            PromptMode::NerdfontMode => "󰒋",  // TODO hostnamectl? dbus
+        }
+    }
+
+    fn user_text(&self) -> &str {
+        match &self {
+            PromptMode::TextMode => "as",
+            PromptMode::NerdfontMode => "",
+        }
+    }
+
+    fn read_only(&self) -> &str {
+        match &self {
+            PromptMode::TextMode => "R/O",
+            PromptMode::NerdfontMode => "",
+        }
+    }
+}
+
 struct StatusLine {
+    prompt_mode: PromptMode,
     hostname: String,
     read_only: bool,
     git_root: Option<PathBuf>,
@@ -234,6 +272,7 @@ impl StatusLine {
         let workdir = env::current_dir().unwrap_or_else(|_| PathBuf::new());
         let read_only = access(&workdir, AccessFlags::W_OK).is_err();
         StatusLine {
+            prompt_mode: PromptMode::new(),
             hostname: get_hostname(),
             read_only,
             git_root: find_git_root(&workdir),
@@ -290,22 +329,23 @@ impl StatusLine {
 impl fmt::Display for StatusLine {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let host_str = format!(
-            "{STYLE_BOLD}{COLOR_YELLOW}(at {}{STYLE_BOLD}{COLOR_YELLOW}){STYLE_RESET}",
+            "{STYLE_BOLD}{COLOR_YELLOW}({} {}{STYLE_BOLD}{COLOR_YELLOW}){STYLE_RESET}",
+            self.prompt_mode.host_text(),
             colorize(&self.hostname)
         );
         let user_str = format!(
-            "{STYLE_BOLD}{COLOR_BLUE}[as {}{STYLE_BOLD}{COLOR_BLUE}]{STYLE_RESET}",
+            "{STYLE_BOLD}{COLOR_BLUE}[{} {}{STYLE_BOLD}{COLOR_BLUE}]{STYLE_RESET}",
+            self.prompt_mode.user_text(),
             colorize(&self.username)
         );
         let hostuser = format!("{host_str} {user_str}");
 
-        let workdir_str = self.get_workdir_str();
-        let read_only_str = if self.read_only {
-            concatcp!(COLOR_RED, "R/O", STYLE_RESET, " ")
+        let workdir = self.get_workdir_str();
+        let readonly = if self.read_only {
+            format!("{}{}{}", COLOR_RED, self.prompt_mode.read_only(), STYLE_RESET)
         } else {
-            ""
+            String::new()
         };
-        let pwd = format!("{read_only_str}{workdir_str}");
 
         let buildinfo = if !self.build_info.is_empty() {
             format!(
@@ -325,18 +365,18 @@ impl fmt::Display for StatusLine {
             },
         );
 
-        let top_left_line = format!("{}", autojoin(vec![hostuser, buildinfo, pwd]));
+        let top_left_line = format!("{}", autojoin(vec![hostuser, buildinfo, readonly, workdir]));
         let top_line = top_left_line; // TODO add time
         let top_line = format!(
             "{}{}{}",
-            concatcp!(INVISIBLE_START, CURSOR_SAVE, CURSOR_UP, CURSOR_HOME),
+            concatcp!(INVISIBLE_START),
             top_line,
-            concatcp!(CURSOR_RESTORE, INVISIBLE_END)
+            concatcp!(INVISIBLE_END)
         );
 
         let bottom_line = autojoin(vec![root_str]); // TODO add jobs and retval
 
-        write!(f, "\n\n{}{} ", top_line, bottom_line)
+        write!(f, "\n{}\n{} ", top_line, bottom_line)
     }
 }
 
