@@ -1,5 +1,5 @@
 use statusline::StatusLine;
 
 fn main() {
-    print!("{}", StatusLine::new());
+    print!("{}", StatusLine::from_env());
 }

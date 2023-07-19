@@ -60,4 +60,11 @@ impl PromptMode {
             PromptMode::NerdfontMode => "",
         }
     }
+
+    pub fn on_branch(&self) -> &str {
+        match &self {
+            PromptMode::TextMode => "on",
+            PromptMode::NerdfontMode => "",
+        }
+    }
 }

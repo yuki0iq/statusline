@@ -7,7 +7,7 @@ mod prompt;
 mod style;
 
 use crate::file::{file_exists, file_exists_that, find_current_home, get_hostname, upfind};
-use crate::git::{find_git_root, GitStatus};
+use crate::git::{git_info, GitStatus};
 use crate::prompt::PromptMode;
 use crate::style::*;
 use chrono::prelude::*;
@@ -17,7 +17,6 @@ use std::{
     env, fmt,
     path::{Path, PathBuf},
 };
-use term_size;
 
 fn buildinfo(workdir: &Path) -> String {
     let mut res = Vec::new();
@@ -48,8 +47,9 @@ fn buildinfo(workdir: &Path) -> String {
     res.join(" ")
 }
 
-fn autojoin(vec: Vec<&str>) -> String {
-    vec.into_iter()
+fn autojoin(vec: &[&str]) -> String {
+    vec.iter()
+        .copied()
         .filter(|el| !el.is_empty())
         .collect::<Vec<&str>>()
         .join(" ")
@@ -59,8 +59,7 @@ pub struct StatusLine {
     prompt_mode: PromptMode,
     hostname: String,
     read_only: bool,
-    git_root: Option<PathBuf>,
-    git_status: Option<GitStatus>,
+    git: Option<(PathBuf, GitStatus)>,
     current_home: Option<(PathBuf, String)>,
     build_info: String,
     workdir: PathBuf,
@@ -69,7 +68,7 @@ pub struct StatusLine {
 }
 
 impl StatusLine {
-    pub fn new() -> Self {
+    pub fn from_env() -> Self {
         let username = env::var("USER").unwrap_or_else(|_| String::from("<user>"));
         let workdir = env::current_dir().unwrap_or_else(|_| PathBuf::new());
         let read_only = access(&workdir, AccessFlags::W_OK).is_err();
@@ -77,8 +76,7 @@ impl StatusLine {
             prompt_mode: PromptMode::new(),
             hostname: get_hostname(),
             read_only,
-            git_root: find_git_root(&workdir),
-            git_status: GitStatus::build(),
+            git: git_info(&workdir),
             current_home: find_current_home(&workdir, &username),
             build_info: buildinfo(&workdir),
             workdir,
@@ -88,8 +86,8 @@ impl StatusLine {
     }
 
     fn get_workdir_str(&self) -> String {
-        let (middle, highlighted) = match (&self.git_root, &self.current_home) {
-            (Some(git_root), Some((home_root, _))) => {
+        let (middle, highlighted) = match (&self.git, &self.current_home) {
+            (Some((git_root, _)), Some((home_root, _))) => {
                 if home_root.starts_with(git_root) {
                     (None, self.workdir.strip_prefix(home_root).ok())
                 } else {
@@ -99,7 +97,7 @@ impl StatusLine {
                     )
                 }
             }
-            (Some(git_root), None) => (
+            (Some((git_root, _)), None) => (
                 Some(git_root.as_path()),
                 self.workdir.strip_prefix(git_root).ok(),
             ),
@@ -178,10 +176,17 @@ impl fmt::Display for StatusLine {
             .format("%a, %Y-%b-%d, %H:%M:%S in %Z")
             .to_string();
 
-        let top_left_line = format!(
-            "{}",
-            autojoin(vec![&hostuser, &buildinfo, &readonly, &workdir])
-        );
+        let gitinfo = if let Some((_, git_status)) = &self.git {
+            format!(
+                "{STYLE_BOLD}{COLOR_PINK}[{} {}]{STYLE_RESET}",
+                self.prompt_mode.on_branch(),
+                git_status
+            )
+        } else {
+            String::new()
+        };
+
+        let top_left_line = autojoin(&[&hostuser, &gitinfo, &buildinfo, &readonly, &workdir]);
         let top_line = format!(
             "{INVISIBLE_START}{}{ESC}[{}G{COLOR_GREY}{}{STYLE_RESET}{INVISIBLE_END}",
             top_left_line,
@@ -189,7 +194,7 @@ impl fmt::Display for StatusLine {
             datetime,
         );
 
-        let bottom_line = autojoin(vec![&root_str]); // TODO add jobs and retval
+        let bottom_line = autojoin(&[&root_str]); // TODO add jobs and retval
 
         write!(
             f,
