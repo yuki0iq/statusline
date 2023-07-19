@@ -64,11 +64,10 @@ struct CommandLineArgs {
 }
 
 impl CommandLineArgs {
-    fn from_env() -> CommandLineArgs {
-        let arg: Vec<String> = env::args().collect();
-        let ret_code = arg.get(1).map(|val| val.parse().unwrap());
-        let jobs_count = arg.get(2).map(|val| val.parse().unwrap()).unwrap_or(0);
-        let elapsed_time = arg.get(3).map(|val| val.parse().unwrap());
+    fn from_env<T: AsRef<str>>(arg: &[T]) -> CommandLineArgs {
+        let ret_code = arg.get(0).map(|val| val.as_ref().parse().unwrap());
+        let jobs_count = arg.get(1).map(|val| val.as_ref().parse().unwrap()).unwrap_or(0);
+        let elapsed_time = arg.get(2).map(|val| val.as_ref().parse().unwrap());
         CommandLineArgs {
             ret_code,
             jobs_count,
@@ -91,7 +90,7 @@ pub struct StatusLine {
 }
 
 impl StatusLine {
-    pub fn from_env() -> Self {
+    pub fn from_env<T: AsRef<str>>(args: &[T]) -> Self {
         let username = env::var("USER").unwrap_or_else(|_| String::from("<user>"));
         let workdir = env::current_dir().unwrap_or_else(|_| PathBuf::new());
         let read_only = access(&workdir, AccessFlags::W_OK).is_err();
@@ -105,7 +104,7 @@ impl StatusLine {
             workdir,
             username,
             is_root: getuid().is_root(),
-            args: CommandLineArgs::from_env(),
+            args: CommandLineArgs::from_env(args),
         }
     }
 
@@ -239,13 +238,23 @@ impl fmt::Display for StatusLine {
             String::new()
         };
 
-        let elapsed = if let Some(formatted) = self.args.elapsed_time.and_then(microseconds_to_string) {
-            format!("{COLOR_CYAN}({} {}){STYLE_RESET}", self.prompt_mode.took_time(), &formatted)
-        } else {
-            String::new()
-        };
+        let elapsed =
+            if let Some(formatted) = self.args.elapsed_time.and_then(microseconds_to_string) {
+                format!(
+                    "{COLOR_CYAN}({} {}){STYLE_RESET}",
+                    self.prompt_mode.took_time(),
+                    &formatted
+                )
+            } else {
+                String::new()
+            };
 
-        let top_left_line = autojoin(&[&hostuser, &gitinfo, &buildinfo, &readonly, &workdir, &elapsed], " ");
+        let top_left_line = autojoin(
+            &[
+                &hostuser, &gitinfo, &buildinfo, &readonly, &workdir, &elapsed,
+            ],
+            " ",
+        );
         let top_line = format!(
             "{INVISIBLE_START}{}{ESC}[{}G{COLOR_GREY}{}{STYLE_RESET}{INVISIBLE_END}",
             top_left_line,
