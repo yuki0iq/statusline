@@ -140,7 +140,26 @@ fn file_exists(path: &str) -> bool {
     fs::try_exists(path).unwrap_or(false)
 }
 
-fn buildinfo(path: &str) -> Vec<&'static str> {
+fn file_exists_that<F>(f: F) -> bool
+where
+    F: Fn(&str) -> bool,
+{
+    if let Ok(dir_iter) = fs::read_dir(".") {
+        for entry_res in dir_iter {
+            let Ok(entry) = entry_res else {
+                return false;
+            };
+            if let Ok(filename) = entry.file_name().into_string() {
+                if f(&filename) {
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
+fn buildinfo() -> String {
     let mut res = Vec::new();
     if file_exists("CMakeLists.txt") {
         res.push("cmake");
@@ -157,8 +176,14 @@ fn buildinfo(path: &str) -> Vec<&'static str> {
     if file_exists("jr") {
         res.push("./jr");
     }
-    // TODO *.qbs, *.pro, up->Cargo.toml
-    res
+    if file_exists_that(|filename| filename.ends_with(".qbs")) {
+        res.push("qbs");
+    }
+    if file_exists_that(|filename| filename.ends_with(".pro")) {
+        res.push("qmake");
+    }
+    // TODO upfind Cargo.toml
+    res.join(" ")
 }
 
 struct StatusLine {
@@ -176,7 +201,7 @@ impl StatusLine {
         let username = env::var("USER").unwrap_or(String::from("<user>"));
         let workdir = env::var("PWD").unwrap_or(String::new());
         let read_only = access(&workdir[..], AccessFlags::W_OK).is_err();
-        let build_info = buildinfo(&workdir).join(" ");
+        let build_info = buildinfo();
         StatusLine {
             hostname,
             username,
