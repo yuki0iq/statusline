@@ -47,12 +47,12 @@ fn buildinfo(workdir: &Path) -> String {
     res.join(" ")
 }
 
-fn autojoin(vec: &[&str]) -> String {
+fn autojoin(vec: &[&str], sep: &str) -> String {
     vec.iter()
         .copied()
         .filter(|el| !el.is_empty())
         .collect::<Vec<&str>>()
-        .join(" ")
+        .join(sep)
 }
 
 pub struct StatusLine {
@@ -112,7 +112,7 @@ impl StatusLine {
         };
 
         let middle_str = if let Some(middle) = middle {
-            format!("/{}", String::from(middle.to_string_lossy()))
+            String::from(middle.to_string_lossy())
         } else {
             String::new()
         };
@@ -124,7 +124,7 @@ impl StatusLine {
             String::new()
         };
 
-        format!("{}{}{}", home_str, middle_str, highlighted_str)
+        autojoin(&[&home_str, &middle_str], "/") + &highlighted_str
     }
 }
 
@@ -186,7 +186,7 @@ impl fmt::Display for StatusLine {
             String::new()
         };
 
-        let top_left_line = autojoin(&[&hostuser, &gitinfo, &buildinfo, &readonly, &workdir]);
+        let top_left_line = autojoin(&[&hostuser, &gitinfo, &buildinfo, &readonly, &workdir], " ");
         let top_line = format!(
             "{INVISIBLE_START}{}{ESC}[{}G{COLOR_GREY}{}{STYLE_RESET}{INVISIBLE_END}",
             top_left_line,
@@ -194,7 +194,7 @@ impl fmt::Display for StatusLine {
             datetime,
         );
 
-        let bottom_line = autojoin(&[&root_str]); // TODO add jobs and retval
+        let bottom_line = autojoin(&[&root_str], " "); // TODO add jobs and retval
 
         write!(
             f,
