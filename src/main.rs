@@ -1,6 +1,7 @@
 #![feature(fs_try_exists)]
 #![feature(let_chains)]
 
+use chrono::prelude::*;
 use const_format::{concatcp, formatcp};
 use nix::unistd::{access, getuid, AccessFlags};
 use pwd::Passwd;
@@ -9,6 +10,7 @@ use std::{
     env, fmt, fs,
     path::{Path, PathBuf},
 };
+use term_size;
 
 const INVISIBLE_START: &str = "\x01";
 const INVISIBLE_END: &str = "\x02";
@@ -221,7 +223,7 @@ fn is_self_root() -> bool {
 
 enum PromptMode {
     TextMode,
-    NerdfontMode
+    NerdfontMode,
 }
 
 impl PromptMode {
@@ -236,7 +238,7 @@ impl PromptMode {
     fn host_text(&self) -> &str {
         match &self {
             PromptMode::TextMode => "on",
-            PromptMode::NerdfontMode => "󰒋",  // TODO hostnamectl? dbus
+            PromptMode::NerdfontMode => "󰒋", // TODO hostnamectl? dbus
         }
     }
 
@@ -342,7 +344,12 @@ impl fmt::Display for StatusLine {
 
         let workdir = self.get_workdir_str();
         let readonly = if self.read_only {
-            format!("{}{}{}", COLOR_RED, self.prompt_mode.read_only(), STYLE_RESET)
+            format!(
+                "{}{}{}",
+                COLOR_RED,
+                self.prompt_mode.read_only(),
+                STYLE_RESET
+            )
         } else {
             String::new()
         };
@@ -365,13 +372,16 @@ impl fmt::Display for StatusLine {
             },
         );
 
+        let datetime = Local::now()
+                .format("%a, %Y-%b-%d, %H:%M:%S in %Z")
+                .to_string();
+
         let top_left_line = format!("{}", autojoin(vec![hostuser, buildinfo, readonly, workdir]));
-        let top_line = top_left_line; // TODO add time
         let top_line = format!(
-            "{}{}{}",
-            concatcp!(INVISIBLE_START),
-            top_line,
-            concatcp!(INVISIBLE_END)
+            "{INVISIBLE_START}{}{ESC}[{}G{COLOR_GREY}{}{STYLE_RESET}{INVISIBLE_END}",
+            top_left_line,
+            term_size::dimensions().map(|s| s.0).unwrap_or(80) as i32 - datetime.len() as i32,
+            datetime
         );
 
         let bottom_line = autojoin(vec![root_str]); // TODO add jobs and retval
