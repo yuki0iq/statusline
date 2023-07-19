@@ -1,11 +1,13 @@
-// #![feature(adt_const_params)]
 #![feature(fs_try_exists)]
 
 use const_format::{concatcp, formatcp};
 use nix::unistd::{access, AccessFlags};
 use pwd::Passwd;
 use regex::Regex;
-use std::{env, fmt, fs};
+use std::{
+    env, fmt, fs,
+    path::{Path, PathBuf},
+};
 
 const INVISIBLE_START: &str = "\x01";
 const INVISIBLE_END: &str = "\x02";
@@ -118,48 +120,56 @@ fn colorize(s: &str) -> String {
     }
 }
 
-fn replace_homes(path: &str, cur_user: &str) -> String {
+fn find_current_home(path: &Path, cur_user: &str) -> Option<(PathBuf, String)> {
     let invalid_homes = Regex::new(r"^/$|^(/bin|/dev|/proc|/usr|/var)(/|$)").unwrap();
-    if let Some((username, homedir)) = Passwd::iter()
-        .filter(|passwd| !invalid_homes.is_match(&passwd.dir))
-        .filter(|passwd| path.contains(&passwd.dir))
-        .map(|passwd| (passwd.name, passwd.dir))
-        .next()
+    if let Some(Passwd { name, dir, .. }) = Passwd::iter()
+        .find(|passwd| !invalid_homes.is_match(&passwd.dir) && path.starts_with(&passwd.dir))
     {
-        let username = if username != cur_user { &username } else { "" };
-        path.replace(
-            &homedir,
-            &format!("{STYLE_BOLD}{COLOR_YELLOW}~{username}{STYLE_RESET}"),
-        )
+        Some((
+            PathBuf::from(dir),
+            if name != cur_user {
+                name
+            } else {
+                String::new()
+            },
+        ))
     } else {
-        String::from(path)
+        None
     }
 }
 
-fn file_exists(path: &str) -> bool {
-    fs::try_exists(path).unwrap_or(false)
+fn file_exists<P: AsRef<Path> + ?Sized>(path: &P) -> bool {
+    fs::try_exists(path.as_ref()).unwrap_or(false)
 }
 
 fn file_exists_that<F>(f: F) -> bool
 where
     F: Fn(&str) -> bool,
 {
-    if let Ok(dir_iter) = fs::read_dir(".") {
-        for entry_res in dir_iter {
-            let Ok(entry) = entry_res else {
-                return false;
-            };
-            if let Ok(filename) = entry.file_name().into_string() {
-                if f(&filename) {
-                    return true;
-                }
+    let Ok(dir_iter) = fs::read_dir(".") else {
+        return false;
+    };
+    for entry_res in dir_iter {
+        let Ok(entry) = entry_res else {
+            return false;
+        };
+        if let Ok(filename) = entry.file_name().into_string() {
+            if f(&filename) {
+                return true;
             }
         }
     }
     false
 }
 
-fn buildinfo() -> String {
+fn upfind(start: &Path, filename: &str) -> Option<PathBuf> {
+    start
+        .ancestors()
+        .map(|path| path.join(filename))
+        .find(file_exists)
+}
+
+fn buildinfo(workdir: &Path) -> String {
     let mut res = Vec::new();
     if file_exists("CMakeLists.txt") {
         res.push("cmake");
@@ -182,33 +192,94 @@ fn buildinfo() -> String {
     if file_exists_that(|filename| filename.ends_with(".pro")) {
         res.push("qmake");
     }
-    // TODO upfind Cargo.toml
+    if upfind(workdir, "Cargo.toml").is_some() {
+        res.push("cargo");
+    }
     res.join(" ")
+}
+
+fn find_git_root(workdir: &Path) -> Option<PathBuf> {
+    Some(upfind(workdir, ".git")?.parent()?.to_path_buf())
+}
+
+fn get_hostname() -> String {
+    let hostname = fs::read_to_string("/etc/hostname").unwrap_or_else(|_| String::from("<host>"));
+    String::from(hostname.trim())
+}
+
+fn autojoin(vec: Vec<String>) -> String {
+    vec.into_iter()
+        .filter(|el| !el.is_empty())
+        .collect::<Vec<String>>()
+        .join(" ")
 }
 
 struct StatusLine {
     hostname: String,
-    username: String,
-    workdir: String,
     read_only: bool,
+    git_root: Option<PathBuf>,
+    current_home: Option<(PathBuf, String)>,
     build_info: String,
+    workdir: PathBuf,
+    username: String,
 }
 
 impl StatusLine {
     fn new() -> Self {
-        let hostname = fs::read_to_string("/etc/hostname").unwrap_or(String::from("<host>"));
-        let hostname = String::from(hostname.trim());
-        let username = env::var("USER").unwrap_or(String::from("<user>"));
-        let workdir = env::var("PWD").unwrap_or(String::new());
-        let read_only = access(&workdir[..], AccessFlags::W_OK).is_err();
-        let build_info = buildinfo();
+        let username = env::var("USER").unwrap_or_else(|_| String::from("<user>"));
+        let workdir = env::current_dir().unwrap_or_else(|_| PathBuf::new());
+        let read_only = access(&workdir, AccessFlags::W_OK).is_err();
         StatusLine {
-            hostname,
-            username,
-            workdir,
+            hostname: get_hostname(),
             read_only,
-            build_info,
+            git_root: find_git_root(&workdir),
+            current_home: find_current_home(&workdir, &username),
+            build_info: buildinfo(&workdir),
+            workdir,
+            username,
         }
+    }
+
+    fn get_workdir_str(&self) -> String {
+        let (middle, highlighted) = match (&self.git_root, &self.current_home) {
+            (Some(git_root), Some((home_root, _))) => {
+                if home_root.starts_with(git_root) {
+                    (None, self.workdir.strip_prefix(home_root).ok())
+                } else {
+                    (
+                        git_root.strip_prefix(home_root).ok(),
+                        self.workdir.strip_prefix(git_root).ok(),
+                    )
+                }
+            }
+            (Some(git_root), None) => (
+                Some(git_root.as_path()),
+                self.workdir.strip_prefix(git_root).ok(),
+            ),
+            (None, Some((home_root, _))) => (self.workdir.strip_prefix(home_root).ok(), None),
+            (None, None) => (Some(self.workdir.as_path()), None),
+        };
+
+        let home_str = if let Some((_, user)) = &self.current_home {
+            format!("{STYLE_BOLD}{COLOR_YELLOW}~{}{STYLE_RESET}", user)
+        } else {
+            String::new()
+        };
+
+        let middle_str = if let Some(middle) = middle {
+            format!("/{}", String::from(middle.to_string_lossy()))
+        } else {
+            String::new()
+        };
+
+        let highlighted_str = if let Some(highlighted) = highlighted {
+            let highlighted = highlighted.to_string_lossy();
+            format!("{COLOR_CYAN}/{}{STYLE_RESET}", highlighted)
+        } else {
+            String::new()
+        };
+
+        format!("{}{}{}", home_str, middle_str, highlighted_str)
     }
 }
 
@@ -224,7 +295,7 @@ impl fmt::Display for StatusLine {
         );
         let hostuser = format!("{host_str} {user_str}");
 
-        let workdir_str = replace_homes(&self.workdir, &self.username);
+        let workdir_str = self.get_workdir_str();
         let read_only_str = if self.read_only {
             concatcp!(COLOR_RED, "R/O", STYLE_RESET, " ")
         } else {
@@ -241,15 +312,7 @@ impl fmt::Display for StatusLine {
             String::new()
         };
 
-        write!(
-            f,
-            "{}",
-            vec![hostuser, buildinfo, pwd]
-                .into_iter()
-                .filter(|el| !el.is_empty())
-                .collect::<Vec<String>>()
-                .join(" ")
-        )
+        write!(f, "{}", autojoin(vec![hostuser, buildinfo, pwd]))
     }
 }
 
