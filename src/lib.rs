@@ -5,6 +5,7 @@ mod file;
 mod git;
 mod prompt;
 mod style;
+mod time;
 
 use crate::file::{file_exists, file_exists_that, find_current_home, get_hostname, upfind};
 use crate::git::{git_info, GitStatus};
@@ -17,6 +18,7 @@ use std::{
     env, fmt,
     path::{Path, PathBuf},
 };
+use time::microseconds_to_string;
 
 fn buildinfo(workdir: &Path) -> String {
     let mut res = Vec::new();
@@ -58,25 +60,19 @@ fn autojoin(vec: &[&str], sep: &str) -> String {
 struct CommandLineArgs {
     ret_code: Option<u8>,
     jobs_count: u16,
+    elapsed_time: Option<u64>,
 }
 
 impl CommandLineArgs {
     fn from_env() -> CommandLineArgs {
-        let mut args = env::args();
-        args.next();
-        let args: Vec<Option<u64>> = args.map(|arg| arg.parse().ok()).collect();
-        let ret_code = args
-            .get(0)
-            .unwrap_or(&None)
-            .and_then(|val| Some(TryInto::<u8>::try_into(val).ok()?));
-        let jobs_count = args
-            .get(1)
-            .unwrap_or(&None)
-            .and_then(|val| Some(TryInto::<u16>::try_into(val).ok()?))
-            .unwrap_or(0);
+        let arg: Vec<String> = env::args().collect();
+        let ret_code = arg.get(1).map(|val| val.parse().unwrap());
+        let jobs_count = arg.get(2).map(|val| val.parse().unwrap()).unwrap_or(0);
+        let elapsed_time = arg.get(3).map(|val| val.parse().unwrap());
         CommandLineArgs {
             ret_code,
             jobs_count,
+            elapsed_time,
         }
     }
 }
@@ -243,7 +239,13 @@ impl fmt::Display for StatusLine {
             String::new()
         };
 
-        let top_left_line = autojoin(&[&hostuser, &gitinfo, &buildinfo, &readonly, &workdir], " ");
+        let elapsed = if let Some(formatted) = self.args.elapsed_time.and_then(microseconds_to_string) {
+            format!("{COLOR_CYAN}({} {}){STYLE_RESET}", self.prompt_mode.took_time(), &formatted)
+        } else {
+            String::new()
+        };
+
+        let top_left_line = autojoin(&[&hostuser, &gitinfo, &buildinfo, &readonly, &workdir, &elapsed], " ");
         let top_line = format!(
             "{INVISIBLE_START}{}{ESC}[{}G{COLOR_GREY}{}{STYLE_RESET}{INVISIBLE_END}",
             top_left_line,

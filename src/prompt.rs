@@ -88,4 +88,11 @@ impl PromptMode {
             PromptMode::NerdfontMode => "⁇",
         }
     }
+
+    pub fn took_time(&self) -> &str {
+        match &self {
+            PromptMode::TextMode => "took",
+            PromptMode::NerdfontMode => "",
+        }
+    }
 }
