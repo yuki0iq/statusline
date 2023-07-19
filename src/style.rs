@@ -59,8 +59,8 @@ pub const COLOR_CYAN: &str = color!(36u8);
 pub const COLOR_BLUE: &str = rgb!(0u8, 127u8, 240u8);
 pub const COLOR_PINK: &str = rgb!(255u8, 100u8, 203u8);
 //pub const COLOR_PY_YELLOW: &str = rgb!(255u8, 219u8, 59u8);
-//pub const COLOR_LIGHT_GREEN: &str = rgb!(100u8, 255u8, 100u8);
-//pub const COLOR_LIGHT_RED: &str = rgb!(255u8, 80u8, 100u8);
+pub const COLOR_LIGHT_GREEN: &str = rgb!(100u8, 255u8, 100u8);
+pub const COLOR_LIGHT_RED: &str = rgb!(255u8, 80u8, 100u8);
 pub const COLOR_GREY: &str = rgb!(128u8, 128u8, 128u8);
 
 pub fn title(s: &str) -> String {

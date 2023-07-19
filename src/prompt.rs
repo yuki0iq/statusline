@@ -67,4 +67,25 @@ impl PromptMode {
             PromptMode::NerdfontMode => "",
         }
     }
+
+    pub fn return_ok(&self) -> &str {
+        match &self {
+            PromptMode::TextMode => "OK",
+            PromptMode::NerdfontMode => "✓",
+        }
+    }
+
+    pub fn return_fail(&self) -> &str {
+        match &self {
+            PromptMode::TextMode => "Failed",
+            PromptMode::NerdfontMode => "✗",
+        }
+    }
+
+    pub fn return_unavailable(&self) -> &str {
+        match &self {
+            PromptMode::TextMode => "N/A",
+            PromptMode::NerdfontMode => "??",
+        }
+    }
 }

@@ -55,6 +55,32 @@ fn autojoin(vec: &[&str], sep: &str) -> String {
         .join(sep)
 }
 
+struct CommandLineArgs {
+    ret_code: Option<u8>,
+    jobs_count: u16,
+}
+
+impl CommandLineArgs {
+    fn from_env() -> CommandLineArgs {
+        let mut args = env::args();
+        args.next();
+        let args: Vec<Option<u64>> = args.map(|arg| arg.parse().ok()).collect();
+        let ret_code = args
+            .get(0)
+            .unwrap_or(&None)
+            .and_then(|val| Some(TryInto::<u8>::try_into(val).ok()?));
+        let jobs_count = args
+            .get(1)
+            .unwrap_or(&None)
+            .and_then(|val| Some(TryInto::<u16>::try_into(val).ok()?))
+            .unwrap_or(0);
+        CommandLineArgs {
+            ret_code,
+            jobs_count,
+        }
+    }
+}
+
 pub struct StatusLine {
     prompt_mode: PromptMode,
     hostname: String,
@@ -65,6 +91,7 @@ pub struct StatusLine {
     workdir: PathBuf,
     username: String,
     is_root: bool,
+    args: CommandLineArgs,
 }
 
 impl StatusLine {
@@ -82,6 +109,7 @@ impl StatusLine {
             workdir,
             username,
             is_root: getuid().is_root(),
+            args: CommandLineArgs::from_env(),
         }
     }
 
@@ -186,6 +214,35 @@ impl fmt::Display for StatusLine {
             String::new()
         };
 
+        let returned = match &self.args.ret_code {
+            Some(0) | Some(130) => format!(
+                "{COLOR_LIGHT_GREEN}{}{STYLE_RESET}",
+                self.prompt_mode.return_ok()
+            ),
+            Some(_) => format!(
+                "{COLOR_LIGHT_RED}{}{STYLE_RESET}",
+                self.prompt_mode.return_fail()
+            ),
+            None => format!(
+                "{COLOR_GREY}{}{STYLE_RESET}",
+                self.prompt_mode.return_unavailable()
+            ),
+        };
+
+        let jobs = if self.args.jobs_count != 0 {
+            format!(
+                "{STYLE_BOLD}{COLOR_GREEN}[{} {}]{STYLE_RESET}",
+                self.args.jobs_count,
+                if self.args.jobs_count == 1 {
+                    "job"
+                } else {
+                    "jobs"
+                }
+            )
+        } else {
+            String::new()
+        };
+
         let top_left_line = autojoin(&[&hostuser, &gitinfo, &buildinfo, &readonly, &workdir], " ");
         let top_line = format!(
             "{INVISIBLE_START}{}{ESC}[{}G{COLOR_GREY}{}{STYLE_RESET}{INVISIBLE_END}",
@@ -194,7 +251,7 @@ impl fmt::Display for StatusLine {
             datetime,
         );
 
-        let bottom_line = autojoin(&[&root_str], " "); // TODO add jobs and retval
+        let bottom_line = autojoin(&[&jobs, &returned, &root_str], " ");
 
         write!(
             f,
