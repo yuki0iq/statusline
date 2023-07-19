@@ -13,4 +13,5 @@ pwd = "1.4.0"
 nix = { version = "0.26.2", features = ["fs", "user"] }
 chrono = "0.4.26"
 term_size = "0.3.2"
+dbus = "0.9.7"
 

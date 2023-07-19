@@ -3,6 +3,7 @@
 
 use chrono::prelude::*;
 use const_format::{concatcp, formatcp};
+use dbus::ffidisp::{BusType, Connection};
 use nix::unistd::{access, getuid, AccessFlags};
 use pwd::Passwd;
 use regex::Regex;
@@ -205,15 +206,29 @@ fn get_hostname() -> String {
     String::from(hostname.trim())
 }
 
-fn autojoin(vec: Vec<String>) -> String {
+fn autojoin(vec: Vec<&str>) -> String {
     vec.into_iter()
         .filter(|el| !el.is_empty())
-        .collect::<Vec<String>>()
+        .collect::<Vec<&str>>()
         .join(" ")
 }
 
 fn is_self_root() -> bool {
     getuid().is_root()
+}
+
+fn get_chassis() -> Option<String> {
+    let conn = Connection::get_private(BusType::System).ok()?;
+    let p = conn.with_path(
+        "org.freedesktop.hostname1",
+        "/org/freedesktop/hostname1",
+        5000,
+    );
+    dbus::ffidisp::stdintf::org_freedesktop_dbus::Properties::get(
+        &p,
+        "org.freedesktop.hostname1",
+        "Chassis",
+    ).ok()
 }
 
 enum PromptMode {
@@ -233,7 +248,17 @@ impl PromptMode {
     fn host_text(&self) -> &str {
         match &self {
             PromptMode::TextMode => "on",
-            PromptMode::NerdfontMode => "󰒋", // TODO hostnamectl? dbus
+            PromptMode::NerdfontMode => match get_chassis().as_deref() {
+                Some("laptop") => "💻",
+                Some("desktop") => "🖥",
+                Some("server") => "🖳",
+                Some("tablet") => "具",
+                Some("watch") => "⌚️",
+                Some("handset") => "🕻",
+                Some("vm") => "🖴",
+                Some("container") => "☐",
+                _ => "󰒋"
+            }
         }
     }
 
@@ -255,6 +280,7 @@ impl PromptMode {
 pub struct StatusLine {
     prompt_mode: PromptMode,
     hostname: String,
+    chassis: Option<String>,
     read_only: bool,
     git_root: Option<PathBuf>,
     current_home: Option<(PathBuf, String)>,
@@ -271,6 +297,7 @@ impl StatusLine {
         StatusLine {
             prompt_mode: PromptMode::new(),
             hostname: get_hostname(),
+            chassis: get_chassis(),
             read_only,
             git_root: find_git_root(&workdir),
             current_home: find_current_home(&workdir, &username),
@@ -371,7 +398,10 @@ impl fmt::Display for StatusLine {
             .format("%a, %Y-%b-%d, %H:%M:%S in %Z")
             .to_string();
 
-        let top_left_line = format!("{}", autojoin(vec![hostuser, buildinfo, readonly, workdir]));
+        let top_left_line = format!(
+            "{}",
+            autojoin(vec![&hostuser, &buildinfo, &readonly, &workdir])
+        );
         let top_line = format!(
             "{INVISIBLE_START}{}{ESC}[{}G{COLOR_GREY}{}{STYLE_RESET}{INVISIBLE_END}",
             top_left_line,
@@ -379,7 +409,9 @@ impl fmt::Display for StatusLine {
             datetime
         );
 
-        let bottom_line = autojoin(vec![root_str]); // TODO add jobs and retval
+        let bottom_line = autojoin(vec![
+            &root_str
+        ]); // TODO add jobs and retval
 
         write!(f, "\n{}\n{} ", top_line, bottom_line)
     }
