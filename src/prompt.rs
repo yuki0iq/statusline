@@ -85,7 +85,7 @@ impl PromptMode {
     pub fn return_unavailable(&self) -> &str {
         match &self {
             PromptMode::TextMode => "N/A",
-            PromptMode::NerdfontMode => "??",
+            PromptMode::NerdfontMode => "⁇",
         }
     }
 }
