@@ -50,28 +50,31 @@ impl GitStatus {
 
         let mut branch = String::new();
         let mut remote_branch: Option<String> = None;
-        let mut behind = 0;
-        let mut ahead = 0;
+        let mut behind: u32 = 0;
+        let mut ahead: u32 = 0;
         let mut stashes = 0;
 
         while let Some(cmd) = lines.peek().and_then(|x| x.strip_prefix("# ")) {
             lines.next();
             if let Some(stash) = cmd.strip_prefix("stash ") {
-                stashes = stash.parse().unwrap();
+                stashes = stash.parse().ok()?;
             } else if let Some(branches) = cmd.strip_prefix("branch.") {
                 let mut words = branches.split(' ');
-                match words.next().unwrap() {
+                match words.next()? {
                     "head" => {
-                        branch = words.next().unwrap().to_owned();
+                        branch = words.next()?.to_owned();
                     }
                     "upstream" => {
-                        let remote: Vec<_> = words.next().unwrap().split('/').collect();
-                        let (_upstream, branch) = (remote[0], remote[1]);
-                        remote_branch = Some(branch.to_owned());
+                        let remote: Vec<_> = words.next()?.split('/').collect();
+                        let (_upstream, branch) = (remote.get(0)?, remote.get(1)?);
+                        remote_branch = Some(branch.to_string());
                     }
                     "ab" => {
-                        let diff: Vec<_> = words.map(|word| word[1..].parse().unwrap()).collect();
-                        (ahead, behind) = (diff[0], diff[1]);
+                        let diff: Vec<_> = words
+                            .map(|word| word[1..].parse())
+                            .collect::<Result<_, _>>()
+                            .ok()?;
+                        (ahead, behind) = (*diff.get(0)?, *diff.get(1)?);
                     }
                     _ => (),
                 }
@@ -85,8 +88,8 @@ impl GitStatus {
 
         for line in lines {
             let words: Vec<_> = line.split(' ').take(2).collect();
-            let (id, pat) = (words[0], words[1]);
-            match (id, pat) {
+            let (id, pat) = (words.get(0)?, words.get(1)?);
+            match (*id, *pat) {
                 ("?", _) => {
                     untracked += 1;
                 }
@@ -94,7 +97,7 @@ impl GitStatus {
                     unmerged += 1;
                 }
                 (_, pat) => {
-                    if "M. T. A. D. R. C. U.".contains(pat) {
+                    if ["M.", "T.", "A.", "D.", "R.", "C.", "U."].contains(&pat) {
                         staged += 1;
                     } else {
                         unstaged += 1;
@@ -119,28 +122,26 @@ impl GitStatus {
 
 impl fmt::Display for GitStatus {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut entries = vec![];
+        write!(f, "{}", self.branch)?;
 
-        entries.push(if let Some(remote) = &self.remote_branch && !self.branch.eq(remote) {
-            format!("{}:{}", &self.branch, &remote)
-        } else {
-            self.branch.clone()
-        });
+        if let Some(remote) = &self.remote_branch && self.branch != *remote {
+            write!(f, ":{}", remote)?;
+        }
 
-        let mut add_if = |s: &str, val: u32| {
-            if 0 != val {
-                entries.push(format!("{}{}", s, val));
+        for (s, val) in [
+            ("v", self.behind),
+            ("^", self.ahead),
+            ("*", self.stashes),
+            ("~", self.unmerged),
+            ("+", self.staged),
+            ("!", self.unstaged),
+            ("?", self.untracked),
+        ] {
+            if val != 0 {
+                write!(f, " {}{}", s, val)?;
             }
-        };
+        }
 
-        add_if("v", self.behind);
-        add_if("^", self.ahead);
-        add_if("*", self.stashes);
-        add_if("~", self.unmerged);
-        add_if("+", self.staged);
-        add_if("!", self.unstaged);
-        add_if("?", self.untracked);
-
-        write!(f, "{}", entries.join(" "))
+        Ok(())
     }
 }
