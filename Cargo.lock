@@ -448,6 +448,7 @@ dependencies = [
  "chrono",
  "const_format",
  "dbus",
+ "libc",
  "nix",
  "pwd",
  "regex",

@@ -9,7 +9,7 @@ pub fn microseconds_to_string(total: u64) -> Option<String> {
     let (hrs, total) = (total % 24, total / 24);
     let (day, week) = (total % 7, total / 7);
 
-    let times = vec![
+    let times = [
         (week, "w"),
         (day, "d"),
         (hrs, "h"),

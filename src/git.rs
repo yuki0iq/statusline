@@ -1,18 +1,15 @@
 use crate::file::upfind;
 use std::{
-    fmt,
+    fmt, fs,
     path::{Path, PathBuf},
     process::Command,
 };
 
-pub fn git_info(workdir: &Path) -> Option<(PathBuf, GitStatus)> {
-    Some((
-        upfind(workdir, ".git")?.parent()?.to_path_buf(),
-        GitStatus::build()?,
-    ))
-}
-
 /*
+thanks to
+    the git source code which is very fucking clear and understandable
+    as well as to purplesyringa's immense help and kind emotional support
+
 thanks to
     https://git-scm.com/docs/git-status
     https://github.com/romkatv/powerlevel10k
@@ -23,98 +20,150 @@ thanks to
     3 stashes   -> # stash <count>
     4 unmerged   -> XX
     5 staged   -> X.
-    6 unstaged   -> .X
+    6 dirty   -> .X
     7 untracked   -> ?
 */
+
+enum Head {
+    Branch(String),
+    Commit(String),
+    Unknown,
+}
+
+impl fmt::Display for Head {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match &self {
+            Head::Branch(name) => write!(f, "{}", name),
+            Head::Commit(id) => write!(f, "{}", &id[..5]), // TODO
+            _ => Ok(()),
+        }
+    }
+}
+
 pub struct GitStatus {
-    branch: String,
+    pub tree: PathBuf,
+    head: Head,
     remote_branch: Option<String>,
+    stashes: u32,
+}
+
+pub struct GitStatusExtended {
     behind: u32,
     ahead: u32,
-    stashes: u32,
     unmerged: u32,
     staged: u32,
-    unstaged: u32,
+    dirty: u32,
     untracked: u32,
 }
 
 impl GitStatus {
-    pub fn build() -> Option<GitStatus> {
-        let out_bytes = Command::new("git")
-            .args(["status", "--porcelain=2", "--branch", "--show-stash"])
-            .output()
-            .ok()?
-            .stdout;
-        let out = String::from_utf8(out_bytes).ok()?;
-        let mut lines = out.lines().peekable();
+    pub fn build(workdir: &Path) -> Option<GitStatus> {
+        let dotgit = upfind(workdir, ".git")?;
+        let tree = dotgit.parent()?.to_path_buf();
+        let root = if dotgit.is_file() {
+            PathBuf::from(
+                fs::read_to_string(&tree)
+                    .ok()?
+                    .strip_prefix("gitdir: ")?
+                    .trim_end_matches(&['\r', '\n']),
+            )
+        } else {
+            dotgit
+        };
 
-        let mut branch = String::new();
-        let mut remote_branch: Option<String> = None;
+        // println!("ok {tree:?} | {root:?}");
+
+        let head = fs::read_to_string(root.join("HEAD")).ok()?;
+        // println!("head is {head:?}");
+        let head = if let Some(rest) = head.strip_prefix("ref:") {
+            if let Some(name) = rest.trim().strip_prefix("refs/heads/") {
+                Head::Branch(name.to_owned())
+            } else {
+                Head::Unknown
+            }
+        } else {
+            Head::Commit(head.split_whitespace().next()?.to_owned())
+        };
+
+        let remote_branch = None;
+        let stashes = 0;
+
+        Some(GitStatus {
+            tree,
+            head,
+            remote_branch,
+            stashes,
+        })
+    }
+
+    pub fn extended(&self) -> Option<GitStatusExtended> {
+        let out = Command::new("git")
+            .args([
+                "-C",
+                self.tree.to_str()?,
+                "status",
+                "--porcelain=2",
+                "--branch",
+            ])
+            .output()
+            .ok()?;
+        let mut lines = out.stdout.split(|&c| c == b'\n').peekable();
+
         let mut behind: u32 = 0;
         let mut ahead: u32 = 0;
-        let mut stashes = 0;
 
-        while let Some(cmd) = lines.peek().and_then(|x| x.strip_prefix("# ")) {
+        while let Some(cmd) = lines.peek().and_then(|x| x.strip_prefix(b"# ")) {
             lines.next();
-            if let Some(stash) = cmd.strip_prefix("stash ") {
-                stashes = stash.parse().ok()?;
-            } else if let Some(branches) = cmd.strip_prefix("branch.") {
-                let mut words = branches.split(' ');
-                match words.next()? {
-                    "head" => {
-                        branch = words.next()?.to_owned();
-                    }
-                    "upstream" => {
-                        let remote: Vec<_> = words.next()?.split('/').collect();
-                        let (_upstream, branch) = (remote.get(0)?, remote.get(1)?);
-                        remote_branch = Some(branch.to_string());
-                    }
-                    "ab" => {
-                        let diff: Vec<_> = words
-                            .map(|word| word[1..].parse())
-                            .collect::<Result<_, _>>()
-                            .ok()?;
-                        (ahead, behind) = (*diff.get(0)?, *diff.get(1)?);
-                    }
-                    _ => (),
+            if let Some(branches) = cmd.strip_prefix(b"branch.ab ") {
+                let diff = branches
+                    .split(|&c| c == b' ')
+                    .map(|word| std::str::from_utf8(&word[1..]).ok()?.parse().ok())
+                    .collect::<Option<Vec<_>>>()?;
+                if diff.len() != 2 {
+                    return None;
                 }
+                (ahead, behind) = (diff[0], diff[1]);
             }
         }
+        
+        println!("ahead and behind is {ahead} {behind}");
 
         let mut unmerged = 0;
         let mut staged = 0;
-        let mut unstaged = 0;
+        let mut dirty = 0;
         let mut untracked = 0;
 
         for line in lines {
-            let words: Vec<_> = line.split(' ').take(2).collect();
-            let (id, pat) = (words.get(0)?, words.get(1)?);
-            match (*id, *pat) {
-                ("?", _) => {
+            let words: Vec<_> = line.split(|&c| c == b' ').take(2).collect();
+            if words.len() != 2 {
+                continue;
+            }
+            let (id, pat) = (words[0], words[1]);
+            match (id, pat) {
+                (b"?", _) => {
                     untracked += 1;
                 }
-                ("u", _) => {
+                (b"u", _) => {
                     unmerged += 1;
                 }
-                (_, pat) => {
-                    if ["M.", "T.", "A.", "D.", "R.", "C.", "U."].contains(&pat) {
+                (_, pat) if pat.len() == 2 => {
+                    if pat[0] != b'.' {
                         staged += 1;
-                    } else {
-                        unstaged += 1;
+                    }
+                    if pat[1] != b'.' {
+                        dirty += 1;
                     }
                 }
+                _ => {}
             }
         }
 
-        Some(GitStatus {
-            branch,
-            remote_branch,
+        Some(GitStatusExtended {
             behind,
             ahead,
-            stashes,
             unmerged,
             staged,
-            unstaged,
+            dirty,
             untracked,
         })
     }
@@ -122,19 +171,31 @@ impl GitStatus {
 
 impl fmt::Display for GitStatus {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.branch)?;
+        let head = self.head.to_string();
+        write!(f, "{}", head)?;
 
-        if let Some(remote) = &self.remote_branch && self.branch != *remote {
+        if let Some(remote) = &self.remote_branch && head != *remote {
             write!(f, ":{}", remote)?;
         }
 
+        for (s, val) in [("*", self.stashes)] {
+            if val != 0 {
+                write!(f, " {}{}", s, val)?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl fmt::Display for GitStatusExtended {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for (s, val) in [
             ("v", self.behind),
             ("^", self.ahead),
-            ("*", self.stashes),
             ("~", self.unmerged),
             ("+", self.staged),
-            ("!", self.unstaged),
+            ("!", self.dirty),
             ("?", self.untracked),
         ] {
             if val != 0 {

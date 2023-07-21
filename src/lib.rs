@@ -8,7 +8,7 @@ mod style;
 mod time;
 
 use crate::file::{file_exists, file_exists_that, find_current_home, get_hostname, upfind};
-use crate::git::{git_info, GitStatus};
+use crate::git::{GitStatus, GitStatusExtended};
 use crate::prompt::PromptMode;
 use crate::style::*;
 use chrono::prelude::*;
@@ -83,13 +83,15 @@ pub struct StatusLine {
     prompt_mode: PromptMode,
     hostname: String,
     read_only: bool,
-    git: Option<(PathBuf, GitStatus)>,
+    git: Option<GitStatus>,
+    git_ext: Option<GitStatusExtended>,
     current_home: Option<(PathBuf, String)>,
     build_info: String,
     workdir: PathBuf,
     username: String,
     is_root: bool,
     args: CommandLineArgs,
+    is_ext: bool,
 }
 
 impl StatusLine {
@@ -101,19 +103,32 @@ impl StatusLine {
             prompt_mode: PromptMode::new(),
             hostname: get_hostname(),
             read_only,
-            git: git_info(&workdir),
+            git: GitStatus::build(&workdir),
+            git_ext: None,
             current_home: find_current_home(&workdir, &username),
             build_info: buildinfo(&workdir),
             workdir,
             username,
             is_root: getuid().is_root(),
             args: CommandLineArgs::from_env(args),
+            is_ext: false,
+        }
+    }
+
+    pub fn extended(self) -> Self {
+        StatusLine {
+            is_ext: true,
+            git_ext: /*Some(
+                self.git.as_ref().unwrap()
+                    .extended().unwrap()
+                ),*/ self.git.as_ref().and_then(|st| st.extended()),
+            ..self
         }
     }
 
     fn get_workdir_str(&self) -> String {
         let (middle, highlighted) = match (&self.git, &self.current_home) {
-            (Some((git_root, _)), Some((home_root, _))) => {
+            (Some(GitStatus { tree: git_root, .. }), Some((home_root, _))) => {
                 if home_root.starts_with(git_root) {
                     (None, self.workdir.strip_prefix(home_root).ok())
                 } else {
@@ -123,7 +138,7 @@ impl StatusLine {
                     )
                 }
             }
-            (Some((git_root, _)), None) => (
+            (Some(GitStatus { tree: git_root, .. }), None) => (
                 Some(git_root.as_path()),
                 self.workdir.strip_prefix(git_root).ok(),
             ),
@@ -202,11 +217,19 @@ impl fmt::Display for StatusLine {
             .format("%a, %Y-%b-%d, %H:%M:%S in %Z")
             .to_string();
 
-        let gitinfo = if let Some((_, git_status)) = &self.git {
+        let gitinfo = if let Some(git_status) = &self.git {
             format!(
-                "{STYLE_BOLD}{COLOR_PINK}[{} {}]{STYLE_RESET}",
+                "{STYLE_BOLD}{COLOR_PINK}[{} {}{}]{STYLE_RESET}",
                 self.prompt_mode.on_branch(),
-                git_status
+                git_status,
+                if self.is_ext {
+                    self.git_ext
+                        .as_ref()
+                        .map(|x| x.to_string())
+                        .unwrap_or_default()
+                } else {
+                    "...".to_string()
+                }
             )
         } else {
             String::new()
@@ -259,8 +282,9 @@ impl fmt::Display for StatusLine {
             " ",
         );
         let top_line = format!(
-            "{INVISIBLE_START}{}{ESC}[{}G{COLOR_GREY}{}{STYLE_RESET}{INVISIBLE_END}",
+            "{INVISIBLE_START}{}{}{ESC}[{}G{COLOR_GREY}{}{STYLE_RESET}{INVISIBLE_END}",
             top_left_line,
+            (if self.is_ext { "   " } else { "" }),
             term_size::dimensions().map(|s| s.0).unwrap_or(80) as i32 - datetime.len() as i32,
             datetime,
         );
