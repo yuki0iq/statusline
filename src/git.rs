@@ -1,6 +1,7 @@
 use crate::file::upfind;
 use std::{
     fmt, fs,
+    io::{BufRead, BufReader},
     path::{Path, PathBuf},
     process::Command,
 };
@@ -44,7 +45,7 @@ pub struct GitStatus {
     pub tree: PathBuf,
     head: Head,
     remote_branch: Option<String>,
-    stashes: u32,
+    stashes: usize,
 }
 
 pub struct GitStatusExtended {
@@ -61,8 +62,8 @@ impl GitStatus {
         let dotgit = upfind(workdir, ".git")?;
         let tree = dotgit.parent()?.to_path_buf();
         let root = if dotgit.is_file() {
-            PathBuf::from(
-                fs::read_to_string(&tree)
+            tree.join(
+                fs::read_to_string(&dotgit)
                     .ok()?
                     .strip_prefix("gitdir: ")?
                     .trim_end_matches(&['\r', '\n']),
@@ -71,10 +72,10 @@ impl GitStatus {
             dotgit
         };
 
-        // println!("ok {tree:?} | {root:?}");
+        // eprintln!("ok tree {tree:?} | {root:?}");
 
         let head = fs::read_to_string(root.join("HEAD")).ok()?;
-        // println!("head is {head:?}");
+        // eprintln!("head is {head:?}");
         let head = if let Some(rest) = head.strip_prefix("ref:") {
             if let Some(name) = rest.trim().strip_prefix("refs/heads/") {
                 Head::Branch(name.to_owned())
@@ -85,8 +86,36 @@ impl GitStatus {
             Head::Commit(head.split_whitespace().next()?.to_owned())
         };
 
-        let remote_branch = None;
-        let stashes = 0;
+        let remote_branch = if let Head::Branch(br) = &head {
+            let section = format!("[branch \"{br}\"]");
+            // eprintln!("section: {section} | {:?}", root.join("config"));
+            BufReader::new(fs::File::open(root.join("config")).ok()?)
+                .lines()
+                .skip_while(|x| match x {
+                    Ok(x) => x != &section,
+                    _ => false,
+                })
+                .skip(1)
+                .take_while(|x| match x {
+                    Ok(x) if x.starts_with("\t") => true,
+                    _ => false,
+                })
+                .find_map(|x| match x {
+                    Ok(x) => x
+                        .strip_prefix("\tmerge = refs/heads/")
+                        .map(|x| x.to_string()),
+                    _ => None,
+                })
+        } else {
+            None
+        };
+
+        let stash_path = root.join("logs/refs/stash");
+        // eprintln!("try find stashes in {stash_path:?}");
+        let stashes = fs::File::open(stash_path)
+            .ok()
+            .map(|file| BufReader::new(file).lines().count())
+            .unwrap_or(0);
 
         Some(GitStatus {
             tree,

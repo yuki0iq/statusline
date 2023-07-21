@@ -28,7 +28,9 @@ fn main() {
             eprint!("\n\n");
             print!(
                 "{INVISIBLE_START}\x1b[s\x1b[G\x1b[A{}\x1b[u{INVISIBLE_END}{}",
-                line.to_top().replace(INVISIBLE_START, "").replace(INVISIBLE_END, ""),
+                line.to_top()
+                    .replace(INVISIBLE_START, "")
+                    .replace(INVISIBLE_END, ""),
                 line.to_bottom()
             );
             io::stdout().flush().unwrap();
