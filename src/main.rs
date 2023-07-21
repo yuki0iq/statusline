@@ -25,12 +25,14 @@ fn main() {
             let args = args.collect::<Vec<String>>();
             let line = StatusLine::from_env(&args);
 
-            eprint!("\n\n");
-            print!(
-                "{INVISIBLE_START}\x1b[s\x1b[G\x1b[A{}\x1b[u{INVISIBLE_END}{}",
+            eprint!(
+                "\x1b[s\x1b[G\x1b[A{}\x1b[u",
                 line.to_top()
                     .replace(INVISIBLE_START, "")
                     .replace(INVISIBLE_END, ""),
+            );
+            print!(
+                "{}",
                 line.to_bottom()
             );
             io::stdout().flush().unwrap();

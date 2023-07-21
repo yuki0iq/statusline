@@ -12,6 +12,7 @@ export PROMPT_COMMAND='
     else
         PS1_ELAPSED=0
     fi
+    printf "\n\n"
 '
 export PS1='$("<exec>" --run "$?" "\j" "$PS1_ELAPSED" <&$PS1_FD &)'
 
