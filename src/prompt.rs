@@ -32,25 +32,46 @@ impl PromptMode {
 
     pub fn host_text(&self) -> &str {
         match &self {
-            PromptMode::TextMode => "on",
+            PromptMode::TextMode => "",
             PromptMode::NerdfontMode => match get_chassis().as_deref() {
                 Some("laptop") => "💻",
                 Some("desktop") => "🖥 ",
-                Some("server") => "🖳",
+                Some("server") => "🖳 ",
                 Some("tablet") => "具",
                 Some("watch") => "⌚️",
                 Some("handset") => "🕻",
-                Some("vm") => "🖴",
-                Some("container") => "☐",
-                _ => "󰒋",
+                Some("vm") => "🖴 ",
+                Some("container") => "☐ ",
+                _ => "󰒋 ",
             },
         }
     }
 
     pub fn user_text(&self) -> &str {
         match &self {
-            PromptMode::TextMode => "as",
+            PromptMode::TextMode => "",
             PromptMode::NerdfontMode => "",
+        }
+    }
+
+    pub fn hostuser_at(&self) -> &str {
+        match &self {
+            PromptMode::TextMode => "@",
+            PromptMode::NerdfontMode => "＠",
+        }
+    }
+
+    pub fn hostuser_left(&self) -> &str {
+        match &self {
+            PromptMode::TextMode => "<",
+            PromptMode::NerdfontMode => "[",
+        }
+    }
+
+    pub fn hostuser_right(&self) -> &str {
+        match &self {
+            PromptMode::TextMode => ">",
+            PromptMode::NerdfontMode => "]",
         }
     }
 

@@ -125,7 +125,7 @@ impl GitStatus {
                 (ahead, behind) = (diff[0], diff[1]);
             }
         }
-        
+
         println!("ahead and behind is {ahead} {behind}");
 
         let mut unmerged = 0;

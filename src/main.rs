@@ -1,6 +1,9 @@
 use libc::{fcntl as fcntl_unsafe, F_SETOWN};
 use nix::{fcntl, unistd};
-use statusline::StatusLine;
+use statusline::{
+    style::{INVISIBLE_END, INVISIBLE_START},
+    StatusLine,
+};
 use std::{env, fs, io, io::Write};
 
 fn main() {
@@ -22,14 +25,17 @@ fn main() {
             let args = args.collect::<Vec<String>>();
             let line = StatusLine::from_env(&args);
 
-            print!("{}", line);
+            eprint!("\n\n");
+            print!(
+                "{INVISIBLE_START}\x1b[s\x1b[G\x1b[A{}\x1b[u{INVISIBLE_END}{}",
+                line.to_top().replace(INVISIBLE_START, "").replace(INVISIBLE_END, ""),
+                line.to_bottom()
+            );
             io::stdout().flush().unwrap();
             unistd::close(1).unwrap();
 
-            // thread::sleep(time::Duration::from_secs(10));
             let line = line.extended();
-            // print!("{line}");
-            eprint!("\x1b[s\x1b[G\x1b[2A{}\x1b[u", line);
+            eprint!("\x1b[s\x1b[G\x1b[A{}\x1b[u", line.to_top());
         }
         _ => {
             println!("Bash status line --- written in rust. Add `eval \"$(\"{exec}\" --env)\"` to your .bashrc!");

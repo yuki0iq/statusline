@@ -1,11 +1,11 @@
 #![feature(fs_try_exists)]
 #![feature(let_chains)]
 
-mod file;
-mod git;
-mod prompt;
-mod style;
-mod time;
+pub mod file;
+pub mod git;
+pub mod prompt;
+pub mod style;
+pub mod time;
 
 use crate::file::{file_exists, file_exists_that, find_current_home, get_hostname, upfind};
 use crate::git::{GitStatus, GitStatusExtended};
@@ -15,7 +15,7 @@ use chrono::prelude::*;
 use const_format::concatcp;
 use nix::unistd::{access, getuid, AccessFlags};
 use std::{
-    env, fmt,
+    env,
     path::{Path, PathBuf},
 };
 use time::microseconds_to_string;
@@ -68,7 +68,7 @@ impl CommandLineArgs {
         let ret_code = arg.get(0).map(|val| val.as_ref().parse().unwrap());
         let jobs_count = arg
             .get(1)
-            .map(|val| val.as_ref().parse().unwrap())
+            .map(|val| val.as_ref().parse().unwrap_or(0))
             .unwrap_or(0);
         let elapsed_time = arg.get(2).map(|val| val.as_ref().parse().unwrap());
         CommandLineArgs {
@@ -167,21 +167,26 @@ impl StatusLine {
 
         autojoin(&[&home_str, &middle_str], "/") + &highlighted_str
     }
-}
 
-impl fmt::Display for StatusLine {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let host_str = format!(
-            "{STYLE_BOLD}{COLOR_YELLOW}({} {}{STYLE_BOLD}{COLOR_YELLOW}){STYLE_RESET}",
-            self.prompt_mode.host_text(),
-            colorize(&self.hostname)
-        );
+    pub fn to_top(&self) -> String {
         let user_str = format!(
-            "{STYLE_BOLD}{COLOR_BLUE}[{} {}{STYLE_BOLD}{COLOR_BLUE}]{STYLE_RESET}",
+            "{STYLE_BOLD}{}{} {}",
+            self.prompt_mode.hostuser_left(),
             self.prompt_mode.user_text(),
-            colorize(&self.username)
+            self.username
         );
-        let hostuser = format!("{host_str} {user_str}");
+        let host_str = format!(
+            "{STYLE_BOLD}{}{} {}{}",
+            self.prompt_mode.hostuser_at(),
+            self.hostname,
+            self.prompt_mode.host_text(),
+            self.prompt_mode.hostuser_right()
+        );
+        let hostuser = format!(
+            "{}{}",
+            colorize(&self.username, &user_str),
+            colorize(&self.hostname, &host_str),
+        );
 
         let workdir = self.get_workdir_str();
         let readonly = if self.read_only {
@@ -204,15 +209,6 @@ impl fmt::Display for StatusLine {
             String::new()
         };
 
-        let root_str = format!(
-            "{STYLE_BOLD}{}{STYLE_RESET}",
-            if self.is_root {
-                concatcp!(COLOR_RED, "#")
-            } else {
-                concatcp!(COLOR_GREEN, "$")
-            },
-        );
-
         let datetime = Local::now()
             .format("%a, %Y-%b-%d, %H:%M:%S in %Z")
             .to_string();
@@ -234,6 +230,43 @@ impl fmt::Display for StatusLine {
         } else {
             String::new()
         };
+
+        let elapsed =
+            if let Some(formatted) = self.args.elapsed_time.and_then(microseconds_to_string) {
+                format!(
+                    "{COLOR_CYAN}({} {}){STYLE_RESET}",
+                    self.prompt_mode.took_time(),
+                    &formatted
+                )
+            } else {
+                String::new()
+            };
+
+        let top_left_line = autojoin(
+            &[
+                &hostuser, &gitinfo, &buildinfo, &readonly, &workdir, &elapsed,
+            ],
+            " ",
+        );
+
+        format!(
+            "{INVISIBLE_START}{}{}{ESC}[{}G{COLOR_GREY}{}{STYLE_RESET}{INVISIBLE_END}",
+            top_left_line,
+            (if self.is_ext { "   " } else { "" }),
+            term_size::dimensions().map(|s| s.0).unwrap_or(80) as i32 - datetime.len() as i32,
+            datetime,
+        )
+    }
+
+    pub fn to_bottom(&self) -> String {
+        let root_str = format!(
+            "{STYLE_BOLD}{}{STYLE_RESET}",
+            if self.is_root {
+                concatcp!(COLOR_RED, "#")
+            } else {
+                concatcp!(COLOR_GREEN, "$")
+            },
+        );
 
         let returned = match &self.args.ret_code {
             Some(0) | Some(130) => format!(
@@ -264,39 +297,8 @@ impl fmt::Display for StatusLine {
             String::new()
         };
 
-        let elapsed =
-            if let Some(formatted) = self.args.elapsed_time.and_then(microseconds_to_string) {
-                format!(
-                    "{COLOR_CYAN}({} {}){STYLE_RESET}",
-                    self.prompt_mode.took_time(),
-                    &formatted
-                )
-            } else {
-                String::new()
-            };
-
-        let top_left_line = autojoin(
-            &[
-                &hostuser, &gitinfo, &buildinfo, &readonly, &workdir, &elapsed,
-            ],
-            " ",
-        );
-        let top_line = format!(
-            "{INVISIBLE_START}{}{}{ESC}[{}G{COLOR_GREY}{}{STYLE_RESET}{INVISIBLE_END}",
-            top_left_line,
-            (if self.is_ext { "   " } else { "" }),
-            term_size::dimensions().map(|s| s.0).unwrap_or(80) as i32 - datetime.len() as i32,
-            datetime,
-        );
-
         let bottom_line = autojoin(&[&jobs, &returned, &root_str], " ");
 
-        write!(
-            f,
-            "{}\n{}\n{} ",
-            title(&self.workdir.to_string_lossy()),
-            top_line,
-            bottom_line
-        )
+        format!("{}{} ", title(&self.workdir.to_string_lossy()), bottom_line)
     }
 }

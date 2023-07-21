@@ -56,7 +56,7 @@ pub const COLOR_GREEN: &str = color!(32u8);
 pub const COLOR_YELLOW: &str = color!(33u8);
 pub const COLOR_PURPLE: &str = color!(35u8);
 pub const COLOR_CYAN: &str = color!(36u8);
-pub const COLOR_BLUE: &str = rgb!(0u8, 127u8, 240u8);
+//pub const COLOR_BLUE: &str = rgb!(0u8, 127u8, 240u8);
 pub const COLOR_PINK: &str = rgb!(255u8, 100u8, 203u8);
 //pub const COLOR_PY_YELLOW: &str = rgb!(255u8, 219u8, 59u8);
 pub const COLOR_LIGHT_GREEN: &str = rgb!(100u8, 255u8, 100u8);
@@ -92,14 +92,14 @@ R = hash % 5
 COLOR_TABLE=(255 203 153 100 0)
 */
 const COLOR_TABLE: [u8; 5] = [255, 203, 153, 100, 0];
-pub fn colorize(s: &str) -> String {
-    if s == "root" {
-        String::from(concatcp!(STYLE_BOLD, COLOR_RED, "root", STYLE_RESET))
+pub fn colorize(by: &str, what: &str) -> String {
+    if by == "root" {
+        format!("{STYLE_BOLD}{COLOR_RED}{}{STYLE_RESET}", what)
     } else {
-        let hash = usize::from_str_radix(&digest(format!("{}\n", s))[..4], 16).unwrap() % 115;
+        let hash = usize::from_str_radix(&digest(format!("{}\n", by))[..4], 16).unwrap() % 115;
         let b = COLOR_TABLE[hash / 25];
         let g = COLOR_TABLE[hash / 5 % 5];
         let r = COLOR_TABLE[hash % 5];
-        format!("{}{s}{STYLE_RESET}", rgb(r, g, b))
+        format!("{}{}{STYLE_RESET}", rgb(r, g, b), what)
     }
 }
