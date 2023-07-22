@@ -1,7 +1,9 @@
 use crate::file::upfind;
+use crate::prompt::Prompt;
 use std::{
-    fmt, fs,
+    cmp, fmt, fs,
     io::{BufRead, BufReader},
+    iter,
     path::{Path, PathBuf},
     process::Command,
 };
@@ -33,24 +35,68 @@ fn parse_ref_by_name(name: &str) -> Head {
     }
 }
 
+fn lcp(a: &str, b: &str) -> usize {
+    iter::zip(a.chars(), b.chars())
+        .position(|(a, b)| a != b)
+        .unwrap_or(0)
+}
+
+fn objects_dir_len(root: &Path, prefix: &str, rest: &str) -> Option<usize> {
+    // Find len from ".git/objects/xx/..."
+    let mut objects = fs::read_dir(root.join(format!("objects/{prefix}")))
+        .ok()?
+        .map(|res| res.map(|e| String::from(e.path().to_string_lossy())))
+        .collect::<Result<Vec<_>, _>>()
+        .ok()?;
+
+    let len = objects.len();
+    if len == 1 {
+        Some(0)
+    } else if len == 2 {
+        Some(1 + lcp(&objects[0], &objects[1]))
+    } else {
+        objects.sort();
+        let idx = objects.binary_search_by(|x| rest.cmp(&x)).ok()?;
+        let left = if idx != 0 { idx - 1 } else { idx };
+        let right = if idx != objects.len() { idx + 1 } else { idx };
+        Some(1 + lcp(&objects[left], &objects[right]))
+    }
+}
+
 enum Head {
     Branch(String),
     Commit(String),
     Unknown,
 }
 
-impl fmt::Display for Head {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl Head {
+    fn pretty(&self, root: &Path, prompt: &Prompt) -> String {
         match &self {
-            Head::Branch(name) => write!(f, "{}", name),
-            Head::Commit(id) => write!(f, "{}", &id[..5]), // TODO
-            _ => Ok(()),
+            Head::Branch(name) => format!("{} {}", prompt.on_branch(), name),
+            Head::Commit(id) => {
+                let (prefix, rest) = id.split_at(2);
+
+                let abbrev_len = [Some(2), objects_dir_len(&root, &prefix, &rest)]
+                    .iter()
+                    .filter_map(|&x| x)
+                    .reduce(cmp::max)
+                    .unwrap();
+
+                format!(
+                    "{} {}{}",
+                    prompt.at_commit(),
+                    &prefix,
+                    rest.split_at(abbrev_len).0
+                ) // TODO object index? show tag?
+            }
+            _ => "<unknown>".to_string(),
         }
     }
 }
 
 pub struct GitStatus {
     pub tree: PathBuf,
+    root: PathBuf,
     head: Head,
     remote_branch: Option<String>,
     stashes: usize,
@@ -128,6 +174,7 @@ impl GitStatus {
 
         Some(GitStatus {
             tree,
+            root,
             head,
             remote_branch,
             stashes,
@@ -205,24 +252,25 @@ impl GitStatus {
             untracked,
         })
     }
-}
 
-impl fmt::Display for GitStatus {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let head = self.head.to_string();
-        write!(f, "{}", head)?;
+    pub fn pretty(&self, prompt: &Prompt) -> String {
+        let head = self.head.pretty(&self.root, &prompt);
+        let mut res = vec![head];
 
-        if let Some(remote) = &self.remote_branch && head != *remote {
-            write!(f, ":{}", remote)?;
-        }
+        match (&self.head, &self.remote_branch) {
+            (Head::Branch(head), Some(remote)) if head.ne(remote) => {
+                res.push(format!(":{}", remote));
+            }
+            _ => (),
+        };
 
         for (s, val) in [("*", self.stashes)] {
             if val != 0 {
-                write!(f, " {}{}", s, val)?;
+                res.push(format!(" {}{}", s, val));
             }
         }
 
-        Ok(())
+        res.join("")
     }
 }
 

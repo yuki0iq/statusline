@@ -211,9 +211,8 @@ impl StatusLine {
 
         let gitinfo = if let Some(git_status) = &self.git {
             format!(
-                "{STYLE_BOLD}{COLOR_PINK}[{} {}{}]{STYLE_RESET}",
-                self.prompt.on_branch(),
-                git_status,
+                "{STYLE_BOLD}{COLOR_PINK}[{}{}]{STYLE_RESET}",
+                git_status.pretty(&self.prompt),
                 if self.is_ext {
                     self.git_ext
                         .as_ref()

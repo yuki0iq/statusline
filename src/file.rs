@@ -5,11 +5,10 @@ use std::{
 };
 
 pub fn find_current_home(path: &Path, cur_user: &str) -> Option<(PathBuf, String)> {
-    if let Some(Passwd { name, dir, .. }) = Passwd::iter().find(|Passwd{ dir, .. }| {
+    if let Some(Passwd { name, dir, .. }) = Passwd::iter().find(|Passwd { dir, .. }| {
         !(dir == "/"
             || ["bin", "dev", "proc", "usr", "var"].contains(
-                &dir
-                    .strip_prefix('/')
+                &dir.strip_prefix('/')
                     .unwrap_or_default()
                     .split('/')
                     .next()
