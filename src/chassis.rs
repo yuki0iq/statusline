@@ -59,7 +59,7 @@ impl Chassis {
         // Get chassis type --- from `hostnamed` source code
 
         None.or_else(Chassis::try_machine_info)
-            .or_else(Chassis::try_dmi_id)
+            .or_else(Chassis::try_udev)
             .or_else(Chassis::try_virtualization)
             .or_else(Chassis::try_dmi_type)
             .or_else(Chassis::try_acpi_profile)
@@ -93,11 +93,21 @@ impl Chassis {
             })
     }
 
-    fn try_dmi_id() -> Option<Chassis> {
+    fn try_udev() -> Option<Chassis> {
         /*
-        TODO /sys/class/dmi/id @ID_CHASSIS
+        sd-device /sys/class/dmi/id points to /run/udev/data/+dmi:id
+        hours wasted on this: about three,
+          trying to read, understand and interpret
+          systemd code without stracing, lmao
+        find line "E:ID_CHASSIS=..."
+        ---
+        I can't be 100% sure this code works as NO machines I have acceess to
+          have any chassis-related information in this file
+        TODO check this...
         */
-        None
+        BufReader::new(File::open("/run/udev/data/+dmi:id").ok()?)
+            .lines()
+            .find_map(|x| Some(Chassis::from(x.ok()?.strip_prefix("E:ID_CHASSIS=")?.trim())))
     }
 
     fn try_virtualization() -> Option<Chassis> {
