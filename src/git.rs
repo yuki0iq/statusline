@@ -25,6 +25,14 @@ thanks to
     7 untracked   -> ?
 */
 
+fn parse_ref_by_name(name: &str) -> Head {
+    if let Some(name) = name.trim().strip_prefix("refs/heads/") {
+        Head::Branch(name.to_owned())
+    } else {
+        Head::Unknown
+    }
+}
+
 enum Head {
     Branch(String),
     Commit(String),
@@ -74,16 +82,17 @@ impl GitStatus {
 
         // eprintln!("ok tree {tree:?} | {root:?}");
 
-        let head = fs::read_to_string(root.join("HEAD")).ok()?; // TODO symlink
-                                                                // eprintln!("head is {head:?}");
-        let head = if let Some(rest) = head.strip_prefix("ref:") {
-            if let Some(name) = rest.trim().strip_prefix("refs/heads/") {
-                Head::Branch(name.to_owned())
-            } else {
-                Head::Unknown
-            }
+        let head_path = root.join("HEAD");
+
+        let head = if head_path.is_symlink() {
+            parse_ref_by_name(fs::read_link(head_path).ok()?.to_str()?)
         } else {
-            Head::Commit(head.split_whitespace().next()?.to_owned())
+            let head = fs::read_to_string(root.join("HEAD")).ok()?;
+            if let Some(rest) = head.strip_prefix("ref:") {
+                parse_ref_by_name(rest)
+            } else {
+                Head::Commit(head.split_whitespace().next()?.to_owned())
+            }
         };
 
         let remote_branch = if let Head::Branch(br) = &head {
