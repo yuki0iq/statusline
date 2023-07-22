@@ -74,8 +74,8 @@ impl GitStatus {
 
         // eprintln!("ok tree {tree:?} | {root:?}");
 
-        let head = fs::read_to_string(root.join("HEAD")).ok()?;
-        // eprintln!("head is {head:?}");
+        let head = fs::read_to_string(root.join("HEAD")).ok()?; // TODO symlink
+                                                                // eprintln!("head is {head:?}");
         let head = if let Some(rest) = head.strip_prefix("ref:") {
             if let Some(name) = rest.trim().strip_prefix("refs/heads/") {
                 Head::Branch(name.to_owned())

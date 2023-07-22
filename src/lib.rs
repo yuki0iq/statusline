@@ -1,6 +1,7 @@
 #![feature(fs_try_exists)]
 #![feature(let_chains)]
 
+pub mod chassis;
 pub mod file;
 pub mod git;
 pub mod prompt;
@@ -9,7 +10,7 @@ pub mod time;
 
 use crate::file::{file_exists, file_exists_that, find_current_home, get_hostname, upfind};
 use crate::git::{GitStatus, GitStatusExtended};
-use crate::prompt::PromptMode;
+use crate::prompt::Prompt;
 use crate::style::*;
 use chrono::prelude::*;
 use const_format::concatcp;
@@ -80,7 +81,7 @@ impl CommandLineArgs {
 }
 
 pub struct StatusLine {
-    prompt_mode: PromptMode,
+    prompt: Prompt,
     hostname: String,
     read_only: bool,
     git: Option<GitStatus>,
@@ -100,7 +101,7 @@ impl StatusLine {
         let workdir = env::current_dir().unwrap_or_else(|_| PathBuf::new());
         let read_only = access(&workdir, AccessFlags::W_OK).is_err();
         StatusLine {
-            prompt_mode: PromptMode::new(),
+            prompt: Prompt::build(),
             hostname: get_hostname(),
             read_only,
             git: GitStatus::build(&workdir),
@@ -171,16 +172,16 @@ impl StatusLine {
     pub fn to_top(&self) -> String {
         let user_str = format!(
             "{STYLE_BOLD}{}{} {}",
-            self.prompt_mode.hostuser_left(),
-            self.prompt_mode.user_text(),
+            self.prompt.hostuser_left(),
+            self.prompt.user_text(),
             self.username
         );
         let host_str = format!(
             "{STYLE_BOLD}{}{} {}{}",
-            self.prompt_mode.hostuser_at(),
+            self.prompt.hostuser_at(),
             self.hostname,
-            self.prompt_mode.host_text(),
-            self.prompt_mode.hostuser_right()
+            self.prompt.host_text(),
+            self.prompt.hostuser_right()
         );
         let hostuser = format!(
             "{}{}",
@@ -190,12 +191,7 @@ impl StatusLine {
 
         let workdir = self.get_workdir_str();
         let readonly = if self.read_only {
-            format!(
-                "{}{}{}",
-                COLOR_RED,
-                self.prompt_mode.read_only(),
-                STYLE_RESET
-            )
+            format!("{}{}{}", COLOR_RED, self.prompt.read_only(), STYLE_RESET)
         } else {
             String::new()
         };
@@ -216,7 +212,7 @@ impl StatusLine {
         let gitinfo = if let Some(git_status) = &self.git {
             format!(
                 "{STYLE_BOLD}{COLOR_PINK}[{} {}{}]{STYLE_RESET}",
-                self.prompt_mode.on_branch(),
+                self.prompt.on_branch(),
                 git_status,
                 if self.is_ext {
                     self.git_ext
@@ -235,7 +231,7 @@ impl StatusLine {
             if let Some(formatted) = self.args.elapsed_time.and_then(microseconds_to_string) {
                 format!(
                     "{COLOR_CYAN}({} {}){STYLE_RESET}",
-                    self.prompt_mode.took_time(),
+                    self.prompt.took_time(),
                     &formatted
                 )
             } else {
@@ -271,15 +267,15 @@ impl StatusLine {
         let returned = match &self.args.ret_code {
             Some(0) | Some(130) => format!(
                 "{COLOR_LIGHT_GREEN}{}{STYLE_RESET}",
-                self.prompt_mode.return_ok()
+                self.prompt.return_ok()
             ),
             Some(_) => format!(
                 "{COLOR_LIGHT_RED}{}{STYLE_RESET}",
-                self.prompt_mode.return_fail()
+                self.prompt.return_fail()
             ),
             None => format!(
                 "{COLOR_GREY}{}{STYLE_RESET}",
-                self.prompt_mode.return_unavailable()
+                self.prompt.return_unavailable()
             ),
         };
 
