@@ -35,28 +35,31 @@ fn parse_ref_by_name(name: &str) -> Head {
     }
 }
 
-fn lcp(a: &str, b: &str) -> usize {
-    iter::zip(a.chars(), b.chars())
+fn lcp<T: AsRef<str>>(a: T, b: T) -> usize {
+    iter::zip(a.as_ref().chars(), b.as_ref().chars())
         .position(|(a, b)| a != b)
         .unwrap_or(0)
 }
 
-fn objects_dir_len(root: &Path, prefix: &str, rest: &str) -> Option<usize> {
-    // Find len from ".git/objects/xx/..."
-    let mut objects = fs::read_dir(root.join(format!("objects/{prefix}")))
-        .ok()?
-        .map(|res| res.map(|e| String::from(e.path().to_string_lossy())))
-        .collect::<Result<Vec<_>, _>>()
-        .ok()?;
+fn load_objects(root: &Path, prefix: &str) -> Option<Vec<String>> {
+    Some(
+        fs::read_dir(root.join(format!("objects/{prefix}")))
+            .ok()?
+            .map(|res| res.map(|e| String::from(e.path().to_string_lossy())))
+            .collect::<Result<Vec<_>, _>>()
+            .ok()?,
+    )
+}
 
+fn objects_dir_len<T: AsRef<str> + cmp::Ord>(objects: &[T], rest: &str) -> Option<usize> {
+    // Find len from ".git/objects/xx/..."
     let len = objects.len();
     if len == 1 {
         Some(0)
     } else if len == 2 {
         Some(1 + lcp(&objects[0], &objects[1]))
     } else {
-        objects.sort();
-        let idx = objects.binary_search_by(|x| rest.cmp(&x)).ok()?;
+        let idx = objects.binary_search_by(|x| x.as_ref().cmp(rest)).ok()?;
         let left = if idx != 0 { idx - 1 } else { idx };
         let right = if idx != objects.len() { idx + 1 } else { idx };
         Some(1 + lcp(&objects[left], &objects[right]))
@@ -70,13 +73,13 @@ enum Head {
 }
 
 impl Head {
-    fn pretty(&self, root: &Path, prompt: &Prompt) -> String {
+    fn pretty<T: AsRef<str> + cmp::Ord>(&self, objects: &[T], prompt: &Prompt) -> String {
         match &self {
             Head::Branch(name) => format!("{} {}", prompt.on_branch(), name),
             Head::Commit(id) => {
                 let (prefix, rest) = id.split_at(2);
 
-                let abbrev_len = [Some(2), objects_dir_len(&root, &prefix, &rest)]
+                let abbrev_len = [Some(2), objects_dir_len(&objects, &rest)]
                     .iter()
                     .filter_map(|&x| x)
                     .reduce(cmp::max)
@@ -96,10 +99,11 @@ impl Head {
 
 pub struct GitStatus {
     pub tree: PathBuf,
-    root: PathBuf,
+    // root: PathBuf,
     head: Head,
     remote_branch: Option<String>,
     stashes: usize,
+    objects: Vec<String>,
 }
 
 pub struct GitStatusExtended {
@@ -172,12 +176,21 @@ impl GitStatus {
             .map(|file| BufReader::new(file).lines().count())
             .unwrap_or(0);
 
+        let objects = if let Head::Commit(id) = &head {
+            let mut obj = load_objects(&root, &id[..2]).unwrap_or_default();
+            obj.sort();
+            obj
+        } else {
+            vec![]
+        };
+
         Some(GitStatus {
             tree,
-            root,
+            // root,
             head,
             remote_branch,
             stashes,
+            objects,
         })
     }
 
@@ -254,7 +267,7 @@ impl GitStatus {
     }
 
     pub fn pretty(&self, prompt: &Prompt) -> String {
-        let head = self.head.pretty(&self.root, &prompt);
+        let head = self.head.pretty(&self.objects, &prompt);
         let mut res = vec![head];
 
         match (&self.head, &self.remote_branch) {
