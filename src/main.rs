@@ -1,7 +1,7 @@
 use libc::{fcntl as fcntl_unsafe, F_SETOWN};
 use nix::{fcntl, unistd};
 use statusline::{
-    style::{INVISIBLE_END, INVISIBLE_START, colorize},
+    style::{colorize, INVISIBLE_END, INVISIBLE_START},
     StatusLine,
 };
 use std::{env, fs, io, io::Write};
@@ -13,12 +13,10 @@ fn main() {
     let mut args = env::args();
     args.next();
     match args.next().as_deref() {
-        Some("--colorize") => {
-            match args.next() {
-                Some(text) => println!("{}", colorize(&text, &text)),
-                None => println!("`statusline --colorize <text>` to colorize string"),
-            }
-        }
+        Some("--colorize") => match args.next() {
+            Some(text) => println!("{}", colorize(&text, &text)),
+            None => println!("`statusline --colorize <text>` to colorize string"),
+        },
         Some("--env") => {
             println!("{}", include_str!("shell.sh").replace("<exec>", &exec));
         }

@@ -1,15 +1,22 @@
 use pwd::Passwd;
-use regex::Regex;
 use std::{
     fs,
     path::{Path, PathBuf},
 };
 
 pub fn find_current_home(path: &Path, cur_user: &str) -> Option<(PathBuf, String)> {
-    let invalid_homes = Regex::new(r"^/$|^(/bin|/dev|/proc|/usr|/var)(/|$)").unwrap();
-    if let Some(Passwd { name, dir, .. }) = Passwd::iter()
-        .find(|passwd| !invalid_homes.is_match(&passwd.dir) && path.starts_with(&passwd.dir))
-    {
+    if let Some(Passwd { name, dir, .. }) = Passwd::iter().find(|Passwd{ dir, .. }| {
+        !(dir == "/"
+            || ["bin", "dev", "proc", "usr", "var"].contains(
+                &dir
+                    .strip_prefix('/')
+                    .unwrap_or_default()
+                    .split('/')
+                    .next()
+                    .unwrap_or_default(),
+            ))
+            && path.starts_with(&dir)
+    }) {
         Some((
             PathBuf::from(dir),
             if name != cur_user {
