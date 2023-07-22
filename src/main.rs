@@ -31,6 +31,7 @@ fn main() {
             let args = args.collect::<Vec<String>>();
             let line = StatusLine::from_env(&args);
 
+            // TODO: fix "job terminated" and some other stderr-printed lines being overwritten
             eprint!(
                 "\x1b[s\x1b[G\x1b[A{}\x1b[u",
                 line.to_top()
