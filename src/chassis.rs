@@ -19,19 +19,19 @@ pub enum Chassis {
 }
 
 impl Chassis {
-    // TODO
     pub fn icon(&self) -> &str {
         match self {
-            Chassis::Laptop => "💻",
-            Chassis::Desktop => "🖥",
-            Chassis::Server => "🖳 ",
-            Chassis::Tablet => "具",
-            Chassis::Watch => "⌚️",
-            Chassis::Handset => "🕻",
+            Chassis::Desktop => " ",
+            Chassis::Server => "󰒋 ",
+            Chassis::Laptop => "󰌢 ",
+            Chassis::Convertible => "󰊟 ", // TODO: probably this icon is not the best fit, but the best I could come up with at 2 AM
+            Chassis::Tablet => " ",
+            Chassis::Handset => "󰏲 ",
+            Chassis::Watch => " ",
+            Chassis::Embedded => " ",
             Chassis::Virtual => "🖴 ",
-            Chassis::Container => "☐ ",
-            Chassis::Convertible => "󰒋 ",
-            _ => "??",
+            Chassis::Container => " ",
+            Chassis::Unknown => "??",
         }
     }
 }
