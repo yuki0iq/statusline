@@ -81,7 +81,7 @@ impl Prompt {
     pub fn at_commit(&self) -> &str {
         match &self.mode {
             PromptMode::TextMode => "at",
-            PromptMode::NerdfontMode => "C", // TODO
+            PromptMode::NerdfontMode => "",
         }
     }
 
