@@ -297,7 +297,9 @@ impl StatusLine {
         format!("{} ", bottom_line)
     }
 
-    pub fn to_title(&self) -> String {
-        title(&self.workdir.to_string_lossy())
+    pub fn to_title(&self, prefix: &str) -> String {
+        let pwd = self.workdir.to_str().unwrap_or("<path>");
+        let extended = format!("{}: {}", prefix, pwd);
+        title(if prefix.is_empty() { pwd } else { &extended })
     }
 }
