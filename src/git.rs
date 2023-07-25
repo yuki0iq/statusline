@@ -224,7 +224,7 @@ impl GitStatus {
             }
         }
 
-        println!("ahead and behind is {ahead} {behind}");
+        // println!("ahead and behind is {ahead} {behind}");
 
         let mut unmerged = 0;
         let mut staged = 0;
