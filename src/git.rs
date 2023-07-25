@@ -38,14 +38,14 @@ fn parse_ref_by_name(name: &str) -> Head {
 fn lcp<T: AsRef<str>>(a: T, b: T) -> usize {
     iter::zip(a.as_ref().chars(), b.as_ref().chars())
         .position(|(a, b)| a != b)
-        .unwrap_or(0)
+        .unwrap()
 }
 
 fn load_objects(root: &Path, prefix: &str) -> Option<Vec<String>> {
     Some(
         fs::read_dir(root.join(format!("objects/{prefix}")))
             .ok()?
-            .map(|res| res.map(|e| String::from(e.path().to_string_lossy())))
+            .map(|res| res.map(|e| String::from(e.file_name().to_string_lossy())))
             .collect::<Result<Vec<_>, _>>()
             .ok()?,
     )
