@@ -216,7 +216,7 @@ impl StatusLine {
                 if self.is_ext {
                     self.git_ext
                         .as_ref()
-                        .map(|x| x.to_string())
+                        .map(|x| x.pretty(&self.prompt))
                         .unwrap_or_default()
                 } else {
                     "...".to_string()

@@ -1,7 +1,7 @@
 use crate::file::upfind;
 use crate::prompt::Prompt;
 use std::{
-    cmp, fmt, fs,
+    cmp, fs,
     io::{BufRead, BufReader},
     iter,
     path::{Path, PathBuf},
@@ -287,21 +287,20 @@ impl GitStatus {
     }
 }
 
-impl fmt::Display for GitStatusExtended {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        for (s, val) in [
-            ("v", self.behind),
-            ("^", self.ahead),
-            ("~", self.unmerged),
-            ("+", self.staged),
-            ("!", self.dirty),
-            ("?", self.untracked),
-        ] {
-            if val != 0 {
-                write!(f, " {}{}", s, val)?;
-            }
-        }
-
-        Ok(())
+impl GitStatusExtended {
+    pub fn pretty(&self, prompt: &Prompt) -> String {
+        [
+            (prompt.behind(), self.behind),
+            (prompt.ahead(), self.ahead),
+            (prompt.conflict(), self.unmerged),
+            (prompt.staged(), self.staged),
+            (prompt.dirty(), self.dirty),
+            (prompt.untracked(), self.untracked),
+        ]
+        .into_iter()
+        .filter(|(_, val)| val != &0)
+        .map(|(s, val)| format!(" {}{}", s, val))
+        .collect::<Vec<_>>()
+        .join("")
     }
 }
