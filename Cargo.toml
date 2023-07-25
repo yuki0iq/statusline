@@ -2,8 +2,9 @@
 name = "statusline"
 version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+description = "Status line for bash PS1 with useful features. Rewritten from bash to be blazingly fast"
+license-file = "license.txt"
+repository = "https://git.yukii.keenetic.pro/yuki0iq/bash-status-line-2"
 
 [dependencies]
 const_format = "0.2.31"
