@@ -36,7 +36,7 @@ fn main() {
                     .replace(INVISIBLE_START, "")
                     .replace(INVISIBLE_END, ""),
             );
-            print!("{}", line.to_bottom());
+            print!("{}{}", line.to_title(), line.to_bottom());
             io::stdout().flush().unwrap();
             unistd::close(1).unwrap();
 

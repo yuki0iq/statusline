@@ -294,6 +294,10 @@ impl StatusLine {
 
         let bottom_line = autojoin(&[&jobs, &returned, &root_str], " ");
 
-        format!("{}{} ", title(&self.workdir.to_string_lossy()), bottom_line)
+        format!("{} ", bottom_line)
+    }
+
+    pub fn to_title(&self) -> String {
+        title(&self.workdir.to_string_lossy())
     }
 }
