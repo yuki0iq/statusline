@@ -7,6 +7,7 @@ pub mod git;
 pub mod prompt;
 pub mod style;
 pub mod time;
+pub mod virt;
 
 use crate::file::{file_exists, file_exists_that, find_current_home, get_hostname, upfind};
 use crate::git::{GitStatus, GitStatusExtended};

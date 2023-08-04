@@ -1,3 +1,4 @@
+use crate::virt;
 use std::{
     fs::{read_to_string, File},
     io::{BufRead, BufReader},
@@ -59,6 +60,7 @@ impl Chassis {
         // Get chassis type --- from `hostnamed` source code
 
         None.or_else(Chassis::try_machine_info)
+            .or_else(Chassis::try_container)
             .or_else(Chassis::try_udev)
             .or_else(Chassis::try_virtualization)
             .or_else(Chassis::try_dmi_type)
@@ -111,10 +113,19 @@ impl Chassis {
     }
 
     fn try_virtualization() -> Option<Chassis> {
-        /*
-        TODO detect_virtualization() -> (vm, container)
-        */
-        None
+        // No one knows if this works correctly
+        virt::detect_vm()
+            .unwrap_or(None)
+            .is_some()
+            .then_some(Chassis::Virtual)
+    }
+
+    fn try_container() -> Option<Chassis> {
+        // No one knows if this works correctly
+        virt::detect_container()
+            .unwrap_or(None)
+            .is_some()
+            .then_some(Chassis::Container)
     }
 
     fn try_dmi_type() -> Option<Chassis> {
