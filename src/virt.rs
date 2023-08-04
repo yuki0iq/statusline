@@ -26,8 +26,57 @@ pub enum VirtualizationType {
     Other,
 }
 
+#[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
+fn detect_vm_cpuid() -> Option<VirtualizationType> {
+    #[cfg(target_arch = "x86")]
+    use core::arch::x86::{__cpuid, __get_cpuid_max, has_cpuid};
+    #[cfg(target_arch = "x86_64")]
+    use core::arch::x86_64::{__cpuid, __get_cpuid_max, has_cpuid};
+
+    // Check CPUID accessible
+    if !has_cpuid() {
+        return None;
+    }
+
+    // Check leaf 1 accessible
+    let maxlevel = unsafe { __get_cpuid_max(0).0 };
+    if maxlevel == 0 {
+        return None;
+    }
+
+    // Get leaf 1, ecx, bit 31 -- Hypervisor bit
+    let ecx = unsafe { __cpuid(1) }.ecx;
+    let hv = ecx & 0x80000000;
+    if hv == 0 {
+        return None;
+    }
+
+    // Hypervisor bit ON ->check leaf 0x40000000 and use (ebx, ecx, edx) as string
+    let cpuid_res = unsafe { __cpuid(0x40000000) };
+    let vendor = [
+        cpuid_res.ebx.to_ne_bytes(),
+        cpuid_res.ecx.to_ne_bytes(),
+        cpuid_res.edx.to_ne_bytes(),
+    ]
+    .concat();
+
+    Some(match &vendor[..12] {
+        b"XenVMMXenVMM" => VirtualizationType::Xen,
+        b"KVMKVMKVM" => VirtualizationType::KVM,
+        b"Linux KVM Hv" => VirtualizationType::KVM,
+        b"TCGTCGTCGTCG" => VirtualizationType::QEMU,
+        b"VMwareVMware" => VirtualizationType::VMware,
+        b"Microsoft Hv" => VirtualizationType::Microsoft,
+        b"bhyve bhyve " => VirtualizationType::Bhyve,
+        b"QNXQVMBSQG" => VirtualizationType::QNX,
+        b"ACRNACRNACRN" => VirtualizationType::ACRN,
+        b"SRESRESRESRE" => VirtualizationType::SRE,
+        _ => VirtualizationType::Other,
+    })
+}
+
+#[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
 fn detect_vm_cpuid() -> Result<Option<VirtualizationType>> {
-    // TODO detect_vm_cpuid
     Ok(None)
 }
 
@@ -237,7 +286,7 @@ pub fn detect_vm() -> Result<Option<VirtualizationType>> {
 
     let mut other = false;
     // eprintln!("CPUID");
-    match detect_vm_cpuid()? {
+    match detect_vm_cpuid() {
         Some(VirtualizationType::Other) => {
             other = true;
             // eprintln!("other");

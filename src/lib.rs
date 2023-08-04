@@ -1,4 +1,5 @@
 #![feature(fs_try_exists)]
+#![feature(stdsimd)]
 #![feature(let_chains)]
 
 pub mod chassis;
