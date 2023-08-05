@@ -60,7 +60,7 @@ fn load_objects(root: &Path, prefix: &str) -> Result<Vec<String>> {
 
 fn objects_dir_len(root: &Path, prefix: &str, rest: &str) -> Result<usize> {
     // Find len from ".git/objects/xx/..."
-    Ok(load_objects(root, prefix)?
+    Ok(2 + load_objects(root, prefix)?
         .iter()
         .map(|val| 1 + lcp(val.as_str(), rest))
         .max()
@@ -164,7 +164,7 @@ impl Head {
             Head::Commit(id) => {
                 let (prefix, rest) = id.split_at(2);
 
-                let mut abbrev_len = 2;
+                let mut abbrev_len = 4;
                 if let Ok(x) = objects_dir_len(&root, &prefix, &rest) {
                     abbrev_len = abbrev_len.max(x);
                 }
@@ -173,10 +173,9 @@ impl Head {
                 }
 
                 format!(
-                    "{} {}{}",
+                    "{} {}",
                     prompt.at_commit(),
-                    &prefix,
-                    rest.split_at(abbrev_len).0
+                    id.split_at(abbrev_len).0
                 ) // TODO show tag?
             }
             _ => "<unknown>".to_string(),
