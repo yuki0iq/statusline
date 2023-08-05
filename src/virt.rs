@@ -1,3 +1,4 @@
+use crate::file;
 use anyhow::Result;
 use std::{
     fs::{self, File},
@@ -94,29 +95,23 @@ fn detect_vm_device_tree() -> Result<Option<VirtualizationType>> {
                         .unwrap_or(false)
                 {
                     true => Some(VirtualizationType::PowerVM),
-                    false => match fs::read_dir("/proc/device-tree") {
-                        Ok(mut iter) => match iter
-                            .find_map(|entry| {
-                                Some(
-                                    entry
-                                        .ok()?
-                                        .file_name()
-                                        .to_str()
-                                        .filter(|name| name.contains("fw-cfg"))
-                                        .is_some(),
-                                )
-                            })
-                            .is_some()
-                        {
-                            true => Some(VirtualizationType::QEMU),
-                            false => match fs::read_to_string("/proc/device-tree/compatible") {
-                                Ok(s) if s == "qemu,pseries" => Some(VirtualizationType::QEMU),
-                                Ok(_) => None,
-                                Err(e) if e.kind() == ErrorKind::NotFound => None,
-                                Err(e) => Err(e)?,
-                            },
+                    false => match file::exists_that(&"/proc/device-tree", |name| {
+                        name.contains("fw-cfg")
+                    }) {
+                        Ok(true) => Some(VirtualizationType::QEMU),
+                        Ok(false) => match fs::read_to_string("/proc/device-tree/compatible") {
+                            Ok(s) if s == "qemu,pseries" => Some(VirtualizationType::QEMU),
+                            Ok(_) => None,
+                            Err(e) if e.kind() == ErrorKind::NotFound => None,
+                            Err(e) => Err(e)?,
                         },
-                        Err(e) if e.kind() == ErrorKind::NotFound => None,
+                        Err(e)
+                            if e.is::<std::io::Error>()
+                                && e.downcast_ref::<std::io::Error>().unwrap().kind()
+                                    == ErrorKind::NotFound =>
+                        {
+                            None
+                        }
                         Err(e) => Err(e)?,
                     },
                 }

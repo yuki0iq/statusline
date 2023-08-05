@@ -1,6 +1,8 @@
+#![feature(io_error_more)]
 #![feature(fs_try_exists)]
-#![feature(stdsimd)]
 #![feature(let_chains)]
+#![feature(slice_first_last_chunk)]
+#![feature(stdsimd)]
 
 pub mod chassis;
 pub mod file;
@@ -10,43 +12,41 @@ pub mod style;
 pub mod time;
 pub mod virt;
 
-use crate::file::{file_exists, file_exists_that, find_current_home, get_hostname, upfind};
 use crate::git::{GitStatus, GitStatusExtended};
 use crate::prompt::Prompt;
 use crate::style::*;
 use chrono::prelude::*;
 use const_format::concatcp;
-use nix::unistd::{access, getuid, AccessFlags};
+use nix::unistd::{self, AccessFlags};
 use std::{
     env,
     path::{Path, PathBuf},
 };
-use time::microseconds_to_string;
 
 fn buildinfo(workdir: &Path) -> String {
     let mut res = Vec::new();
-    if file_exists("CMakeLists.txt") {
+    if file::exists("CMakeLists.txt") {
         res.push("cmake");
     }
-    if file_exists("configure") {
+    if file::exists("configure") {
         res.push("./configure");
     }
-    if file_exists("Makefile") {
+    if file::exists("Makefile") {
         res.push("make");
     }
-    if file_exists("install") {
+    if file::exists("install") {
         res.push("./install");
     }
-    if file_exists("jr") {
+    if file::exists("jr") {
         res.push("./jr");
     }
-    if file_exists_that(|filename| filename.ends_with(".qbs")) {
+    if let Ok(true) = file::exists_that(&workdir, |filename| filename.ends_with(".qbs")) {
         res.push("qbs");
     }
-    if file_exists_that(|filename| filename.ends_with(".pro")) {
+    if let Ok(true) = file::exists_that(&workdir, |filename| filename.ends_with(".pro")) {
         res.push("qmake");
     }
-    if upfind(workdir, "Cargo.toml").is_some() {
+    if file::upfind(workdir, "Cargo.toml").is_ok() {
         res.push("cargo");
     }
     res.join(" ")
@@ -101,18 +101,18 @@ impl StatusLine {
     pub fn from_env<T: AsRef<str>>(args: &[T]) -> Self {
         let username = env::var("USER").unwrap_or_else(|_| String::from("<user>"));
         let workdir = env::current_dir().unwrap_or_else(|_| PathBuf::new());
-        let read_only = access(&workdir, AccessFlags::W_OK).is_err();
+        let read_only = unistd::access(&workdir, AccessFlags::W_OK).is_err();
         StatusLine {
             prompt: Prompt::build(),
-            hostname: get_hostname(),
+            hostname: file::get_hostname(),
             read_only,
-            git: GitStatus::build(&workdir),
+            git: GitStatus::build(&workdir).ok(),
             git_ext: None,
-            current_home: find_current_home(&workdir, &username),
+            current_home: file::find_current_home(&workdir, &username),
             build_info: buildinfo(&workdir),
             workdir,
             username,
-            is_root: getuid().is_root(),
+            is_root: unistd::getuid().is_root(),
             args: CommandLineArgs::from_env(args),
             is_ext: false,
         }
@@ -121,10 +121,7 @@ impl StatusLine {
     pub fn extended(self) -> Self {
         StatusLine {
             is_ext: true,
-            git_ext: /*Some(
-                self.git.as_ref().unwrap()
-                    .extended().unwrap()
-                ),*/ self.git.as_ref().and_then(|st| st.extended()),
+            git_ext: self.git.as_ref().and_then(|st| st.extended()),
             ..self
         }
     }
@@ -228,16 +225,19 @@ impl StatusLine {
             String::new()
         };
 
-        let elapsed =
-            if let Some(formatted) = self.args.elapsed_time.and_then(microseconds_to_string) {
-                format!(
-                    "{COLOR_CYAN}({} {}){STYLE_RESET}",
-                    self.prompt.took_time(),
-                    &formatted
-                )
-            } else {
-                String::new()
-            };
+        let elapsed = if let Some(formatted) = self
+            .args
+            .elapsed_time
+            .and_then(time::microseconds_to_string)
+        {
+            format!(
+                "{COLOR_CYAN}({} {}){STYLE_RESET}",
+                self.prompt.took_time(),
+                &formatted
+            )
+        } else {
+            String::new()
+        };
 
         let top_left_line = autojoin(
             &[

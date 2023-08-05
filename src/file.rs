@@ -1,6 +1,8 @@
+use anyhow::Result;
 use pwd::Passwd;
 use std::{
     fs,
+    io::{Error, ErrorKind},
     path::{Path, PathBuf},
 };
 
@@ -29,35 +31,25 @@ pub fn find_current_home(path: &Path, cur_user: &str) -> Option<(PathBuf, String
     }
 }
 
-pub fn file_exists<P: AsRef<Path> + ?Sized>(path: &P) -> bool {
+pub fn exists<P: AsRef<Path> + ?Sized>(path: &P) -> bool {
     fs::try_exists(path.as_ref()).unwrap_or(false)
 }
 
-pub fn file_exists_that<F>(f: F) -> bool
-where
-    F: Fn(&str) -> bool,
-{
-    let Ok(dir_iter) = fs::read_dir(".") else {
-        return false;
-    };
-    for entry_res in dir_iter {
-        let Ok(entry) = entry_res else {
-            return false;
-        };
-        if let Ok(filename) = entry.file_name().into_string() {
-            if f(&filename) {
-                return true;
-            }
+pub fn exists_that<F: Fn(&str) -> bool, P: AsRef<Path>>(path: &P, f: F) -> Result<bool> {
+    for entry in fs::read_dir(path)? {
+        if let Ok(filename) = entry?.file_name().into_string() && f(&filename) {
+            return Ok(true);
         }
     }
-    false
+    Ok(false)
 }
 
-pub fn upfind(start: &Path, filename: &str) -> Option<PathBuf> {
-    start
+pub fn upfind(start: &Path, filename: &str) -> Result<PathBuf> {
+    Ok(start
         .ancestors()
         .map(|path| path.join(filename))
-        .find(file_exists)
+        .find(exists)
+        .ok_or(Error::from(ErrorKind::NotFound))?)
 }
 
 pub fn get_hostname() -> String {

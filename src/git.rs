@@ -1,8 +1,11 @@
-use crate::file::upfind;
+use crate::file;
 use crate::prompt::Prompt;
+use anyhow::Result;
+use hex::FromHex;
+use mmarinus::{perms, Map, Private};
 use std::{
-    cmp, fs,
-    io::{BufRead, BufReader},
+    fs,
+    io::{BufRead, BufReader, Error, ErrorKind},
     iter,
     path::{Path, PathBuf},
     process::Command,
@@ -27,8 +30,8 @@ thanks to
     7 untracked   -> ?
 */
 
-fn parse_ref_by_name(name: &str) -> Head {
-    if let Some(name) = name.trim().strip_prefix("refs/heads/") {
+fn parse_ref_by_name<T: AsRef<str>>(name: T) -> Head {
+    if let Some(name) = name.as_ref().trim().strip_prefix("refs/heads/") {
         Head::Branch(name.to_owned())
     } else {
         Head::Unknown
@@ -38,32 +41,123 @@ fn parse_ref_by_name(name: &str) -> Head {
 fn lcp<T: AsRef<str>>(a: T, b: T) -> usize {
     iter::zip(a.as_ref().chars(), b.as_ref().chars())
         .position(|(a, b)| a != b)
-        .unwrap()
+        .unwrap_or(0) // if equal then LCP should be zero
 }
 
-fn load_objects(root: &Path, prefix: &str) -> Option<Vec<String>> {
-    Some(
-        fs::read_dir(root.join(format!("objects/{prefix}")))
-            .ok()?
-            .map(|res| res.map(|e| String::from(e.file_name().to_string_lossy())))
-            .collect::<Result<Vec<_>, _>>()
-            .ok()?,
-    )
-}
-
-fn objects_dir_len<T: AsRef<str> + cmp::Ord>(objects: &[T], rest: &str) -> Option<usize> {
-    // Find len from ".git/objects/xx/..."
-    let len = objects.len();
-    if len == 1 {
-        Some(0)
-    } else if len == 2 {
-        Some(1 + lcp(&objects[0], &objects[1]))
-    } else {
-        let idx = objects.binary_search_by(|x| x.as_ref().cmp(rest)).ok()?;
-        let left = if idx != 0 { idx - 1 } else { idx };
-        let right = if idx != objects.len() { idx + 1 } else { idx };
-        Some(1 + lcp(&objects[left], &objects[right]))
+fn lcp_bytes(a: &[u8], b: &[u8]) -> usize {
+    let len = a.len().min(b.len());
+    for i in 0..len {
+        if (a[i] >> 4) != (b[i] >> 4) {
+            return 1 + 2 * i;
+        }
+        if (a[i] & 15) != (b[i] & 15) {
+            return 2 + 2 * i;
+        }
     }
+    0
+}
+
+fn load_objects(root: &Path, prefix: &str) -> Result<Vec<String>> {
+    Ok(fs::read_dir(root.join(format!("objects/{prefix}")))?
+        .map(|res| res.map(|e| String::from(e.file_name().to_string_lossy())))
+        .collect::<Result<Vec<_>, _>>()?)
+}
+
+fn objects_dir_len(root: &Path, prefix: &str, rest: &str) -> Result<usize> {
+    // Find len from ".git/objects/xx/..."
+
+    let objects = load_objects(&root, &prefix)?;
+    let mut ans = 0;
+
+    let lesser = objects.iter().filter(|obj| &obj[..] < rest).max();
+    if let Some(val) = lesser {
+        ans = ans.max(1 + lcp(&val[..], &rest));
+    }
+
+    let greater = objects.iter().filter(|obj| &obj[..] > rest).min();
+    if let Some(val) = greater {
+        ans = ans.max(1 + lcp(&val[..], &rest));
+    }
+
+    // eprintln!("objdir: {ans:?}");
+    Ok(ans)
+}
+
+fn packed_objects_len(root: &Path, prefix: &str, commit: &str) -> Result<usize> {
+    // TODO packed objects
+    let mut res = 0;
+    for entry in fs::read_dir(root.join("objects/pack"))? {
+        let path = entry?.path();
+        // eprintln!("entry {path:?}");
+        if let Some(ext) = path.extension() && ext == "idx" {
+            let map = Map::load(path, Private, perms::Read)?;
+            // eprintln!("mmaped");
+
+            // Git packed objects index file format is easy
+            // See https://github.com/purplesyringa/gitcenter -> main/dist/js/git.md
+
+            // Should contain 0x102 ints (magic, version and fanout)
+            if map.size() < 0x408 { continue; }
+
+            let read_int_at = |pos: usize| {
+                let left = pos * 4;
+                let right = left + 4;
+                let value = map[left..right].first_chunk::<4>().unwrap();
+                u32::from_be_bytes(*value)
+            };
+
+            // Magic int is 0xFF744F63 ('\377tOc')
+            // probably should be read as "table of contents" which this index is
+            if read_int_at(0) != 0xFF744F63 {
+                continue;
+            }
+
+            // Only version 2 is supported
+            if read_int_at(1) != 0x00000002 {
+                continue;
+            }
+
+            // eprintln!("magic + version ok"); 
+            // [0x0008 -- 0x0408] is fanout table as [u32, 256]
+            // where `table[i]` is count of objects with `prefix <= i`
+            // object range is from `table[i-1]` to `table[i] - 1` including both borders
+            let prefix = usize::from_str_radix(&prefix[..], 16)?;
+            let left = if prefix == 0 { 0 } else { read_int_at(prefix + 1) } as usize;
+            let right = read_int_at(prefix + 2) as usize;
+
+            // left and right are sha1 *indexes* and not positions of their beginning
+            if left == right { continue; }
+            let right = right - 1 as usize;
+
+            // check that right is fully readable
+            if map.size() < 0x408 + 20*(right + 1) { continue; }
+
+            let hash_pos = |pos: usize| 0x408 + pos * 20;
+            let hash = |pos: usize| {
+                let pos = hash_pos(pos);
+                map[pos..pos+20].first_chunk::<20>().unwrap()
+            };
+            let commit = <[u8; 20]>::from_hex(commit)?;
+            //eprintln!("left and right are {left:?} and {right:?}");
+
+            let objects = (left..=right).map(|i| hash(i)); // TODO binary search
+
+            let lesser = objects.clone().filter(|&&obj| obj < commit).max();
+            //eprintln!("lesser: {lesser:?}");
+            if let Some(val) = lesser {
+                res = res.max(lcp_bytes(&val[1..], &commit[1..]));
+            }
+
+            let greater = objects.filter(|&&obj| obj > commit).min();
+            //eprintln!("greater: {greater:?}");
+            if let Some(val) = greater {
+                res = res.max(lcp_bytes(&val[1..], &commit[1..]));
+            }
+        }
+    }
+    //eprintln!("packed: {res:?}");
+    //eprintln!("");
+    Ok(res)
 }
 
 enum Head {
@@ -73,24 +167,26 @@ enum Head {
 }
 
 impl Head {
-    fn pretty<T: AsRef<str> + cmp::Ord>(&self, objects: &[T], prompt: &Prompt) -> String {
+    fn pretty(&self, root: &Path, prompt: &Prompt) -> String {
         match &self {
             Head::Branch(name) => format!("{} {}", prompt.on_branch(), name),
             Head::Commit(id) => {
                 let (prefix, rest) = id.split_at(2);
 
-                let abbrev_len = [Some(2), objects_dir_len(&objects, &rest)]
-                    .iter()
-                    .filter_map(|&x| x)
-                    .reduce(cmp::max)
-                    .unwrap();
+                let mut abbrev_len = 2;
+                if let Ok(x) = objects_dir_len(&root, &prefix, &rest) {
+                    abbrev_len = abbrev_len.max(x);
+                }
+                if let Ok(x) = packed_objects_len(&root, &prefix, &id) {
+                    abbrev_len = abbrev_len.max(x);
+                }
 
                 format!(
                     "{} {}{}",
                     prompt.at_commit(),
                     &prefix,
                     rest.split_at(abbrev_len).0
-                ) // TODO object index? show tag?
+                ) // TODO show tag?
             }
             _ => "<unknown>".to_string(),
         }
@@ -99,11 +195,10 @@ impl Head {
 
 pub struct GitStatus {
     pub tree: PathBuf,
-    // root: PathBuf,
+    root: PathBuf,
     head: Head,
     remote_branch: Option<String>,
     stashes: usize,
-    objects: Vec<String>,
 }
 
 pub struct GitStatusExtended {
@@ -116,14 +211,14 @@ pub struct GitStatusExtended {
 }
 
 impl GitStatus {
-    pub fn build(workdir: &Path) -> Option<GitStatus> {
-        let dotgit = upfind(workdir, ".git")?;
-        let tree = dotgit.parent()?.to_path_buf();
+    pub fn build(workdir: &Path) -> Result<GitStatus> {
+        let dotgit = file::upfind(workdir, ".git")?;
+        let tree = dotgit.parent().unwrap().to_path_buf();
         let root = if dotgit.is_file() {
             tree.join(
-                fs::read_to_string(&dotgit)
-                    .ok()?
-                    .strip_prefix("gitdir: ")?
+                fs::read_to_string(&dotgit)?
+                    .strip_prefix("gitdir: ")
+                    .ok_or(Error::from(ErrorKind::InvalidData))?
                     .trim_end_matches(&['\r', '\n']),
             )
         } else {
@@ -135,20 +230,29 @@ impl GitStatus {
         let head_path = root.join("HEAD");
 
         let head = if head_path.is_symlink() {
-            parse_ref_by_name(fs::read_link(head_path).ok()?.to_str()?)
+            parse_ref_by_name(
+                fs::read_link(head_path)?
+                    .to_str()
+                    .ok_or(Error::from(ErrorKind::InvalidFilename))?,
+            )
         } else {
-            let head = fs::read_to_string(root.join("HEAD")).ok()?;
+            let head = fs::read_to_string(root.join("HEAD"))?;
             if let Some(rest) = head.strip_prefix("ref:") {
                 parse_ref_by_name(rest)
             } else {
-                Head::Commit(head.split_whitespace().next()?.to_owned())
+                Head::Commit(
+                    head.split_whitespace()
+                        .next()
+                        .unwrap_or_default()
+                        .to_owned(),
+                )
             }
         };
 
         let remote_branch = if let Head::Branch(br) = &head {
             let section = format!("[branch \"{br}\"]");
             // eprintln!("section: {section} | {:?}", root.join("config"));
-            BufReader::new(fs::File::open(root.join("config")).ok()?)
+            BufReader::new(fs::File::open(root.join("config"))?)
                 .lines()
                 .skip_while(|x| match x {
                     Ok(x) => x != &section,
@@ -172,25 +276,15 @@ impl GitStatus {
         let stash_path = root.join("logs/refs/stash");
         // eprintln!("try find stashes in {stash_path:?}");
         let stashes = fs::File::open(stash_path)
-            .ok()
             .map(|file| BufReader::new(file).lines().count())
             .unwrap_or(0);
 
-        let objects = if let Head::Commit(id) = &head {
-            let mut obj = load_objects(&root, &id[..2]).unwrap_or_default();
-            obj.sort();
-            obj
-        } else {
-            vec![]
-        };
-
-        Some(GitStatus {
+        Ok(GitStatus {
             tree,
-            // root,
+            root,
             head,
             remote_branch,
             stashes,
-            objects,
         })
     }
 
@@ -267,7 +361,7 @@ impl GitStatus {
     }
 
     pub fn pretty(&self, prompt: &Prompt) -> String {
-        let head = self.head.pretty(&self.objects, &prompt);
+        let head = self.head.pretty(&self.root, &prompt);
         let mut res = vec![head];
 
         match (&self.head, &self.remote_branch) {
