@@ -45,114 +45,105 @@ fn lcp<T: AsRef<str>>(a: T, b: T) -> usize {
 }
 
 fn lcp_bytes(a: &[u8], b: &[u8]) -> usize {
-    let len = a.len().min(b.len());
-    for i in 0..len {
-        if (a[i] >> 4) != (b[i] >> 4) {
-            return 1 + 2 * i;
-        }
-        if (a[i] & 15) != (b[i] & 15) {
-            return 2 + 2 * i;
-        }
+    let pos = iter::zip(a.iter(), b.iter()).position(|(a, b)| a != b);
+    match pos {
+        None => 0,
+        Some(i) => i * 2 + ((a[i] >> 4) == (b[i] >> 4)) as usize,
     }
-    0
 }
 
 fn load_objects(root: &Path, prefix: &str) -> Result<Vec<String>> {
-    Ok(fs::read_dir(root.join(format!("objects/{prefix}")))?
+    Ok(fs::read_dir(root.join("objects").join(prefix))?
         .map(|res| res.map(|e| String::from(e.file_name().to_string_lossy())))
         .collect::<Result<Vec<_>, _>>()?)
 }
 
 fn objects_dir_len(root: &Path, prefix: &str, rest: &str) -> Result<usize> {
     // Find len from ".git/objects/xx/..."
-
-    let objects = load_objects(&root, &prefix)?;
-    let mut ans = 0;
-
-    let lesser = objects.iter().filter(|obj| &obj[..] < rest).max();
-    if let Some(val) = lesser {
-        ans = ans.max(1 + lcp(&val[..], &rest));
-    }
-
-    let greater = objects.iter().filter(|obj| &obj[..] > rest).min();
-    if let Some(val) = greater {
-        ans = ans.max(1 + lcp(&val[..], &rest));
-    }
-
-    // eprintln!("objdir: {ans:?}");
-    Ok(ans)
+    Ok(load_objects(root, prefix)?
+        .iter()
+        .map(|val| 1 + lcp(val.as_str(), rest))
+        .max()
+        .unwrap_or(0))
 }
 
-fn packed_objects_len(root: &Path, prefix: &str, commit: &str) -> Result<usize> {
-    // TODO packed objects
+fn packed_objects_len(root: &Path, commit: &str) -> Result<usize> {
+    let commit = <[u8; 20]>::from_hex(commit)?;
+
     let mut res = 0;
     for entry in fs::read_dir(root.join("objects/pack"))? {
         let path = entry?.path();
         // eprintln!("entry {path:?}");
-        if let Some(ext) = path.extension() && ext == "idx" {
-            let map = Map::load(path, Private, perms::Read)?;
-            // eprintln!("mmaped");
+        let Some(ext) = path.extension() else {
+            continue;
+        };
+        if ext != "idx" {
+            continue;
+        }
 
-            // Git packed objects index file format is easy
-            // See https://github.com/purplesyringa/gitcenter -> main/dist/js/git.md
+        let map = Map::load(path, Private, perms::Read)?;
+        // eprintln!("mmaped");
 
-            // Should contain 0x102 ints (magic, version and fanout)
-            if map.size() < 0x408 { continue; }
+        // Git packed objects index file format is easy -- Yuki
+        // Statements dreamed up by the utterly deranged -- purplesyringa
+        // See https://github.com/purplesyringa/gitcenter -> main/dist/js/git.md
 
-            let read_int_at = |pos: usize| {
-                let left = pos * 4;
-                let right = left + 4;
-                let value = map[left..right].first_chunk::<4>().unwrap();
-                u32::from_be_bytes(*value)
-            };
+        // Should contain 0x102 ints (magic, version and fanout)
+        if map.size() < 0x408 {
+            continue;
+        }
 
-            // Magic int is 0xFF744F63 ('\377tOc')
-            // probably should be read as "table of contents" which this index is
-            if read_int_at(0) != 0xFF744F63 {
-                continue;
-            }
+        let read_int_at_index =
+            |pos: usize| u32::from_be_bytes(*map[pos * 4..].first_chunk::<4>().unwrap());
 
-            // Only version 2 is supported
-            if read_int_at(1) != 0x00000002 {
-                continue;
-            }
+        // Magic int is 0xFF744F63 ('\377tOc')
+        // probably should be read as "table of contents" which this index is
+        if read_int_at_index(0) != 0xFF744F63 {
+            continue;
+        }
 
-            // eprintln!("magic + version ok"); 
-            // [0x0008 -- 0x0408] is fanout table as [u32, 256]
-            // where `table[i]` is count of objects with `prefix <= i`
-            // object range is from `table[i-1]` to `table[i] - 1` including both borders
-            let prefix = usize::from_str_radix(&prefix[..], 16)?;
-            let left = if prefix == 0 { 0 } else { read_int_at(prefix + 1) } as usize;
-            let right = read_int_at(prefix + 2) as usize;
+        // Only version 2 is supported
+        if read_int_at_index(1) != 0x00000002 {
+            continue;
+        }
 
-            // left and right are sha1 *indexes* and not positions of their beginning
-            if left == right { continue; }
-            let right = right - 1 as usize;
+        // eprintln!("magic + version ok");
+        // [0x0008 -- 0x0408] is fanout table as [u32, 256]
+        // where `table[i]` is count of objects with `prefix <= i`
+        // object range is from `table[i-1]` to `table[i] - 1` including both borders
+        let prefix = commit[0] as usize;
+        let begin = if prefix == 0 {
+            0
+        } else {
+            read_int_at_index(prefix + 1)
+        } as usize;
+        let end = read_int_at_index(prefix + 2) as usize;
 
-            // check that right is fully readable
-            if map.size() < 0x408 + 20*(right + 1) { continue; }
+        // begin and end are sha1 *indexes* and not positions of their beginning
+        if begin == end {
+            continue;
+        }
 
-            let hash_pos = |pos: usize| 0x408 + pos * 20;
-            let hash = |pos: usize| {
-                let pos = hash_pos(pos);
-                map[pos..pos+20].first_chunk::<20>().unwrap()
-            };
-            let commit = <[u8; 20]>::from_hex(commit)?;
-            //eprintln!("left and right are {left:?} and {right:?}");
+        // check that right is fully readable
+        if map.size() < 0x408 + 20 * end {
+            continue;
+        }
 
-            let objects = (left..=right).map(|i| hash(i)); // TODO binary search
+        let hashes: &[[u8; 20]] = unsafe { std::mem::transmute(&map[0x408..]) };
 
-            let lesser = objects.clone().filter(|&&obj| obj < commit).max();
-            //eprintln!("lesser: {lesser:?}");
-            if let Some(val) = lesser {
-                res = res.max(lcp_bytes(&val[1..], &commit[1..]));
-            }
+        //eprintln!("left and right are {left:?} and {right:?}");
 
-            let greater = objects.filter(|&&obj| obj > commit).min();
-            //eprintln!("greater: {greater:?}");
-            if let Some(val) = greater {
-                res = res.max(lcp_bytes(&val[1..], &commit[1..]));
-            }
+        let index = hashes[begin..end].partition_point(|hash| hash < &commit);
+        if index > 0 {
+            res = res.max(1 + lcp_bytes(&hashes[begin + index - 1], &commit));
+        }
+        if index < end - begin {
+            res = res.max(
+                1 + lcp_bytes(
+                    &hashes[begin + index + (hashes[begin + index] == commit) as usize],
+                    &commit,
+                ),
+            );
         }
     }
     //eprintln!("packed: {res:?}");
@@ -177,7 +168,7 @@ impl Head {
                 if let Ok(x) = objects_dir_len(&root, &prefix, &rest) {
                     abbrev_len = abbrev_len.max(x);
                 }
-                if let Ok(x) = packed_objects_len(&root, &prefix, &id) {
+                if let Ok(x) = packed_objects_len(&root, &id) {
                     abbrev_len = abbrev_len.max(x);
                 }
 
