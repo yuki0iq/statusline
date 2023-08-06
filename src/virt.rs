@@ -397,8 +397,6 @@ fn translate_name(name: &str) -> ContainerType {
 }
 
 pub fn detect_container() -> Result<Option<ContainerType>> {
-    // TODO detect_container
-
     if let (Ok(true), Ok(false)) = (fs::try_exists("/proc/vz"), fs::try_exists("/proc/bz")) {
         return Ok(Some(ContainerType::OpenVZ));
     }
