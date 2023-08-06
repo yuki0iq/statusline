@@ -359,7 +359,103 @@ pub enum ContainerType {
     Other,
 }
 
+fn running_in_cgroupns() -> Result<bool> {
+    if let Err(_) = fs::try_exists("/proc/self/ns/cgroup") {
+        return Ok(false);
+    }
+
+    // Only cgroup v2 is supported right now, so no check if it _is_ v2 is needed
+    Ok(fs::try_exists("/sys/fs/cgroup/cgroup.events")?
+        && (fs::try_exists("/sys/fs/cgroup/cgroup.type")?
+            || !fs::try_exists("/sys/kernel/cgroup/features")?))
+}
+
+fn detect_container_files() -> Option<ContainerType> {
+    if let Ok(true) = fs::try_exists("/run/.containerenv") {
+        return Some(ContainerType::Podman);
+    }
+    if let Ok(true) = fs::try_exists("/.dockerenv") {
+        return Some(ContainerType::Docker);
+    }
+    None
+}
+
+fn translate_name(name: &str) -> ContainerType {
+    match name {
+        "oci" => detect_container_files().unwrap_or(ContainerType::Other),
+        "lxc" => ContainerType::Lxc,
+        "lxc-libvirt" => ContainerType::LxcLibvirt,
+        "systemd-nspawn" => ContainerType::SystemdNspawn,
+        "docker" => ContainerType::Docker,
+        "podman" => ContainerType::Podman,
+        "rkt" => ContainerType::RKT,
+        "wsl" => ContainerType::WSL,
+        "proot" => ContainerType::Proot,
+        "pouch" => ContainerType::Pouch,
+        _ => ContainerType::Other,
+    }
+}
+
 pub fn detect_container() -> Result<Option<ContainerType>> {
     // TODO detect_container
+
+    if let (Ok(true), Ok(false)) = (fs::try_exists("/proc/vz"), fs::try_exists("/proc/bz")) {
+        return Ok(Some(ContainerType::OpenVZ));
+    }
+
+    if let Ok(s) = fs::read_to_string("/proc/sys/kernel/osrelease")
+        && (s.contains("Microsoft") || s.contains("WSL")) {
+        return Ok(Some(ContainerType::WSL));
+    }
+
+    if let Ok(file) = File::open("/proc/self/status") {
+        if let Some(pid) = BufReader::new(file).lines().find_map(|line| {
+            Some(
+                line.ok()?
+                    .strip_prefix("TracerPid:\t")?
+                    .split_whitespace()
+                    .map(|x| x.parse::<usize>().ok())
+                    .next()??,
+            )
+        }) {
+            if let Ok(s) = fs::read_to_string(format!("/proc/{pid}/comm"))
+                && s.starts_with("proot") {
+                return Ok(Some(ContainerType::Proot));
+            }
+        }
+    }
+
+    match fs::read_to_string("/nun/host/container-daemon") {
+        Ok(s) => {
+            return Ok(Some(translate_name(&s)));
+        }
+        Err(e) if e.kind() == ErrorKind::NotFound => {}
+        Err(e) => Err(e)?,
+    }
+
+    match fs::read_to_string("/run/systemd/container") {
+        Ok(s) => {
+            return Ok(Some(translate_name(&s)));
+        }
+        Err(e) if e.kind() == ErrorKind::NotFound => {}
+        Err(e) => Err(e)?,
+    }
+
+    if let Ok(file) = File::open("/proc/1/environ") {
+        if let Some(name) = BufReader::new(file).split(0).find_map(|line| {
+            Some(String::from_utf8(line.ok()?.strip_prefix(b"container=")?.to_vec()).ok()?)
+        }) {
+            return Ok(Some(translate_name(&name)));
+        }
+    }
+
+    if let ct @ Some(_) = detect_container_files() {
+        return Ok(ct);
+    }
+
+    if let Ok(true) = running_in_cgroupns() {
+        return Ok(Some(ContainerType::Other));
+    }
+
     Ok(None)
 }

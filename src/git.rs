@@ -172,11 +172,7 @@ impl Head {
                     abbrev_len = abbrev_len.max(x);
                 }
 
-                format!(
-                    "{} {}",
-                    prompt.at_commit(),
-                    id.split_at(abbrev_len).0
-                ) // TODO show tag?
+                format!("{} {}", prompt.at_commit(), id.split_at(abbrev_len).0) // TODO show tag?
             }
             _ => "<unknown>".to_string(),
         }
