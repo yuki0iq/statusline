@@ -179,7 +179,11 @@ impl Head {
     }
 }
 
+/// Fast git status information from `.git` folder
+///
+/// TODO: add "merging", "rebasing" and other...?
 pub struct GitStatus {
+    /// Working tree path
     pub tree: PathBuf,
     root: PathBuf,
     head: Head,
@@ -187,6 +191,7 @@ pub struct GitStatus {
     stashes: usize,
 }
 
+/// Additional git status information, about branch tracking and working tree state
 pub struct GitStatusExtended {
     behind: u32,
     ahead: u32,
@@ -197,6 +202,7 @@ pub struct GitStatusExtended {
 }
 
 impl GitStatus {
+    /// Get git status for current working directory --- for the innermost repository or submodule
     pub fn build(workdir: &Path) -> Result<GitStatus> {
         let dotgit = file::upfind(workdir, ".git")?;
         let tree = dotgit.parent().unwrap().to_path_buf();
@@ -274,6 +280,7 @@ impl GitStatus {
         })
     }
 
+    /// Get extended git informtion, if possible. Relies on `git` executable
     pub fn extended(&self) -> Option<GitStatusExtended> {
         let out = Command::new("git")
             .args([
@@ -346,6 +353,7 @@ impl GitStatus {
         })
     }
 
+    /// Pretty-formats git status with respect to the chosen mode
     pub fn pretty(&self, prompt: &Prompt) -> String {
         let head = self.head.pretty(&self.root, &prompt);
         let mut res = vec![head];
@@ -368,6 +376,7 @@ impl GitStatus {
 }
 
 impl GitStatusExtended {
+    /// Pretty-formats extended git status with respect to the chosen mode
     pub fn pretty(&self, prompt: &Prompt) -> String {
         [
             (prompt.behind(), self.behind),

@@ -5,36 +5,30 @@ use std::{
     path::Path,
 };
 
+/// Chassis type, according to hostnamectl
 pub enum Chassis {
+    /// Desktops, nettops, etc
     Desktop,
+    /// Servers (which are in server rack)
     Server,
+    /// Laptops, notebooks
     Laptop,
+    /// Convertible laptops (which can turn into tablets)
     Convertible,
+    /// Tablets
     Tablet,
+    /// Phone? should check original documentation again lmao
     Handset,
+    /// Smart watches
     Watch,
+    /// Embedded devices
     Embedded,
+    /// Virtual machines
     Virtual,
+    /// Containered environments
     Container,
+    /// Something else
     Unknown,
-}
-
-impl Chassis {
-    pub fn icon(&self) -> &str {
-        match self {
-            Chassis::Desktop => " ",
-            Chassis::Server => "󰒋 ",
-            Chassis::Laptop => "󰌢 ",
-            Chassis::Convertible => "󰊟 ", // TODO: probably this icon is not the best fit, but the best I could come up with at 2 AM
-            Chassis::Tablet => " ",
-            Chassis::Handset => "󰏲 ",
-            Chassis::Watch => " ",
-            Chassis::Embedded => " ",
-            Chassis::Virtual => "🖴 ",
-            Chassis::Container => " ",
-            Chassis::Unknown => "??",
-        }
-    }
 }
 
 impl From<&str> for Chassis {
@@ -56,9 +50,28 @@ impl From<&str> for Chassis {
 }
 
 impl Chassis {
-    pub fn get() -> Chassis {
-        // Get chassis type --- from `hostnamed` source code
+    /// Printable chassis icon. These icons require nerd fonts
+    pub fn icon(&self) -> &str {
+        match self {
+            Chassis::Desktop => " ",
+            Chassis::Server => "󰒋 ",
+            Chassis::Laptop => "󰌢 ",
+            Chassis::Convertible => "󰊟 ", // TODO: probably this icon is not the best fit, but the best I could come up with at 2 AM
+            Chassis::Tablet => " ",
+            Chassis::Handset => "󰏲 ",
+            Chassis::Watch => " ",
+            Chassis::Embedded => " ",
+            Chassis::Virtual => "🖴 ",
+            Chassis::Container => " ",
+            Chassis::Unknown => "??",
+        }
+    }
 
+    /// Gets chassis type from system information, as in systemd
+    ///
+    /// Containered and virtual environments are likely to be misdetected. You can try overriding
+    /// this via `/etc/machine-info` or `hostnamectl set-chassis`...
+    pub fn get() -> Chassis {
         None.or_else(Chassis::try_machine_info)
             .or_else(Chassis::try_container)
             .or_else(Chassis::try_udev)
@@ -105,7 +118,6 @@ impl Chassis {
         ---
         I can't be 100% sure this code works as NO machines I have acceess to
           have any chassis-related information in this file
-        TODO check this...
         */
         BufReader::new(File::open("/run/udev/data/+dmi:id").ok()?)
             .lines()

@@ -40,3 +40,19 @@ Don't forget to check PATH and update from time to time.
 * *More icons*. Almost every icon was changed to more appropriate and clean one
 * *Nicer git status*. Proper commit abbreviation, handling of "detached head", icons even here... I just had a sleepless night that day
 
+## Command line options
+
+```
+statusline
+    Display simple message "how to use"
+statusline --env
+    Print commands for `.bashrc`
+statusline --run [return_code:N/A [jobs_count:0 [elapsed_time:N/A]]]
+    Print statusline as PS1 prompt
+statusline --colorize <str>
+    Colorize <str> like hostname and username. Can be used to choose hostname which has the color
+    you want
+```
+
+This should have some better formatting but I'm too lazy for this
+

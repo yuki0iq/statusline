@@ -1,17 +1,25 @@
 use crate::chassis::Chassis;
 use std::env;
 
+/// Icons' modes
 pub enum PromptMode {
+    /// Use text instead of icons
     TextMode,
-    NerdfontMode { is_minimal: bool },
-}
-
-pub struct Prompt {
-    mode: PromptMode,
-    chassis: Chassis,
+    /// Use icons from nerdfonts
+    NerdfontMode {
+        /// Use alternative icon set (simpler icons, but sometimes hard to get the meaning)
+        is_minimal: bool
+    },
 }
 
 impl PromptMode {
+    /// Detect prompt mode from `PS1_MODE` environment variable
+    ///
+    /// | Environment        | Resulting PromptMode |
+    /// |--------------------|----------------------|
+    /// | `PS1_MODE=text`    | Text                 |
+    /// | `PS1_MODE=minimal` | Alternative nerdfont |
+    /// | otherwise          | Default nerdfont     |
     pub fn build() -> Self {
         match env::var("PS1_MODE") {
             Ok(x) if x == "text" => PromptMode::TextMode,
@@ -21,7 +29,19 @@ impl PromptMode {
     }
 }
 
+/// Statusline icons getter with respect to [PromptMode] and [Chassis]
+///
+/// This object is intended to be constructed only once per statusline construction because
+/// icon mode and chassis are not fixed and may change suddenly
+///
+/// TODO: rename? this is cringe why icongetter is prompt
+pub struct Prompt {
+    mode: PromptMode,
+    chassis: Chassis,
+}
+
 impl Prompt {
+    /// Constructs "prompt" from environment and system info
     pub fn build() -> Self {
         Prompt {
             mode: PromptMode::build(),

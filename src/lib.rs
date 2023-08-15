@@ -1,19 +1,44 @@
+//! Status line for shells with ANSI escape sequences support
+//!
+//! This is a documentation for statusline API, use `README.md` for executable documentation
+//!
+//! # Example
+//!
+//! ```
+//! let line = StatusLine::from_env(&[]);
+//! println!("{}", line.to_title("test"));
+//! println!("{}", line.to_top());
+//! print!("{}", line.to_bottom());  // Or you can use readline with `line.to_bottom()` as prompt
+//! // And, additionally, you can start a separate thread for getting more info
+//! // which should be outputed "over" the first top line
+//! ```
+
 #![feature(io_error_more)]
 #![feature(fs_try_exists)]
 #![feature(let_chains)]
 #![feature(slice_first_last_chunk)]
 #![feature(stdsimd)]
 
-pub mod chassis;
+mod chassis;
+mod git;
+mod prompt;
+mod time;
+
+/// Filesystem-related operations
 pub mod file;
-pub mod git;
-pub mod prompt;
+
+/// Colorize output with ANSI sequences (TODO: rewrite)
 pub mod style;
-pub mod time;
+
+/// Virtualization detector (not tested tho)
 pub mod virt;
 
-use crate::git::{GitStatus, GitStatusExtended};
-use crate::prompt::Prompt;
+pub use crate::chassis::Chassis;
+pub use crate::git::GitStatus;
+pub use crate::git::GitStatusExtended;
+pub use crate::prompt::Prompt;
+pub use crate::prompt::PromptMode;
+
 use crate::style::*;
 use chrono::prelude::*;
 use const_format::concatcp;
@@ -82,6 +107,7 @@ impl CommandLineArgs {
     }
 }
 
+/// The statusline main object
 pub struct StatusLine {
     prompt: Prompt,
     hostname: String,
@@ -98,6 +124,13 @@ pub struct StatusLine {
 }
 
 impl StatusLine {
+    /// Creates statusline from environment variables and command line arguments (return code,
+    /// jobs count and elapsed time in what??).
+    ///
+    /// The statusline created is __basic__ --- it only knows the information which can be
+    /// acquired fast. Currently, the only slow information is full git status.
+    ///
+    /// TODO: make CmdLineArgs public and pass it here instead of strange meaningless array
     pub fn from_env<T: AsRef<str>>(args: &[T]) -> Self {
         let username = env::var("USER").unwrap_or_else(|_| String::from("<user>"));
         let workdir = env::current_dir().unwrap_or_else(|_| PathBuf::new());
@@ -118,6 +151,9 @@ impl StatusLine {
         }
     }
 
+    /// Extends the statusline.
+    ///
+    /// This queries "slow" information, which is currently a git status.
     pub fn extended(self) -> Self {
         StatusLine {
             is_ext: true,
@@ -168,6 +204,7 @@ impl StatusLine {
         autojoin(&[&home_str, &middle_str], "/") + &highlighted_str
     }
 
+    /// Format the top part of statusline.
     pub fn to_top(&self) -> String {
         let user_str = format!(
             "{STYLE_BOLD}{}{} {}",
@@ -255,6 +292,7 @@ impl StatusLine {
         )
     }
 
+    /// Format the bottom part of the statusline.
     pub fn to_bottom(&self) -> String {
         let root_str = format!(
             "{STYLE_BOLD}{}{STYLE_RESET}",
@@ -299,6 +337,7 @@ impl StatusLine {
         format!("{} ", bottom_line)
     }
 
+    /// Format the title for terminal.
     pub fn to_title(&self, prefix: &str) -> String {
         let pwd = self.workdir.to_str().unwrap_or("<path>");
         let extended = format!("{}: {}", prefix, pwd);
