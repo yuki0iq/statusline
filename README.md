@@ -12,7 +12,7 @@ rewritten in Rust.
 
 ## Installation
 
-```
+```bash
 #!/bin/bash
 cargo install statusline
 echo 'export PS1_MODE=...'        >> ~/.bashrc  # for 'text' and 'minimal'
