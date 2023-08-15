@@ -16,7 +16,7 @@ pub fn find_current_home(path: &Path, cur_user: &str) -> Option<(PathBuf, String
                     .next()
                     .unwrap_or_default(),
             ))
-            && path.starts_with(&dir)
+            && path.starts_with(dir)
     }) {
         Some((
             PathBuf::from(dir),

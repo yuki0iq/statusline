@@ -6,7 +6,7 @@ use mmarinus::{perms, Map, Private};
 use std::{
     fs,
     io::{BufRead, BufReader, Error, ErrorKind},
-    iter,
+    iter, mem,
     path::{Path, PathBuf},
     process::Command,
 };
@@ -52,19 +52,22 @@ fn lcp_bytes(a: &[u8], b: &[u8]) -> usize {
     }
 }
 
-fn load_objects(root: &Path, prefix: &str) -> Result<Vec<String>> {
-    Ok(fs::read_dir(root.join("objects").join(prefix))?
+fn load_objects(root: &Path, fanout: &str) -> Result<Vec<String>> {
+    Ok(fs::read_dir(root.join("objects").join(fanout))?
         .map(|res| res.map(|e| String::from(e.file_name().to_string_lossy())))
         .collect::<Result<Vec<_>, _>>()?)
 }
 
-fn objects_dir_len(root: &Path, prefix: &str, rest: &str) -> Result<usize> {
+fn objects_dir_len(root: &Path, fanout: &str, rest: &str) -> Result<usize> {
     // Find len from ".git/objects/xx/..."
-    Ok(2 + load_objects(root, prefix)?
+    let best_lcp = load_objects(root, fanout)?
         .iter()
-        .map(|val| 1 + lcp(val.as_str(), rest))
-        .max()
-        .unwrap_or(0))
+        .map(|val| lcp(val.as_str(), rest))
+        .max();
+    Ok(match best_lcp {
+        None => 2,
+        Some(val) => 3 + val,
+    })
 }
 
 fn packed_objects_len(root: &Path, commit: &str) -> Result<usize> {
@@ -88,58 +91,58 @@ fn packed_objects_len(root: &Path, commit: &str) -> Result<usize> {
         // Statements dreamed up by the utterly deranged -- purplesyringa
         // See https://github.com/purplesyringa/gitcenter -> main/dist/js/git.md
 
+        let map_size = map.size() / 4;
+        let integers: &[u32] = unsafe { mem::transmute(&map[..4 * map_size]) };
+
         // Should contain 0x102 ints (magic, version and fanout)
-        if map.size() < 0x408 {
+        if map_size < 0x102 {
             continue;
         }
 
-        let read_int_at_index =
-            |pos: usize| u32::from_be_bytes(*map[pos * 4..].first_chunk::<4>().unwrap());
+        let (magic, version) = (integers[0], integers[1]);
+        let fanout_table: &[u32] = &integers[2..0x102];
 
         // Magic int is 0xFF744F63 ('\377tOc')
         // probably should be read as "table of contents" which this index is
-        if read_int_at_index(0) != 0xFF744F63 {
-            continue;
-        }
-
         // Only version 2 is supported
-        if read_int_at_index(1) != 0x00000002 {
+        if magic != 0xFF744F63 && version != 2 {
             continue;
         }
 
         // eprintln!("magic + version ok");
         // [0x0008 -- 0x0408] is fanout table as [u32, 256]
-        // where `table[i]` is count of objects with `prefix <= i`
+        // where `table[i]` is count of objects with `fanout <= i`
         // object range is from `table[i-1]` to `table[i] - 1` including both borders
-        let prefix = commit[0] as usize;
-        let begin = if prefix == 0 {
+        let fanout = *commit.first().unwrap() as usize;
+        let begin = if fanout == 0 {
             0
         } else {
-            read_int_at_index(prefix + 1)
+            fanout_table[fanout - 1]
         } as usize;
-        let end = read_int_at_index(prefix + 2) as usize;
+        let end = fanout_table[fanout] as usize;
 
         // begin and end are sha1 *indexes* and not positions of their beginning
         if begin == end {
             continue;
         }
 
-        // check that right is fully readable
-        if map.size() < 0x408 + 20 * end {
+        let commit_position = |idx: usize| 0x102 + 5 * idx;
+        if map_size < commit_position(*fanout_table.last().unwrap() as usize) {
             continue;
         }
 
-        let hashes: &[[u8; 20]] = unsafe { std::mem::transmute(&map[0x408..]) };
+        let hashes: &[[u8; 20]] =
+            unsafe { mem::transmute(&integers[commit_position(begin)..commit_position(end)]) };
 
         //eprintln!("left and right are {left:?} and {right:?}");
 
-        let index = hashes[begin..end].partition_point(|hash| hash < &commit);
+        let index = hashes.partition_point(|hash| hash < &commit);
         if index > 0 {
-            res = res.max(1 + lcp_bytes(&hashes[begin + index - 1], &commit));
+            res = res.max(lcp_bytes(&hashes[begin + index - 1], &commit));
         }
         if index < end - begin {
             res = res.max(
-                1 + lcp_bytes(
+                lcp_bytes(
                     &hashes[begin + index + (hashes[begin + index] == commit) as usize],
                     &commit,
                 ),
@@ -148,7 +151,7 @@ fn packed_objects_len(root: &Path, commit: &str) -> Result<usize> {
     }
     //eprintln!("packed: {res:?}");
     //eprintln!("");
-    Ok(res)
+    Ok(1 + res)
 }
 
 enum Head {
@@ -162,13 +165,13 @@ impl Head {
         match &self {
             Head::Branch(name) => format!("{} {}", prompt.on_branch(), name),
             Head::Commit(id) => {
-                let (prefix, rest) = id.split_at(2);
+                let (fanout, rest) = id.split_at(2);
 
                 let mut abbrev_len = 4;
-                if let Ok(x) = objects_dir_len(&root, &prefix, &rest) {
+                if let Ok(x) = objects_dir_len(root, fanout, rest) {
                     abbrev_len = abbrev_len.max(x);
                 }
-                if let Ok(x) = packed_objects_len(&root, &id) {
+                if let Ok(x) = packed_objects_len(root, id) {
                     abbrev_len = abbrev_len.max(x);
                 }
 
@@ -251,10 +254,7 @@ impl GitStatus {
                     _ => false,
                 })
                 .skip(1)
-                .take_while(|x| match x {
-                    Ok(x) if x.starts_with("\t") => true,
-                    _ => false,
-                })
+                .take_while(|x| matches!(x, Ok(x) if x.starts_with('\t')))
                 .find_map(|x| match x {
                     Ok(x) => x
                         .strip_prefix("\tmerge = refs/heads/")
@@ -355,7 +355,7 @@ impl GitStatus {
 
     /// Pretty-formats git status with respect to the chosen mode
     pub fn pretty(&self, prompt: &Prompt) -> String {
-        let head = self.head.pretty(&self.root, &prompt);
+        let head = self.head.pretty(&self.root, prompt);
         let mut res = vec![head];
 
         match (&self.head, &self.remote_branch) {

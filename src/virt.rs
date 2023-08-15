@@ -187,7 +187,7 @@ fn detect_vm_dmi() -> Result<Option<VirtualizationType>> {
             }
         },
         None if detect_vm_smbios().unwrap_or(false) => Some(VirtualizationType::Other),
-        vm @ _ => vm,
+        vm => vm,
     })
 }
 
@@ -235,9 +235,9 @@ fn detect_vm_zvm() -> Result<Option<VirtualizationType>> {
                 .ok()?
                 .strip_prefix("VM00 Control Program")?
                 .trim_start_matches(" \t")
-                .strip_prefix(":")?
+                .strip_prefix(':')?
                 .trim_start_matches(" \t")
-                .trim_start_matches("0")
+                .trim_start_matches('0')
                 .split_whitespace()
                 .next()
             {
@@ -360,7 +360,7 @@ pub enum ContainerType {
 }
 
 fn running_in_cgroupns() -> Result<bool> {
-    if let Err(_) = fs::try_exists("/proc/self/ns/cgroup") {
+    if fs::try_exists("/proc/self/ns/cgroup").is_err() {
         return Ok(false);
     }
 
@@ -408,13 +408,11 @@ pub fn detect_container() -> Result<Option<ContainerType>> {
 
     if let Ok(file) = File::open("/proc/self/status") {
         if let Some(pid) = BufReader::new(file).lines().find_map(|line| {
-            Some(
-                line.ok()?
-                    .strip_prefix("TracerPid:\t")?
-                    .split_whitespace()
-                    .map(|x| x.parse::<usize>().ok())
-                    .next()??,
-            )
+            line.ok()?
+                .strip_prefix("TracerPid:\t")?
+                .split_whitespace()
+                .map(|x| x.parse::<usize>().ok())
+                .next()?
         }) {
             if let Ok(s) = fs::read_to_string(format!("/proc/{pid}/comm"))
                 && s.starts_with("proot") {
@@ -441,7 +439,7 @@ pub fn detect_container() -> Result<Option<ContainerType>> {
 
     if let Ok(file) = File::open("/proc/1/environ") {
         if let Some(name) = BufReader::new(file).split(0).find_map(|line| {
-            Some(String::from_utf8(line.ok()?.strip_prefix(b"container=")?.to_vec()).ok()?)
+            String::from_utf8(line.ok()?.strip_prefix(b"container=")?.to_vec()).ok()
         }) {
             return Ok(Some(translate_name(&name)));
         }

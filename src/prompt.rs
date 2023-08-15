@@ -8,7 +8,7 @@ pub enum PromptMode {
     /// Use icons from nerdfonts
     NerdfontMode {
         /// Use alternative icon set (simpler icons, but sometimes hard to get the meaning)
-        is_minimal: bool
+        is_minimal: bool,
     },
 }
 

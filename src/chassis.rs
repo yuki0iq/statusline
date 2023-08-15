@@ -102,7 +102,7 @@ impl Chassis {
                         .trim()
                         .strip_prefix("CHASSIS")?
                         .trim_start()
-                        .strip_prefix("=")?
+                        .strip_prefix('=')?
                         .trim_start(),
                 ))
             })
