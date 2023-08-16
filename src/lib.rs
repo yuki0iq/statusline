@@ -5,7 +5,7 @@
 //! # Example
 //!
 //! ```
-//! let line = StatusLine::from_env(&[]);
+//! let line = StatusLine::from_env(CommandLineArgs::from_env(&[]));
 //! println!("{}", line.to_title("test"));
 //! println!("{}", line.to_top());
 //! print!("{}", line.to_bottom());  // Or you can use readline with `line.to_bottom()` as prompt
