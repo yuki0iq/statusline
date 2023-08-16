@@ -183,4 +183,11 @@ impl Prompt {
             PromptMode::NerdfontMode { .. } => "",
         }
     }
+
+    pub fn venv(&self) -> &str {
+        match &self.mode {
+            PromptMode::TextMode => "py",
+            PromptMode::NerdfontMode { .. } => "",
+        }
+    }
 }

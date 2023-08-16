@@ -23,6 +23,7 @@ mod chassis;
 mod git;
 mod prompt;
 mod time;
+mod venv;
 
 /// Filesystem-related operations
 pub mod file;
@@ -40,6 +41,7 @@ pub use crate::prompt::Prompt;
 pub use crate::prompt::PromptMode;
 
 use crate::style::*;
+use crate::venv::Venv;
 use chrono::prelude::*;
 use const_format::concatcp;
 use nix::unistd::{self, AccessFlags};
@@ -125,6 +127,7 @@ pub struct StatusLine {
     username: String,
     is_root: bool,
     args: CommandLineArgs,
+    venv: Option<Venv>,
     is_ext: bool,
 }
 
@@ -150,6 +153,7 @@ impl StatusLine {
             username,
             is_root: unistd::getuid().is_root(),
             args,
+            venv: Venv::get(),
             is_ext: false,
         }
     }
@@ -279,9 +283,18 @@ impl StatusLine {
             String::new()
         };
 
+        let pyvenv = if let Some(venv) = &self.venv {
+            format!(
+                "{STYLE_BOLD}{COLOR_YELLOW}[{}]{STYLE_RESET}",
+                venv.pretty(&self.prompt)
+            )
+        } else {
+            String::new()
+        };
+
         let top_left_line = autojoin(
             &[
-                &hostuser, &gitinfo, &buildinfo, &readonly, &workdir, &elapsed,
+                &hostuser, &gitinfo, &pyvenv, &buildinfo, &readonly, &workdir, &elapsed,
             ],
             " ",
         );
