@@ -1,10 +1,11 @@
 exec {PS1_FD}<> <(true)
 
-export PS1_START="${EPOCHREALTIME/[.,]/}"
+VIRTUAL_ENV_DISABLE_PROMPT=1
+PS1_START="${EPOCHREALTIME/[.,]/}"
 
 trap 'echo >&$PS1_FD' DEBUG
-export PS0='${PS1_START:0:$((PS1_START=${EPOCHREALTIME/[.,]/}, 0))}'
-export PROMPT_COMMAND='
+PS0='${PS1_START:0:$((PS1_START=${EPOCHREALTIME/[.,]/}, 0))}'
+PROMPT_COMMAND='
     if [[ -n "$PS1_START" ]]; then
         PS1_END="${EPOCHREALTIME/[.,]/}"
         PS1_ELAPSED="$((PS1_END - PS1_START))"
@@ -15,5 +16,5 @@ export PROMPT_COMMAND='
     wait -n
     printf "\n\n"
 '
-export PS1='$("<exec>" --run "$?" "\j" "$PS1_ELAPSED" <&$PS1_FD &)'
+PS1='$("<exec>" --run "$?" "\j" "$PS1_ELAPSED" <&$PS1_FD &)'
 

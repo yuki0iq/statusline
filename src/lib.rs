@@ -85,14 +85,19 @@ fn autojoin(vec: &[&str], sep: &str) -> String {
         .join(sep)
 }
 
-struct CommandLineArgs {
+/// Parsed command line arguments
+pub struct CommandLineArgs {
+    /// Last command's return code
     ret_code: Option<u8>,
+    /// Jobs currently running
     jobs_count: u16,
+    /// Last command's elapsed tile
     elapsed_time: Option<u64>,
 }
 
 impl CommandLineArgs {
-    fn from_env<T: AsRef<str>>(arg: &[T]) -> CommandLineArgs {
+    /// Construct args from command line
+    pub fn from_env<T: AsRef<str>>(arg: &[T]) -> CommandLineArgs {
         let ret_code = arg.get(0).map(|val| val.as_ref().parse().unwrap());
         let jobs_count = arg
             .get(1)
@@ -129,9 +134,7 @@ impl StatusLine {
     ///
     /// The statusline created is __basic__ --- it only knows the information which can be
     /// acquired fast. Currently, the only slow information is full git status.
-    ///
-    /// TODO: make CmdLineArgs public and pass it here instead of strange meaningless array
-    pub fn from_env<T: AsRef<str>>(args: &[T]) -> Self {
+    pub fn from_env(args: CommandLineArgs) -> Self {
         let username = env::var("USER").unwrap_or_else(|_| String::from("<user>"));
         let workdir = env::current_dir().unwrap_or_else(|_| PathBuf::new());
         let read_only = unistd::access(&workdir, AccessFlags::W_OK).is_err();
@@ -146,7 +149,7 @@ impl StatusLine {
             workdir,
             username,
             is_root: unistd::getuid().is_root(),
-            args: CommandLineArgs::from_env(args),
+            args,
             is_ext: false,
         }
     }

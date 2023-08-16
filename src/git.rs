@@ -141,12 +141,10 @@ fn packed_objects_len(root: &Path, commit: &str) -> Result<usize> {
             res = res.max(lcp_bytes(&hashes[begin + index - 1], &commit));
         }
         if index < end - begin {
-            res = res.max(
-                lcp_bytes(
-                    &hashes[begin + index + (hashes[begin + index] == commit) as usize],
-                    &commit,
-                ),
-            );
+            res = res.max(lcp_bytes(
+                &hashes[begin + index + (hashes[begin + index] == commit) as usize],
+                &commit,
+            ));
         }
     }
     //eprintln!("packed: {res:?}");

@@ -2,7 +2,7 @@ use libc::{fcntl as fcntl_unsafe, F_SETOWN};
 use nix::{fcntl, unistd};
 use statusline::{
     style::{colorize, INVISIBLE_END, INVISIBLE_START},
-    StatusLine,
+    CommandLineArgs, StatusLine,
 };
 use std::{env, fs, io, io::Write};
 
@@ -27,7 +27,7 @@ fn main() {
             fcntl::fcntl(0, fcntl::FcntlArg::F_SETFL(fcntl::OFlag::O_ASYNC)).unwrap();
 
             let args = args.collect::<Vec<String>>();
-            let line = StatusLine::from_env(&args);
+            let line = StatusLine::from_env(CommandLineArgs::from_env(&args));
 
             eprint!(
                 "\x1b[s\x1b[G\x1b[A{}\x1b[u",
