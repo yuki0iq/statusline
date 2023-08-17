@@ -51,7 +51,7 @@ impl From<&str> for Chassis {
 
 impl Chassis {
     /// Printable chassis icon. These icons require nerd fonts
-    pub fn icon(&self) -> &str {
+    pub fn icon(&self) -> &'static str {
         match self {
             Chassis::Desktop => " ",
             Chassis::Server => "󰒋 ",

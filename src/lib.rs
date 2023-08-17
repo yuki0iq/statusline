@@ -28,7 +28,7 @@ mod venv;
 /// Filesystem-related operations
 pub mod file;
 
-/// Colorize output with ANSI sequences (TODO: rewrite)
+/// ANSI sequences handler, mostly color and cursor magic
 pub mod style;
 
 /// Virtualization detector (not tested tho)
@@ -40,14 +40,15 @@ pub use crate::git::GitStatusExtended;
 pub use crate::prompt::Prompt;
 pub use crate::prompt::PromptMode;
 
-use crate::style::*;
+use crate::style::Style;
 use crate::venv::Venv;
 use chrono::prelude::*;
-use const_format::concatcp;
 use nix::unistd::{self, AccessFlags};
 use std::{
     env,
+    ops::Not,
     path::{Path, PathBuf},
+    string::ToString,
 };
 
 fn buildinfo(workdir: &Path) -> String {
@@ -189,108 +190,117 @@ impl StatusLine {
             (None, None) => (Some(self.workdir.as_path()), None),
         };
 
-        let home_str = if let Some((_, user)) = &self.current_home {
-            format!("{STYLE_BOLD}{COLOR_YELLOW}~{}{STYLE_RESET}", user)
-        } else {
-            String::new()
-        };
-
-        let middle_str = if let Some(middle) = middle {
-            String::from(middle.to_string_lossy())
-        } else {
-            String::new()
-        };
-
-        let highlighted_str = if let Some(highlighted) = highlighted {
-            let highlighted = highlighted.to_string_lossy();
-            format!("{COLOR_CYAN}/{}{STYLE_RESET}", highlighted)
-        } else {
-            String::new()
-        };
+        let home_str = self
+            .current_home
+            .as_ref()
+            .map(|(_, user)| format!("~{}", user).yellow().bold().with_reset().to_string())
+            .unwrap_or_default();
+        let middle_str = middle
+            .and_then(Path::to_str)
+            .map(ToString::to_string)
+            .unwrap_or_default();
+        let highlighted_str = highlighted
+            .and_then(Path::to_str)
+            .map(|s| format!("/{}", s).cyan().with_reset().to_string())
+            .unwrap_or_default();
 
         autojoin(&[&home_str, &middle_str], "/") + &highlighted_str
     }
 
     /// Format the top part of statusline.
     pub fn to_top(&self) -> String {
-        let user_str = format!(
-            "{STYLE_BOLD}{}{} {}",
-            self.prompt.hostuser_left(),
-            self.prompt.user_text(),
-            self.username
-        );
+        let user_str = format!("[{} {}", self.prompt.user_text(), self.username);
         let host_str = format!(
-            "{STYLE_BOLD}{}{} {}{}",
+            "{}{} {}]",
             self.prompt.hostuser_at(),
             self.hostname,
             self.prompt.host_text(),
-            self.prompt.hostuser_right()
         );
         let hostuser = format!(
             "{}{}",
-            colorize(&self.username, &user_str),
-            colorize(&self.hostname, &host_str),
-        );
+            user_str.colorize_with(&self.username),
+            host_str.colorize_with(&self.hostname)
+        )
+        .bold()
+        .with_reset()
+        .to_string();
 
         let workdir = self.get_workdir_str();
-        let readonly = if self.read_only {
-            format!("{}{}{}", COLOR_RED, self.prompt.read_only(), STYLE_RESET)
-        } else {
-            String::new()
-        };
+        let readonly = self
+            .read_only
+            .then_some(self.prompt.read_only().red().with_reset().to_string())
+            .unwrap_or_default();
 
-        let buildinfo = if !self.build_info.is_empty() {
-            format!(
-                "{STYLE_BOLD}{COLOR_PURPLE}[{}]{STYLE_RESET}",
+        let buildinfo = self
+            .build_info
+            .is_empty()
+            .not()
+            .then_some(
                 self.build_info
+                    .boxed()
+                    .purple()
+                    .bold()
+                    .with_reset()
+                    .to_string(),
             )
-        } else {
-            String::new()
-        };
+            .unwrap_or_default();
 
-        let datetime = Local::now()
+        let datetime_str = Local::now()
             .format("%a, %Y-%b-%d, %H:%M:%S in %Z")
             .to_string();
+        let term_width = term_size::dimensions().map(|s| s.0).unwrap_or(80) as i32;
+        let datetime = datetime_str
+            .gray()
+            .with_reset()
+            .horizontal_absolute(term_width - datetime_str.len() as i32)
+            .to_string();
 
-        let gitinfo = if let Some(git_status) = &self.git {
-            format!(
-                "{STYLE_BOLD}{COLOR_PINK}[{}{}]{STYLE_RESET}",
-                git_status.pretty(&self.prompt),
-                if self.is_ext {
-                    self.git_ext
-                        .as_ref()
-                        .map(|x| x.pretty(&self.prompt))
-                        .unwrap_or_default()
-                } else {
-                    "...".to_string()
-                }
-            )
-        } else {
-            String::new()
-        };
+        let gitinfo = self
+            .git.as_ref()
+            .map(|git_status| {
+                (git_status.pretty(&self.prompt)
+                    + &self
+                        .is_ext
+                        .then_some(
+                            self.git_ext
+                                .as_ref()
+                                .map(|x| x.pretty(&self.prompt))
+                                .unwrap_or_default(),
+                        )
+                        .unwrap_or("...".to_string()))
+                    .boxed()
+                    .pink()
+                    .bold()
+                    .with_reset()
+                    .to_string()
+            })
+            .unwrap_or_default();
 
-        let elapsed = if let Some(formatted) = self
+        let elapsed = self
             .args
             .elapsed_time
             .and_then(time::microseconds_to_string)
-        {
-            format!(
-                "{COLOR_CYAN}({} {}){STYLE_RESET}",
-                self.prompt.took_time(),
-                &formatted
-            )
-        } else {
-            String::new()
-        };
+            .map(|ms| {
+                format!("{} {}", self.prompt.took_time(), ms)
+                    .rounded()
+                    .cyan()
+                    .with_reset()
+                    .to_string()
+            })
+            .unwrap_or_default();
 
-        let pyvenv = if let Some(venv) = &self.venv {
-            format!(
-                "{STYLE_BOLD}{COLOR_YELLOW}[{}]{STYLE_RESET}",
+        let pyvenv = self
+            .venv
+            .as_ref()
+            .map(|venv| {
                 venv.pretty(&self.prompt)
-            )
-        } else {
-            String::new()
-        };
+                    .boxed()
+                    .yellow()
+                    .bold()
+                    .with_reset()
+                    .to_string()
+            })
+            .unwrap_or_default();
 
         let top_left_line = autojoin(
             &[
@@ -300,63 +310,59 @@ impl StatusLine {
         );
 
         format!(
-            "{INVISIBLE_START}{}{}{ESC}[{}G{COLOR_GREY}{}{STYLE_RESET}{INVISIBLE_END}",
+            "{}{}{}",
             top_left_line,
             (if self.is_ext { "   " } else { "" }),
-            term_size::dimensions().map(|s| s.0).unwrap_or(80) as i32 - datetime.len() as i32,
             datetime,
         )
     }
 
     /// Format the bottom part of the statusline.
     pub fn to_bottom(&self) -> String {
-        let root_str = format!(
-            "{STYLE_BOLD}{}{STYLE_RESET}",
-            if self.is_root {
-                concatcp!(COLOR_RED, "#")
-            } else {
-                concatcp!(COLOR_GREEN, "$")
-            },
-        );
+        let root = self
+            .is_root
+            .then_some("#".red())
+            .unwrap_or("$".green())
+            .bold()
+            .with_reset()
+            .to_string();
 
         let returned = match &self.args.ret_code {
-            Some(0) | Some(130) => format!(
-                "{COLOR_LIGHT_GREEN}{}{STYLE_RESET}",
-                self.prompt.return_ok()
-            ),
-            Some(_) => format!(
-                "{COLOR_LIGHT_RED}{}{STYLE_RESET}",
-                self.prompt.return_fail()
-            ),
-            None => format!(
-                "{COLOR_GREY}{}{STYLE_RESET}",
-                self.prompt.return_unavailable()
-            ),
-        };
+            Some(0) | Some(130) => self.prompt.return_ok().light_green(),
+            Some(_) => self.prompt.return_fail().light_red(),
+            None => self.prompt.return_unavailable().light_gray(),
+        }
+        .with_reset()
+        .to_string();
 
-        let jobs = if self.args.jobs_count != 0 {
-            format!(
-                "{STYLE_BOLD}{COLOR_GREEN}[{} {}]{STYLE_RESET}",
-                self.args.jobs_count,
-                if self.args.jobs_count == 1 {
-                    "job"
-                } else {
-                    "jobs"
-                }
+        let jobs = 0
+            .ne(&self.args.jobs_count)
+            .then_some(
+                format!(
+                    "{} job{}",
+                    self.args.jobs_count,
+                    1.ne(&self.args.jobs_count)
+                        .then_some("s")
+                        .unwrap_or_default()
+                )
+                .green()
+                .bold()
+                .with_reset()
+                .to_string(),
             )
-        } else {
-            String::new()
-        };
+            .unwrap_or_default();
 
-        let bottom_line = autojoin(&[&jobs, &returned, &root_str], " ");
+        let bottom_line = autojoin(&[&jobs, &returned, &root], " ");
 
         format!("{} ", bottom_line)
     }
 
     /// Format the title for terminal.
-    pub fn to_title(&self, prefix: &str) -> String {
+    pub fn to_title(&self, prefix: Option<&str>) -> String {
         let pwd = self.workdir.to_str().unwrap_or("<path>");
-        let extended = format!("{}: {}", prefix, pwd);
-        title(if prefix.is_empty() { pwd } else { &extended })
+        let prefix = prefix.map(|p| format!("{} ", p.boxed())).unwrap_or_default();
+        format!("{}{}@{}: {}", prefix, self.username, self.hostname, pwd)
+            .as_title()
+            .to_string()
     }
 }

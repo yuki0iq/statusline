@@ -1,7 +1,7 @@
-use libc::{fcntl as fcntl_unsafe, F_SETOWN};
-use nix::{fcntl, unistd};
+use libc::fcntl as fcntl_unsafe;
+use nix::{fcntl::{self, FcntlArg, OFlag}, unistd};
 use statusline::{
-    style::{colorize, INVISIBLE_END, INVISIBLE_START},
+    style::Style,
     CommandLineArgs, StatusLine,
 };
 use std::{env, fs, io, io::Write};
@@ -14,7 +14,7 @@ fn main() {
     args.next();
     match args.next().as_deref() {
         Some("--colorize") => match args.next() {
-            Some(text) => println!("{}", colorize(&text, &text)),
+            Some(text) => println!("{}", text.colorize_with(&text)),
             None => println!("`statusline --colorize <text>` to colorize string"),
         },
         Some("--env") => {
@@ -22,25 +22,23 @@ fn main() {
         }
         Some("--run") => {
             unsafe {
-                fcntl_unsafe(0, F_SETOWN, unistd::getpid());
+                fcntl_unsafe(0, libc::F_SETOWN, unistd::getpid());
             }
-            fcntl::fcntl(0, fcntl::FcntlArg::F_SETFL(fcntl::OFlag::O_ASYNC)).unwrap();
+            fcntl::fcntl(0, FcntlArg::F_SETFL(OFlag::O_ASYNC)).unwrap();
 
             let args = args.collect::<Vec<String>>();
             let line = StatusLine::from_env(CommandLineArgs::from_env(&args));
+    
+            let top_line = |line: &StatusLine| line.to_top().prev_line(1).save_restore().to_string();
 
-            eprint!(
-                "\x1b[s\x1b[G\x1b[A{}\x1b[u",
-                line.to_top()
-                    .replace(INVISIBLE_START, "")
-                    .replace(INVISIBLE_END, ""),
-            );
-            print!("{}{}", line.to_title(""), line.to_bottom());
+            eprint!("{}", top_line(&line));
+
+            print!("{}{}", line.to_title(None), line.to_bottom());
             io::stdout().flush().unwrap();
             unistd::close(1).unwrap();
 
             let line = line.extended();
-            eprint!("\x1b[s\x1b[G\x1b[A{}\x1b[u", line.to_top());
+            eprint!("{}", top_line(&line));
         }
         _ => {
             println!("Bash status line --- written in rust. Add `eval \"$(\"{exec}\" --env)\"` to your .bashrc!");

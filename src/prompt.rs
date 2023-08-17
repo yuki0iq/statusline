@@ -49,84 +49,84 @@ impl Prompt {
         }
     }
 
-    pub fn host_text(&self) -> &str {
+    pub fn host_text(&self) -> &'static str {
         match &self.mode {
             PromptMode::TextMode => "",
             PromptMode::NerdfontMode { .. } => self.chassis.icon(),
         }
     }
 
-    pub fn user_text(&self) -> &str {
+    pub fn user_text(&self) -> &'static str {
         match &self.mode {
             PromptMode::TextMode => "",
             PromptMode::NerdfontMode { .. } => "",
         }
     }
 
-    pub fn hostuser_at(&self) -> &str {
+    pub fn hostuser_at(&self) -> &'static str {
         match &self.mode {
             PromptMode::TextMode => "@",
             PromptMode::NerdfontMode { .. } => "＠",
         }
     }
 
-    pub fn hostuser_left(&self) -> &str {
+    pub fn hostuser_left(&self) -> &'static str {
         match &self.mode {
             PromptMode::TextMode => "<",
             PromptMode::NerdfontMode { .. } => "[",
         }
     }
 
-    pub fn hostuser_right(&self) -> &str {
+    pub fn hostuser_right(&self) -> &'static str {
         match &self.mode {
             PromptMode::TextMode => ">",
             PromptMode::NerdfontMode { .. } => "]",
         }
     }
 
-    pub fn read_only(&self) -> &str {
+    pub fn read_only(&self) -> &'static str {
         match &self.mode {
             PromptMode::TextMode => "R/O",
             PromptMode::NerdfontMode { .. } => "",
         }
     }
 
-    pub fn on_branch(&self) -> &str {
+    pub fn on_branch(&self) -> &'static str {
         match &self.mode {
             PromptMode::TextMode => "on",
             PromptMode::NerdfontMode { .. } => "",
         }
     }
 
-    pub fn at_commit(&self) -> &str {
+    pub fn at_commit(&self) -> &'static str {
         match &self.mode {
             PromptMode::TextMode => "at",
             PromptMode::NerdfontMode { .. } => "",
         }
     }
 
-    pub fn ahead(&self) -> &str {
+    pub fn ahead(&self) -> &'static str {
         match &self.mode {
             PromptMode::TextMode => "^",
             PromptMode::NerdfontMode { .. } => "󰞙 ",
         }
     }
 
-    pub fn behind(&self) -> &str {
+    pub fn behind(&self) -> &'static str {
         match &self.mode {
             PromptMode::TextMode => "v",
             PromptMode::NerdfontMode { .. } => "󰞕 ",
         }
     }
 
-    pub fn stash(&self) -> &str {
+    pub fn stash(&self) -> &'static str {
         match &self.mode {
             PromptMode::TextMode => "*",
             PromptMode::NerdfontMode { .. } => " ",
         }
     }
 
-    pub fn conflict(&self) -> &str {
+    pub fn conflict(&self) -> &'static str {
         match &self.mode {
             PromptMode::TextMode => "~",
             PromptMode::NerdfontMode { is_minimal: false } => "󰞇 ",
@@ -134,21 +134,21 @@ impl Prompt {
         }
     }
 
-    pub fn staged(&self) -> &str {
+    pub fn staged(&self) -> &'static str {
         match &self.mode {
             PromptMode::TextMode => "+",
             PromptMode::NerdfontMode { .. } => " ",
         }
     }
 
-    pub fn dirty(&self) -> &str {
+    pub fn dirty(&self) -> &'static str {
         match &self.mode {
             PromptMode::TextMode => "!",
             PromptMode::NerdfontMode { .. } => " ",
         }
     }
 
-    pub fn untracked(&self) -> &str {
+    pub fn untracked(&self) -> &'static str {
         match &self.mode {
             PromptMode::TextMode => "?",
             PromptMode::NerdfontMode { is_minimal: false } => " ",
@@ -156,77 +156,77 @@ impl Prompt {
         }
     }
 
-    pub fn git_bisect(&self) -> &str {
+    pub fn git_bisect(&self) -> &'static str {
         match &self.mode {
             PromptMode::TextMode => "bisecting",
             PromptMode::NerdfontMode { .. } => "󰩫 ", //TOOD
         }
     }
 
-    pub fn git_revert(&self) -> &str {
+    pub fn git_revert(&self) -> &'static str {
         match &self.mode {
             PromptMode::TextMode => "reverting",
             PromptMode::NerdfontMode { .. } => " ",
         }
     }
 
-    pub fn git_cherry(&self) -> &str {
+    pub fn git_cherry(&self) -> &'static str {
         match &self.mode {
             PromptMode::TextMode => "cherry-picking",
             PromptMode::NerdfontMode { .. } => " ",
         }
     }
 
-    pub fn git_merge(&self) -> &str {
+    pub fn git_merge(&self) -> &'static str {
         match &self.mode {
             PromptMode::TextMode => "merging",
             PromptMode::NerdfontMode { .. } => " ",
         }
     }
 
-    pub fn git_rebase(&self) -> &str {
+    pub fn git_rebase(&self) -> &'static str {
         match &self.mode {
             PromptMode::TextMode => "rebasing",
             PromptMode::NerdfontMode { .. } => "󰝖 ",
         }
     }
 
-    pub fn git_autorebase(&self) -> &str {
+    pub fn git_autorebase(&self) -> &'static str {
         match &self.mode {
             PromptMode::TextMode => "autorebasing",
             PromptMode::NerdfontMode { .. } => " ",
         }
     }
 
-    pub fn return_ok(&self) -> &str {
+    pub fn return_ok(&self) -> &'static str {
         match &self.mode {
             PromptMode::TextMode => "OK",
             PromptMode::NerdfontMode { .. } => "✓",
         }
     }
 
-    pub fn return_fail(&self) -> &str {
+    pub fn return_fail(&self) -> &'static str {
         match &self.mode {
             PromptMode::TextMode => "Failed",
             PromptMode::NerdfontMode { .. } => "✗",
         }
     }
 
-    pub fn return_unavailable(&self) -> &str {
+    pub fn return_unavailable(&self) -> &'static str {
         match &self.mode {
             PromptMode::TextMode => "N/A",
             PromptMode::NerdfontMode { .. } => "⁇",
         }
     }
 
-    pub fn took_time(&self) -> &str {
+    pub fn took_time(&self) -> &'static str {
         match &self.mode {
             PromptMode::TextMode => "took",
             PromptMode::NerdfontMode { .. } => "",
         }
     }
 
-    pub fn venv(&self) -> &str {
+    pub fn venv(&self) -> &'static str {
         match &self.mode {
             PromptMode::TextMode => "py",
             PromptMode::NerdfontMode { .. } => "",

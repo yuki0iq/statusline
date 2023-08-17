@@ -1,13 +1,12 @@
 [package]
 name = "statusline"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2021"
 description = "Status line for bash PS1 with useful features. Rewritten from bash to be blazingly fast"
 license-file = "license.txt"
 repository = "https://git.yukii.keenetic.pro/yuki0iq/bash-status-line-2"
 
 [dependencies]
-const_format = "0.2.31"
 sha256 = "1.2.1"
 pwd = "1.4.0"
 nix = { version = "0.26.2", features = ["fs", "user"] }
