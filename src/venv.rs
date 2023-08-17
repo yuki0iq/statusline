@@ -35,11 +35,14 @@ fn venv_name(path: &Path) -> &str {
         .filter_map(Path::file_name)
         .filter_map(OsStr::to_str)
         .find_map(|name| {
-            ["venv", "env", "virtualenv"].contains(&name).not().then_some(
-                ["venv", "virtualenv", "env", "-", "_"]
-                    .iter()
-                    .fold(name, |s, suf| s.strip_suffix(suf).unwrap_or(s)),
-            )
+            ["venv", "env", "virtualenv"]
+                .contains(&name)
+                .not()
+                .then_some(
+                    ["venv", "virtualenv", "env", "-", "_"]
+                        .iter()
+                        .fold(name, |s, suf| s.strip_suffix(suf).unwrap_or(s)),
+                )
         })
         .unwrap_or("<venv>")
 }

@@ -156,6 +156,48 @@ impl Prompt {
         }
     }
 
+    pub fn git_bisect(&self) -> &str {
+        match &self.mode {
+            PromptMode::TextMode => "bisecting",
+            PromptMode::NerdfontMode { .. } => "󰩫 ", //TOOD
+        }
+    }
+
+    pub fn git_revert(&self) -> &str {
+        match &self.mode {
+            PromptMode::TextMode => "reverting",
+            PromptMode::NerdfontMode { .. } => " ",
+        }
+    }
+
+    pub fn git_cherry(&self) -> &str {
+        match &self.mode {
+            PromptMode::TextMode => "cherry-picking",
+            PromptMode::NerdfontMode { .. } => " ",
+        }
+    }
+
+    pub fn git_merge(&self) -> &str {
+        match &self.mode {
+            PromptMode::TextMode => "merging",
+            PromptMode::NerdfontMode { .. } => " ",
+        }
+    }
+
+    pub fn git_rebase(&self) -> &str {
+        match &self.mode {
+            PromptMode::TextMode => "rebasing",
+            PromptMode::NerdfontMode { .. } => "󰝖 ",
+        }
+    }
+
+    pub fn git_autorebase(&self) -> &str {
+        match &self.mode {
+            PromptMode::TextMode => "autorebasing",
+            PromptMode::NerdfontMode { .. } => " ",
+        }
+    }
+
     pub fn return_ok(&self) -> &str {
         match &self.mode {
             PromptMode::TextMode => "OK",

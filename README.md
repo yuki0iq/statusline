@@ -7,7 +7,7 @@ rewritten in Rust.
 
 * Linux-compatible OS. Other OSes were not tested, but it will probably fail to run
 * Bash, for the shell
-* Git, for repo information
+* *(Optional)* Git, for repo information
 * Cargo, for installing and updating
 
 ## Installation
@@ -25,7 +25,7 @@ Don't forget to check PATH and update from time to time.
 ## Features
 
 * __Colorized username__ and hostname to prevent confusion if this statusline is installed on more than one device --- especially if connecting over SSH. Red color is reserved for root user
-* __Git status display__ which immediately display repo's "persistent" info, and almost immediately the status. In addition, part of the working directory path inside the most nested git repo is highlighted
+* __Git status display__ which immediately display repo's "persistent" info along with current state (rebasing, merging, etc.), and almost immediately the status. In addition, part of the working directory path inside the most nested git repo is highlighted
 * __Chassis icons__ to display the type of the host device, which are acquired as fast as systemd does
 * __Build tools display__ to inform which commands can be executed to "make" the project in working directory. Makefile, ./configure, CMake, purplesyringa's ./jr, qbs, qmake and cargo are supported
 * __Simplified homes__  to make path more informative. Current user's home becomes `~`, others' become `~username`. Some paths are ignored to not make any confusion

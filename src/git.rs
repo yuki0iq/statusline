@@ -4,7 +4,7 @@ use anyhow::Result;
 use hex::FromHex;
 use mmarinus::{perms, Map, Private};
 use std::{
-    fs,
+    fs::{self, File},
     io::{BufRead, BufReader, Error, ErrorKind},
     iter, mem,
     path::{Path, PathBuf},
@@ -180,9 +180,75 @@ impl Head {
     }
 }
 
+enum State {
+    Merging,
+    Rebasing {
+        interactive: bool,
+        done: usize,
+        todo: usize,
+    },
+    CherryPicking,
+    Reverting,
+    Bisecting,
+}
+
+impl State {
+    fn from_env(root: &Path) -> Option<State> {
+        Some(if file::exists(&root.join("BISECT_LOG")) {
+            State::Bisecting
+        } else if file::exists(&root.join("REVERT_HEAD")) {
+            State::Reverting
+        } else if file::exists(&root.join("CHERRY_PICK_HEAD")) {
+            State::CherryPicking
+        } else if file::exists(&root.join("rebase-merge")) {
+            State::Rebasing {
+                interactive: file::exists(&root.join("rebase-merge/interactive")),
+                todo: if let Ok(file) = File::open(root.join("rebase-merge/git-rebase-todo")) {
+                    BufReader::new(file)
+                        .lines()
+                        .filter_map(|line| line.ok()?.strip_prefix('#').map(|_| ()))
+                        .count()
+                } else {
+                    0
+                },
+                done: if let Ok(file) = File::open(root.join("rebase-merge/done")) {
+                    BufReader::new(file).lines().count()
+                } else {
+                    0
+                },
+            }
+        } else if file::exists(&root.join("MERGE_HEAD")) {
+            State::Merging
+        } else {
+            None?
+        })
+    }
+
+    fn pretty(&self, prompt: &Prompt) -> String {
+        match self {
+            State::Bisecting => prompt.git_bisect().to_string(),
+            State::Reverting => prompt.git_revert().to_string(),
+            State::CherryPicking => prompt.git_cherry().to_string(),
+            State::Merging => prompt.git_merge().to_string(),
+            State::Rebasing {
+                interactive,
+                done,
+                todo,
+            } => format!(
+                "{} {}/{}",
+                if *interactive {
+                    prompt.git_rebase()
+                } else {
+                    prompt.git_autorebase()
+                },
+                done,
+                todo
+            ),
+        }
+    }
+}
+
 /// Fast git status information from `.git` folder
-///
-/// TODO: add "merging", "rebasing" and other...?
 pub struct GitStatus {
     /// Working tree path
     pub tree: PathBuf,
@@ -190,6 +256,7 @@ pub struct GitStatus {
     head: Head,
     remote_branch: Option<String>,
     stashes: usize,
+    state: Option<State>,
 }
 
 /// Additional git status information, about branch tracking and working tree state
@@ -269,12 +336,15 @@ impl GitStatus {
             .map(|file| BufReader::new(file).lines().count())
             .unwrap_or(0);
 
+        let state = State::from_env(&root);
+
         Ok(GitStatus {
             tree,
             root,
             head,
             remote_branch,
             stashes,
+            state,
         })
     }
 
@@ -353,8 +423,14 @@ impl GitStatus {
 
     /// Pretty-formats git status with respect to the chosen mode
     pub fn pretty(&self, prompt: &Prompt) -> String {
+        let mut res = vec![];
+
+        if let Some(state) = &self.state {
+            res.push(format!("{}|", state.pretty(prompt)));
+        }
+
         let head = self.head.pretty(&self.root, prompt);
-        let mut res = vec![head];
+        res.push(head);
 
         match (&self.head, &self.remote_branch) {
             (Head::Branch(head), Some(remote)) if head.ne(remote) => {
