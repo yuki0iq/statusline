@@ -1,9 +1,9 @@
 use libc::fcntl as fcntl_unsafe;
-use nix::{fcntl::{self, FcntlArg, OFlag}, unistd};
-use statusline::{
-    style::Style,
-    CommandLineArgs, StatusLine,
+use nix::{
+    fcntl::{self, FcntlArg, OFlag},
+    unistd,
 };
+use statusline::{CommandLineArgs, StatusLine, Style};
 use std::{env, fs, io, io::Write};
 
 fn main() {
@@ -14,7 +14,7 @@ fn main() {
     args.next();
     match args.next().as_deref() {
         Some("--colorize") => match args.next() {
-            Some(text) => println!("{}", text.colorize_with(&text)),
+            Some(text) => println!("{}", text.colorize_with(&text).bold()),
             None => println!("`statusline --colorize <text>` to colorize string"),
         },
         Some("--env") => {
@@ -28,12 +28,13 @@ fn main() {
 
             let args = args.collect::<Vec<String>>();
             let line = StatusLine::from_env(CommandLineArgs::from_env(&args));
-    
-            let top_line = |line: &StatusLine| line.to_top().prev_line(1).save_restore().to_string();
+
+            let top_line =
+                |line: &StatusLine| line.to_top().prev_line(1).save_restore().to_string();
 
             eprint!("{}", top_line(&line));
 
-            print!("{}{}", line.to_title(None), line.to_bottom());
+            print!("{}{}", line.to_title(None).invisible(), line.to_bottom());
             io::stdout().flush().unwrap();
             unistd::close(1).unwrap();
 

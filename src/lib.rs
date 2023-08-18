@@ -5,10 +5,13 @@
 //! # Example
 //!
 //! ```
-//! let line = StatusLine::from_env(CommandLineArgs::from_env(&[]));
-//! println!("{}", line.to_title("test"));
+//! use statusline::{CommandLineArgs, StatusLine};
+//!
+//! let line = StatusLine::from_env(CommandLineArgs::from_env::<&str>(&[]));
+//! println!("{}", line.to_title(Some("test")));
 //! println!("{}", line.to_top());
 //! print!("{}", line.to_bottom());  // Or you can use readline with `line.to_bottom()` as prompt
+//!
 //! // And, additionally, you can start a separate thread for getting more info
 //! // which should be outputed "over" the first top line
 //! ```
@@ -22,25 +25,23 @@
 mod chassis;
 mod git;
 mod prompt;
+mod style;
 mod time;
 mod venv;
 
 /// Filesystem-related operations
 pub mod file;
 
-/// ANSI sequences handler, mostly color and cursor magic
-pub mod style;
-
 /// Virtualization detector (not tested tho)
 pub mod virt;
 
-pub use crate::chassis::Chassis;
-pub use crate::git::GitStatus;
-pub use crate::git::GitStatusExtended;
-pub use crate::prompt::Prompt;
-pub use crate::prompt::PromptMode;
+pub use crate::{
+    chassis::Chassis,
+    git::{GitStatus, GitStatusExtended},
+    prompt::{Prompt, PromptMode},
+    style::{Style, Styled},
+};
 
-use crate::style::Style;
 use crate::venv::Venv;
 use chrono::prelude::*;
 use nix::unistd::{self, AccessFlags};
@@ -193,7 +194,13 @@ impl StatusLine {
         let home_str = self
             .current_home
             .as_ref()
-            .map(|(_, user)| format!("~{}", user).yellow().bold().with_reset().to_string())
+            .map(|(_, user)| {
+                format!("~{}", user)
+                    .yellow()
+                    .bold()
+                    .with_reset()
+                    .to_string()
+            })
             .unwrap_or_default();
         let middle_str = middle
             .and_then(Path::to_str)
@@ -256,7 +263,8 @@ impl StatusLine {
             .to_string();
 
         let gitinfo = self
-            .git.as_ref()
+            .git
+            .as_ref()
             .map(|git_status| {
                 (git_status.pretty(&self.prompt)
                     + &self
@@ -321,18 +329,25 @@ impl StatusLine {
     pub fn to_bottom(&self) -> String {
         let root = self
             .is_root
-            .then_some("#".red())
-            .unwrap_or("$".green())
+            .then_some("#".visible().red())
+            .unwrap_or("$".visible().green())
             .bold()
             .with_reset()
+            .invisible()
             .to_string();
 
+        let (ok, fail, na) = (
+            self.prompt.return_ok().visible(),
+            self.prompt.return_fail().visible(),
+            self.prompt.return_unavailable().visible(),
+        );
         let returned = match &self.args.ret_code {
-            Some(0) | Some(130) => self.prompt.return_ok().light_green(),
-            Some(_) => self.prompt.return_fail().light_red(),
-            None => self.prompt.return_unavailable().light_gray(),
+            Some(0) | Some(130) => ok.light_green(),
+            Some(_) => fail.light_red(),
+            None => na.light_gray(),
         }
         .with_reset()
+        .invisible()
         .to_string();
 
         let jobs = 0
@@ -345,9 +360,12 @@ impl StatusLine {
                         .then_some("s")
                         .unwrap_or_default()
                 )
+                .boxed()
+                .visible()
                 .green()
                 .bold()
                 .with_reset()
+                .invisible()
                 .to_string(),
             )
             .unwrap_or_default();
@@ -360,7 +378,9 @@ impl StatusLine {
     /// Format the title for terminal.
     pub fn to_title(&self, prefix: Option<&str>) -> String {
         let pwd = self.workdir.to_str().unwrap_or("<path>");
-        let prefix = prefix.map(|p| format!("{} ", p.boxed())).unwrap_or_default();
+        let prefix = prefix
+            .map(|p| format!("{} ", p.boxed()))
+            .unwrap_or_default();
         format!("{}{}@{}: {}", prefix, self.username, self.hostname, pwd)
             .as_title()
             .to_string()
