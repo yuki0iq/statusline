@@ -1,7 +1,6 @@
 use crate::file;
 use crate::prompt::Prompt;
 use anyhow::Result;
-use hex::FromHex;
 use mmarinus::{perms, Map, Private};
 use std::{
     fs::{self, File},
@@ -71,7 +70,7 @@ fn objects_dir_len(root: &Path, fanout: &str, rest: &str) -> Result<usize> {
 }
 
 fn packed_objects_len(root: &Path, commit: &str) -> Result<usize> {
-    let commit = <[u8; 20]>::from_hex(commit)?;
+    let commit = fahtsex::parse_oid_str(commit).ok_or(Error::from(ErrorKind::InvalidData))?;
 
     let mut res = 0;
     for entry in fs::read_dir(root.join("objects/pack"))? {
@@ -180,6 +179,7 @@ impl Head {
     }
 }
 
+// TODO: add oid's of origin in merge, cherry, revert...
 enum State {
     Merging,
     Rebasing {
