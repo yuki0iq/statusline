@@ -166,35 +166,28 @@ impl Prompt {
     pub fn git_revert(&self) -> &'static str {
         match &self.mode {
             PromptMode::TextMode => "reverting",
-            PromptMode::NerdfontMode { .. } => " ",
+            PromptMode::NerdfontMode { .. } => "",
         }
     }
 
     pub fn git_cherry(&self) -> &'static str {
         match &self.mode {
             PromptMode::TextMode => "cherry-picking",
-            PromptMode::NerdfontMode { .. } => " ",
+            PromptMode::NerdfontMode { .. } => "",
         }
     }
 
     pub fn git_merge(&self) -> &'static str {
         match &self.mode {
             PromptMode::TextMode => "merging",
-            PromptMode::NerdfontMode { .. } => " ",
+            PromptMode::NerdfontMode { .. } => "",
         }
     }
 
     pub fn git_rebase(&self) -> &'static str {
         match &self.mode {
             PromptMode::TextMode => "rebasing",
-            PromptMode::NerdfontMode { .. } => "󰝖 ",
-        }
-    }
-
-    pub fn git_autorebase(&self) -> &'static str {
-        match &self.mode {
-            PromptMode::TextMode => "autorebasing",
-            PromptMode::NerdfontMode { .. } => " ",
+            PromptMode::NerdfontMode { .. } => "󰝖",
         }
     }
 

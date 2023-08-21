@@ -6,6 +6,7 @@ use std::{
     fs::{self, File},
     io::{BufRead, BufReader, Error, ErrorKind},
     iter, mem,
+    ops::Not,
     path::{Path, PathBuf},
     process::Command,
 };
@@ -151,6 +152,20 @@ fn packed_objects_len(root: &Path, commit: &str) -> Result<usize> {
     Ok(1 + res)
 }
 
+fn abbrev_commit<'a>(root: &Path, id: &'a str) -> &'a str {
+    let (fanout, rest) = id.split_at(2);
+
+    let mut abbrev_len = 4;
+    if let Ok(x) = objects_dir_len(root, fanout, rest) {
+        abbrev_len = abbrev_len.max(x);
+    }
+    if let Ok(x) = packed_objects_len(root, id) {
+        abbrev_len = abbrev_len.max(x);
+    }
+
+    id.split_at(abbrev_len).0
+}
+
 enum Head {
     Branch(String),
     Commit(String),
@@ -162,63 +177,69 @@ impl Head {
         match &self {
             Head::Branch(name) => format!("{} {}", prompt.on_branch(), name),
             Head::Commit(id) => {
-                let (fanout, rest) = id.split_at(2);
-
-                let mut abbrev_len = 4;
-                if let Ok(x) = objects_dir_len(root, fanout, rest) {
-                    abbrev_len = abbrev_len.max(x);
-                }
-                if let Ok(x) = packed_objects_len(root, id) {
-                    abbrev_len = abbrev_len.max(x);
-                }
-
-                format!("{} {}", prompt.at_commit(), id.split_at(abbrev_len).0) // TODO show tag?
+                format!("{} {}", prompt.at_commit(), abbrev_commit(root, id)) // TODO show tag?
             }
             _ => "<unknown>".to_string(),
         }
     }
 }
 
-// TODO: add oid's of origin in merge, cherry, revert...
+// TODO: add some info to bisect...
 enum State {
-    Merging,
-    Rebasing {
-        interactive: bool,
-        done: usize,
-        todo: usize,
-    },
-    CherryPicking,
-    Reverting,
+    Merging { head: String },
+    Rebasing { done: usize, todo: usize },
+    CherryPicking { head: String },
+    Reverting { head: String },
     Bisecting,
 }
 
 impl State {
     fn from_env(root: &Path) -> Option<State> {
+        let revert_head = root.join("REVERT_HEAD");
+        let cherry_pick_head = root.join("CHERRY_PICK_HEAD");
+        let merge_head = root.join("MERGE_HEAD");
+        let rebase_merge = root.join("rebase-merge");
+
+        let abbrev_head = |head: &Path| {
+            fs::read_to_string(head)
+                .map(|id| abbrev_commit(root, &id).to_string())
+                .unwrap_or("??".to_string())
+        };
+
         Some(if file::exists(&root.join("BISECT_LOG")) {
             State::Bisecting
-        } else if file::exists(&root.join("REVERT_HEAD")) {
-            State::Reverting
-        } else if file::exists(&root.join("CHERRY_PICK_HEAD")) {
-            State::CherryPicking
-        } else if file::exists(&root.join("rebase-merge")) {
-            State::Rebasing {
-                interactive: file::exists(&root.join("rebase-merge/interactive")),
-                todo: if let Ok(file) = File::open(root.join("rebase-merge/git-rebase-todo")) {
-                    BufReader::new(file)
-                        .lines()
-                        .filter_map(|line| line.ok()?.strip_prefix('#').map(|_| ()))
-                        .count()
-                } else {
-                    0
-                },
-                done: if let Ok(file) = File::open(root.join("rebase-merge/done")) {
-                    BufReader::new(file).lines().count()
-                } else {
-                    0
-                },
+        } else if file::exists(&revert_head) {
+            State::Reverting {
+                head: abbrev_head(&revert_head),
             }
-        } else if file::exists(&root.join("MERGE_HEAD")) {
-            State::Merging
+        } else if file::exists(&cherry_pick_head) {
+            State::CherryPicking {
+                head: abbrev_head(&cherry_pick_head),
+            }
+        } else if file::exists(&rebase_merge) {
+            fn get_todo(rebase_merge: &Path) -> Result<usize> {
+                Ok(
+                    BufReader::new(File::open(rebase_merge.join("git-rebase-todo"))?)
+                        .lines()
+                        .filter_map(|line| line.ok())
+                        .filter(|line| line.starts_with('#').not())
+                        .count(),
+                )
+            }
+            fn get_done(rebase_merge: &Path) -> Result<usize> {
+                Ok(BufReader::new(File::open(rebase_merge.join("done"))?)
+                    .lines()
+                    .count())
+            }
+
+            State::Rebasing {
+                todo: get_todo(&rebase_merge).unwrap_or(0),
+                done: get_done(&rebase_merge).unwrap_or(0),
+            }
+        } else if file::exists(&merge_head) {
+            State::Merging {
+                head: abbrev_head(&merge_head),
+            }
         } else {
             None?
         })
@@ -227,23 +248,12 @@ impl State {
     fn pretty(&self, prompt: &Prompt) -> String {
         match self {
             State::Bisecting => prompt.git_bisect().to_string(),
-            State::Reverting => prompt.git_revert().to_string(),
-            State::CherryPicking => prompt.git_cherry().to_string(),
-            State::Merging => prompt.git_merge().to_string(),
-            State::Rebasing {
-                interactive,
-                done,
-                todo,
-            } => format!(
-                "{} {}/{}",
-                if *interactive {
-                    prompt.git_rebase()
-                } else {
-                    prompt.git_autorebase()
-                },
-                done,
-                todo
-            ),
+            State::Reverting { head } => format!("{} {}", prompt.git_revert(), head),
+            State::CherryPicking { head } => format!("{} {}", prompt.git_cherry(), head),
+            State::Merging { head } => format!("{} {}", prompt.git_merge(), head),
+            State::Rebasing { done, todo } => {
+                format!("{} {}/{}", prompt.git_rebase(), done, done + todo)
+            }
         }
     }
 }
