@@ -221,7 +221,7 @@ impl State {
                 Ok(
                     BufReader::new(File::open(rebase_merge.join("git-rebase-todo"))?)
                         .lines()
-                        .filter_map(|line| line.ok())
+                        .map_while(Result::ok)
                         .filter(|line| line.starts_with('#').not())
                         .count(),
                 )
@@ -264,7 +264,7 @@ pub struct GitStatus {
     pub tree: PathBuf,
     root: PathBuf,
     head: Head,
-    remote_branch: Option<String>,
+    remote: Option<(String, String)>,
     stashes: usize,
     state: Option<State>,
 }
@@ -319,23 +319,30 @@ impl GitStatus {
             }
         };
 
-        let remote_branch = if let Head::Branch(br) = &head {
+        let remote = if let Head::Branch(br) = &head {
             let section = format!("[branch \"{br}\"]");
             // eprintln!("section: {section} | {:?}", root.join("config"));
-            BufReader::new(fs::File::open(root.join("config"))?)
+            let mut remote_name = None;
+            let mut remote_branch = None;
+            for line in BufReader::new(fs::File::open(root.join("config"))?)
                 .lines()
-                .skip_while(|x| match x {
-                    Ok(x) => x != &section,
-                    _ => false,
-                })
+                .map_while(Result::ok)
+                .skip_while(|x| x != &section)
                 .skip(1)
-                .take_while(|x| matches!(x, Ok(x) if x.starts_with('\t')))
-                .find_map(|x| match x {
-                    Ok(x) => x
-                        .strip_prefix("\tmerge = refs/heads/")
-                        .map(|x| x.to_string()),
-                    _ => None,
-                })
+                .take_while(|x| x.starts_with('\t'))
+            {
+                if let Some(x) = line.strip_prefix("\tmerge = refs/heads/") {
+                    remote_branch = Some(x.to_string());
+                } else if let Some(x) = line.strip_prefix("\tremote = ") {
+                    remote_name = Some(x.to_string());
+                }
+            }
+            if let (Some(name), Some(branch)) = (remote_name, remote_branch) {
+                // eprintln!("remote: {}/{}\n", name, branch);
+                Some((name, branch))
+            } else {
+                None
+            }
         } else {
             None
         };
@@ -352,7 +359,7 @@ impl GitStatus {
             tree,
             root,
             head,
-            remote_branch,
+            remote,
             stashes,
             state,
         })
@@ -361,33 +368,44 @@ impl GitStatus {
     /// Get extended git informtion, if possible. Relies on `git` executable
     pub fn extended(&self) -> Option<GitStatusExtended> {
         let out = Command::new("git")
-            .args([
-                "-C",
-                self.tree.to_str()?,
-                "status",
-                "--porcelain=2",
-                "--branch",
-            ])
+            .args(["-C", self.tree.to_str()?, "status", "--porcelain=2"])
             .output()
             .ok()?;
-        let mut lines = out.stdout.split(|&c| c == b'\n').peekable();
+        let lines = out.stdout.split(|&c| c == b'\n').peekable();
 
-        let mut behind: u32 = 0;
-        let mut ahead: u32 = 0;
-
-        while let Some(cmd) = lines.peek().and_then(|x| x.strip_prefix(b"# ")) {
-            lines.next();
-            if let Some(branches) = cmd.strip_prefix(b"branch.ab ") {
-                let diff = branches
-                    .split(|&c| c == b' ')
-                    .map(|word| std::str::from_utf8(&word[1..]).ok()?.parse().ok())
-                    .collect::<Option<Vec<_>>>()?;
-                if diff.len() != 2 {
-                    return None;
+        let (ahead, behind) =
+            if let (Head::Branch(head), Some((name, branch))) = (&self.head, &self.remote) {
+                let res: Vec<_> = Command::new("git")
+                    .args([
+                        "-C",
+                        self.tree.to_str()?,
+                        "rev-list",
+                        "--count",
+                        "--left-right",
+                        &format!("{}...{}/{}", head, name, branch),
+                    ])
+                    .output()
+                    .ok()?
+                    .stdout
+                    .trim_ascii_end()
+                    .split(|&c| c == b'\t')
+                    .filter_map(|x| {
+                        // eprintln!("filter-mapping: {x:?}\n");
+                        unsafe { mem::transmute::<&[u8], &[std::ascii::Char]>(x) }
+                            .as_str()
+                            .parse::<u32>()
+                            .ok()
+                    })
+                    .take(2)
+                    .collect();
+                if res.len() == 2 {
+                    (res[0], res[1])
+                } else {
+                    (0, 0)
                 }
-                (ahead, behind) = (diff[0], diff[1]);
-            }
-        }
+            } else {
+                (0, 0)
+            };
 
         // println!("ahead and behind is {ahead} {behind}");
 
@@ -442,8 +460,8 @@ impl GitStatus {
         let head = self.head.pretty(&self.root, prompt);
         res.push(head);
 
-        match (&self.head, &self.remote_branch) {
-            (Head::Branch(head), Some(remote)) if head.ne(remote) => {
+        match (&self.head, &self.remote) {
+            (Head::Branch(head), Some((_, remote))) if head.ne(remote) => {
                 res.push(format!(":{}", remote));
             }
             _ => (),
