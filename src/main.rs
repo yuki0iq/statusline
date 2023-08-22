@@ -4,7 +4,10 @@ use nix::{
     unistd,
 };
 use statusline::{CommandLineArgs, StatusLine, Style};
-use std::{env, fs, io, io::Write};
+use std::{
+    env, fs,
+    io::{self, Write},
+};
 
 fn main() {
     let exec = fs::read_link("/proc/self/exe")
