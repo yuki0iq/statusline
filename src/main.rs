@@ -22,9 +22,9 @@ fn main() {
         }
         Some("--run") => {
             unsafe {
-                fcntl_unsafe(0, libc::F_SETOWN, unistd::getpid());
+                fcntl_unsafe(3, libc::F_SETOWN, unistd::getpid());
             }
-            fcntl::fcntl(0, FcntlArg::F_SETFL(OFlag::O_ASYNC)).unwrap();
+            fcntl::fcntl(3, FcntlArg::F_SETFL(OFlag::O_ASYNC)).unwrap();
 
             let args = args.collect::<Vec<String>>();
             let line = StatusLine::from_env(CommandLineArgs::from_env(&args));

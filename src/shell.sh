@@ -13,8 +13,7 @@ PROMPT_COMMAND='
     else
         PS1_ELAPSED=0
     fi
-    wait -n
     printf "\n\n"
 '
-PS1='$("<exec>" --run "$?" "\j" "$PS1_ELAPSED" <&$PS1_FD &)'
+PS1='$("<exec>" --run "$?" "\j" "$PS1_ELAPSED" 3<&$PS1_FD &)'
 
