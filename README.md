@@ -13,18 +13,53 @@ rewritten in Rust.
 
 ## Installation
 
-```bash
-#!/bin/bash
-cargo install statusline
-echo 'export PS1_MODE=...'        >> ~/.bashrc  # for 'text' and 'minimal'
-echo 'eval "$(statusline --env)"' >> ~/.bashrc
-. ~/.bashrc
-```
+0. Install rustup and nightly rust.
+   ```bash
+   pacman -S rustup
+   rustup toolchain add nightly
+   ```
+   Visit [rustup.rs](https://rustup.rs/) if not on Arch-based distro to see how to install on other
+   distros. You may need to run rustup installation with superuser rights
+
+1. Install statusline from cargo
+   ```bash
+   cargo +nightly install statusline
+   ```
+
+2. Check if statusline is in path.
+   ```bash
+   statusline
+   ```
+   If "bash: statusline: command not found" is shown, check your $PATH and ~/.bashrc, a folder
+   where cargo install placed statusline binary should be there.
+
+   If you wish to not add the directory to $PATH, you can just use full path instead of short one
+   in `statusline --env` below
+
+3. Set preferred statusline icons' mode. Do not add this line for defaults!
+   Available modes are:
+   - `PS1_MODE=text`: use ASCII text instead of icons
+   - `PS1_MODE=minimal`: use alternative icon set which is somewhat simpler but may be perplexing
+   - otherwise: use default nerdfont icons
+   ```bash
+   echo 'export PS1_MODE=minimal' >> ~/.bashrc
+   ```
+
+4. Install the statusline to shell
+   ```bash
+   echo 'eval "$(statusline --env)"' >> ~/.bashrc
+   ```
+
+5. Apply changes immediately
+   ```bash
+   source ~/.bashrc
+   ```
 
 Don't forget to check PATH and update from time to time.
 
 You may wish to add `RUSTFLAGS="-C target-feature=+avx2"` to `cargo install statusline`
-for packaging and distributing reasons.
+for packaging and distributing reasons. For simple uses, this may be ignored as statusline compiles
+itself for current machine by default to maximize possible speed without throwing random SIGILL.
 
 ## Features
 
@@ -63,11 +98,12 @@ the working directory path inside the most nested git repo is highlighted
 
 ```
 statusline
-    Display simple message "how to use"
+    Display simple message "how to use". Useless, but may be used to check if statusline is in path
 statusline --env
     Print commands for `.bashrc`
 statusline --run [return_code:N/A [jobs_count:0 [elapsed_time:N/A]]]
-    Print statusline as PS1 prompt
+    Print statusline as PS1 prompt. Is not meant to be invoked directly, however---
+    Expects third fd to exist, will kill itself when something passed to it
 statusline --colorize <str>
     Colorize <str> like hostname and username. Can be used to choose hostname which has the color
     you want
