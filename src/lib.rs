@@ -16,9 +16,9 @@
 //! // which should be outputed "over" the first top line
 //! ```
 
-#![feature(ascii_char)]
 #![feature(byte_slice_trim_ascii)]
 #![feature(io_error_more)]
+#![feature(iter_next_chunk)]
 #![feature(fs_try_exists)]
 #![feature(let_chains)]
 #![feature(slice_first_last_chunk)]

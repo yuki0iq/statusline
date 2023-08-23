@@ -1,12 +1,12 @@
 use crate::file;
 use crate::prompt::Prompt;
-use anyhow::Result;
+use anyhow::{anyhow, bail, Result};
 use mmarinus::{perms, Map, Private};
 use std::{
+    ffi::OsStr,
     fs::{self, File},
     io::{BufRead, BufReader, Error, ErrorKind},
     iter, mem,
-    ops::Not,
     path::{Path, PathBuf},
     process::Command,
 };
@@ -58,7 +58,9 @@ fn load_objects(root: &Path, fanout: &str) -> Result<Vec<String>> {
         .collect::<Result<Vec<_>, _>>()?)
 }
 
-fn objects_dir_len(root: &Path, fanout: &str, rest: &str) -> Result<usize> {
+fn objects_dir_len(root: &Path, id: &str) -> Result<usize> {
+    let (fanout, rest) = id.split_at(2);
+
     // Find len from ".git/objects/xx/..."
     let best_lcp = load_objects(root, fanout)?
         .iter()
@@ -152,18 +154,15 @@ fn packed_objects_len(root: &Path, commit: &str) -> Result<usize> {
     Ok(1 + res)
 }
 
-fn abbrev_commit<'a>(root: &Path, id: &'a str) -> &'a str {
-    let (fanout, rest) = id.split_at(2);
-
+fn abbrev_commit(root: &Path, id: &str) -> usize {
     let mut abbrev_len = 4;
-    if let Ok(x) = objects_dir_len(root, fanout, rest) {
+    if let Ok(x) = objects_dir_len(root, id) {
         abbrev_len = abbrev_len.max(x);
     }
     if let Ok(x) = packed_objects_len(root, id) {
         abbrev_len = abbrev_len.max(x);
     }
-
-    id.split_at(abbrev_len).0
+    abbrev_len
 }
 
 enum Head {
@@ -177,7 +176,8 @@ impl Head {
         match &self {
             Head::Branch(name) => format!("{} {}", prompt.on_branch(), name),
             Head::Commit(id) => {
-                format!("{} {}", prompt.at_commit(), abbrev_commit(root, id)) // TODO show tag?
+                format!("{} {}", prompt.at_commit(), &id[..abbrev_commit(root, id)])
+                // TODO show tag?
             }
             _ => "<unknown>".to_string(),
         }
@@ -201,45 +201,34 @@ impl State {
         let rebase_merge = root.join("rebase-merge");
 
         let abbrev_head = |head: &Path| {
-            fs::read_to_string(head)
-                .map(|id| abbrev_commit(root, &id).to_string())
-                .unwrap_or("??".to_string())
+            fs::read_to_string(head).map(|mut id| {
+                id.truncate(abbrev_commit(root, &id));
+                id
+            })
         };
 
         Some(if file::exists(&root.join("BISECT_LOG")) {
             State::Bisecting
-        } else if file::exists(&revert_head) {
-            State::Reverting {
-                head: abbrev_head(&revert_head),
-            }
-        } else if file::exists(&cherry_pick_head) {
-            State::CherryPicking {
-                head: abbrev_head(&cherry_pick_head),
-            }
+        } else if let Ok(head) = abbrev_head(&revert_head) {
+            State::Reverting { head }
+        } else if let Ok(head) = abbrev_head(&cherry_pick_head) {
+            State::CherryPicking { head }
         } else if file::exists(&rebase_merge) {
-            fn get_todo(rebase_merge: &Path) -> Result<usize> {
-                Ok(
-                    BufReader::new(File::open(rebase_merge.join("git-rebase-todo"))?)
-                        .lines()
-                        .map_while(Result::ok)
-                        .filter(|line| line.starts_with('#').not())
-                        .count(),
-                )
-            }
-            fn get_done(rebase_merge: &Path) -> Result<usize> {
-                Ok(BufReader::new(File::open(rebase_merge.join("done"))?)
+            let todo = match File::open(rebase_merge.join("git-rebase-todo")) {
+                Ok(file) => BufReader::new(file)
                     .lines()
-                    .count())
-            }
-
-            State::Rebasing {
-                todo: get_todo(&rebase_merge).unwrap_or(0),
-                done: get_done(&rebase_merge).unwrap_or(0),
-            }
-        } else if file::exists(&merge_head) {
-            State::Merging {
-                head: abbrev_head(&merge_head),
-            }
+                    .map_while(Result::ok)
+                    .filter(|line| !line.starts_with('#'))
+                    .count(),
+                Err(_) => 0,
+            };
+            let done = match File::open(rebase_merge.join("done")) {
+                Ok(file) => BufReader::new(file).lines().count(),
+                Err(_) => 0,
+            };
+            State::Rebasing { todo, done }
+        } else if let Ok(head) = abbrev_head(&merge_head) {
+            State::Merging { head }
         } else {
             None?
         })
@@ -258,6 +247,30 @@ impl State {
     }
 }
 
+fn get_remote(root: &Path, head: &Head) -> Option<(String, String)> {
+    let Head::Branch(br) = head else {
+        return None;
+    };
+
+    let section = format!("[branch \"{br}\"]");
+    let mut remote_name = None;
+    let mut remote_branch = None;
+    for line in BufReader::new(fs::File::open(root.join("config")).ok()?)
+        .lines()
+        .map_while(Result::ok)
+        .skip_while(|x| x != &section)
+        .skip(1)
+        .take_while(|x| x.starts_with('\t'))
+    {
+        if let Some(x) = line.strip_prefix("\tremote = ") {
+            remote_name = Some(x.to_string());
+        } else if let Some(x) = line.strip_prefix("\tmerge = refs/heads/") {
+            remote_branch = Some(x.to_string());
+        }
+    }
+    remote_name.zip(remote_branch)
+}
+
 /// Fast git status information from `.git` folder
 pub struct GitStatus {
     /// Working tree path
@@ -271,12 +284,12 @@ pub struct GitStatus {
 
 /// Additional git status information, about branch tracking and working tree state
 pub struct GitStatusExtended {
-    behind: u32,
-    ahead: u32,
-    unmerged: u32,
-    staged: u32,
-    dirty: u32,
-    untracked: u32,
+    behind: usize,
+    ahead: usize,
+    unmerged: usize,
+    staged: usize,
+    dirty: usize,
+    untracked: usize,
 }
 
 impl GitStatus {
@@ -319,33 +332,7 @@ impl GitStatus {
             }
         };
 
-        let remote = if let Head::Branch(br) = &head {
-            let section = format!("[branch \"{br}\"]");
-            // eprintln!("section: {section} | {:?}", root.join("config"));
-            let mut remote_name = None;
-            let mut remote_branch = None;
-            for line in BufReader::new(fs::File::open(root.join("config"))?)
-                .lines()
-                .map_while(Result::ok)
-                .skip_while(|x| x != &section)
-                .skip(1)
-                .take_while(|x| x.starts_with('\t'))
-            {
-                if let Some(x) = line.strip_prefix("\tmerge = refs/heads/") {
-                    remote_branch = Some(x.to_string());
-                } else if let Some(x) = line.strip_prefix("\tremote = ") {
-                    remote_name = Some(x.to_string());
-                }
-            }
-            if let (Some(name), Some(branch)) = (remote_name, remote_branch) {
-                // eprintln!("remote: {}/{}\n", name, branch);
-                Some((name, branch))
-            } else {
-                None
-            }
-        } else {
-            None
-        };
+        let remote = get_remote(&root, &head);
 
         let stash_path = root.join("logs/refs/stash");
         // eprintln!("try find stashes in {stash_path:?}");
@@ -368,44 +355,15 @@ impl GitStatus {
     /// Get extended git informtion, if possible. Relies on `git` executable
     pub fn extended(&self) -> Option<GitStatusExtended> {
         let out = Command::new("git")
-            .args(["-C", self.tree.to_str()?, "status", "--porcelain=2"])
+            .arg("-C")
+            .arg(&self.tree)
+            .arg("status")
+            .arg("--porcelain=2")
             .output()
             .ok()?;
         let lines = out.stdout.split(|&c| c == b'\n').peekable();
 
-        let (ahead, behind) =
-            if let (Head::Branch(head), Some((name, branch))) = (&self.head, &self.remote) {
-                let res: Vec<_> = Command::new("git")
-                    .args([
-                        "-C",
-                        self.tree.to_str()?,
-                        "rev-list",
-                        "--count",
-                        "--left-right",
-                        &format!("{}...{}/{}", head, name, branch),
-                    ])
-                    .output()
-                    .ok()?
-                    .stdout
-                    .trim_ascii_end()
-                    .split(|&c| c == b'\t')
-                    .filter_map(|x| {
-                        // eprintln!("filter-mapping: {x:?}\n");
-                        unsafe { mem::transmute::<&[u8], &[std::ascii::Char]>(x) }
-                            .as_str()
-                            .parse::<u32>()
-                            .ok()
-                    })
-                    .take(2)
-                    .collect();
-                if res.len() == 2 {
-                    (res[0], res[1])
-                } else {
-                    (0, 0)
-                }
-            } else {
-                (0, 0)
-            };
+        let (ahead, behind) = self.get_ahead_behind().unwrap_or((0, 0));
 
         // println!("ahead and behind is {ahead} {behind}");
 
@@ -449,6 +407,28 @@ impl GitStatus {
         })
     }
 
+    fn get_ahead_behind(&self) -> Result<(usize, usize)> {
+        let (Head::Branch(head), Some((name, branch))) = (&self.head, &self.remote) else {
+            bail!("Head is not a branch or remote is missing");
+        };
+        Ok(Command::new("git")
+            .arg("-C")
+            .arg(&self.tree)
+            .arg("rev-list")
+            .arg("--count")
+            .arg("--left-right")
+            .arg(format!("{head}...{name}/{branch}"))
+            .output()?
+            .stdout
+            .trim_ascii_end()
+            .split(|&c| c == b'\t')
+            .map(|x| Result::<usize>::Ok(std::str::from_utf8(x)?.parse::<usize>()?))
+            .filter_map(Result::ok)
+            .next_chunk::<2>()
+            .map_err(|_| anyhow!("Invalid rev-list output"))?
+            .into())
+    }
+
     /// Pretty-formats git status with respect to the chosen mode
     pub fn pretty(&self, prompt: &Prompt) -> String {
         let mut res = vec![];
@@ -461,7 +441,7 @@ impl GitStatus {
         res.push(head);
 
         match (&self.head, &self.remote) {
-            (Head::Branch(head), Some((_, remote))) if head.ne(remote) => {
+            (Head::Branch(head), Some((_, remote))) if head != remote => {
                 res.push(format!(":{}", remote));
             }
             _ => (),
