@@ -3,7 +3,6 @@ use crate::prompt::Prompt;
 use anyhow::{anyhow, bail, Result};
 use mmarinus::{perms, Map, Private};
 use std::{
-    ffi::OsStr,
     fs::{self, File},
     io::{BufRead, BufReader, Error, ErrorKind},
     iter, mem,
@@ -319,7 +318,7 @@ impl GitStatus {
                     .ok_or(Error::from(ErrorKind::InvalidFilename))?,
             )
         } else {
-            let head = fs::read_to_string(root.join("HEAD"))?;
+            let head = fs::read_to_string(head_path)?;
             if let Some(rest) = head.strip_prefix("ref:") {
                 parse_ref_by_name(rest)
             } else {
