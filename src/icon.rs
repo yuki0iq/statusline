@@ -1,228 +1,165 @@
-use crate::chassis::Chassis;
+use crate::Chassis;
 use std::env;
 
 /// Icons' modes
-pub enum PromptMode {
+pub enum IconMode {
     /// Use text instead of icons
-    TextMode,
+    Text,
     /// Use icons from nerdfonts
-    NerdfontMode {
-        /// Use alternative icon set (simpler icons, but sometimes hard to get the meaning)
-        is_minimal: bool,
-    },
+    Icons,
+    /// Use alternative icon set (simpler icons, but sometimes hard to get the meaning)
+    MinimalIcons,
 }
 
-impl PromptMode {
+impl IconMode {
     /// Detect prompt mode from `PS1_MODE` environment variable
     ///
-    /// | Environment        | Resulting PromptMode |
+    /// | Environment        | Resulting IconMode   |
     /// |--------------------|----------------------|
     /// | `PS1_MODE=text`    | Text                 |
     /// | `PS1_MODE=minimal` | Alternative nerdfont |
     /// | otherwise          | Default nerdfont     |
     pub fn build() -> Self {
         match env::var("PS1_MODE") {
-            Ok(x) if x == "text" => PromptMode::TextMode,
-            Ok(x) if x == "minimal" => PromptMode::NerdfontMode { is_minimal: true },
-            _ => PromptMode::NerdfontMode { is_minimal: false },
+            Ok(x) if x == "text" => IconMode::Text,
+            Ok(x) if x == "minimal" => IconMode::MinimalIcons,
+            _ => IconMode::Icons,
         }
+    }
+
+    /// TODO
+    pub fn icon(&self, icon: Icon) -> &'static str {
+        icon.pretty(&self)
     }
 }
 
-/// Statusline icons getter with respect to [PromptMode] and [Chassis]
-///
-/// This object is intended to be constructed only once per statusline construction because
-/// icon mode and chassis are not fixed and may change suddenly
-///
-/// TODO: rename? this is cringe why icongetter is prompt
-pub struct Prompt {
-    mode: PromptMode,
-    chassis: Chassis,
+/// TODO
+#[non_exhaustive]
+pub enum Icon {
+    Host,
+    User,
+    HostAt,
+    ReadOnly,
+    OnBranch,
+    AtCommit,
+    Ahead,
+    Behind,
+    Stashes,
+    Conflict,
+    Staged,
+    Dirty,
+    Untracked,
+    Bisecting,
+    Reverting,
+    CherryPicking,
+    Merging,
+    Rebasing,
+    ReturnOk,
+    ReturnFail,
+    ReturnNA,
+    TookTime,
+    Venv,
 }
 
-impl Prompt {
-    /// Constructs "prompt" from environment and system info
-    pub fn build() -> Self {
-        Prompt {
-            mode: PromptMode::build(),
-            chassis: Chassis::get(),
-        }
-    }
-
-    pub fn host_text(&self) -> &'static str {
-        match &self.mode {
-            PromptMode::TextMode => "",
-            PromptMode::NerdfontMode { .. } => self.chassis.icon(),
-        }
-    }
-
-    pub fn user_text(&self) -> &'static str {
-        match &self.mode {
-            PromptMode::TextMode => "",
-            PromptMode::NerdfontMode { .. } => "",
-        }
-    }
-
-    pub fn hostuser_at(&self) -> &'static str {
-        match &self.mode {
-            PromptMode::TextMode => "@",
-            PromptMode::NerdfontMode { .. } => "＠",
-        }
-    }
-
-    pub fn hostuser_left(&self) -> &'static str {
-        match &self.mode {
-            PromptMode::TextMode => "<",
-            PromptMode::NerdfontMode { .. } => "[",
-        }
-    }
-
-    pub fn hostuser_right(&self) -> &'static str {
-        match &self.mode {
-            PromptMode::TextMode => ">",
-            PromptMode::NerdfontMode { .. } => "]",
-        }
-    }
-
-    pub fn read_only(&self) -> &'static str {
-        match &self.mode {
-            PromptMode::TextMode => "R/O",
-            PromptMode::NerdfontMode { .. } => "",
-        }
-    }
-
-    pub fn on_branch(&self) -> &'static str {
-        match &self.mode {
-            PromptMode::TextMode => "on",
-            PromptMode::NerdfontMode { .. } => "",
-        }
-    }
-
-    pub fn at_commit(&self) -> &'static str {
-        match &self.mode {
-            PromptMode::TextMode => "at",
-            PromptMode::NerdfontMode { .. } => "",
-        }
-    }
-
-    pub fn ahead(&self) -> &'static str {
-        match &self.mode {
-            PromptMode::TextMode => "^",
-            PromptMode::NerdfontMode { .. } => "󰞙 ",
-        }
-    }
-
-    pub fn behind(&self) -> &'static str {
-        match &self.mode {
-            PromptMode::TextMode => "v",
-            PromptMode::NerdfontMode { .. } => "󰞕 ",
-        }
-    }
-
-    pub fn stash(&self) -> &'static str {
-        match &self.mode {
-            PromptMode::TextMode => "*",
-            PromptMode::NerdfontMode { .. } => " ",
-        }
-    }
-
-    pub fn conflict(&self) -> &'static str {
-        match &self.mode {
-            PromptMode::TextMode => "~",
-            PromptMode::NerdfontMode { is_minimal: false } => "󰞇 ",
-            PromptMode::NerdfontMode { is_minimal: true } => " ",
-        }
-    }
-
-    pub fn staged(&self) -> &'static str {
-        match &self.mode {
-            PromptMode::TextMode => "+",
-            PromptMode::NerdfontMode { .. } => " ",
-        }
-    }
-
-    pub fn dirty(&self) -> &'static str {
-        match &self.mode {
-            PromptMode::TextMode => "!",
-            PromptMode::NerdfontMode { .. } => " ",
-        }
-    }
-
-    pub fn untracked(&self) -> &'static str {
-        match &self.mode {
-            PromptMode::TextMode => "?",
-            PromptMode::NerdfontMode { is_minimal: false } => " ",
-            PromptMode::NerdfontMode { is_minimal: true } => " ",
-        }
-    }
-
-    pub fn git_bisect(&self) -> &'static str {
-        match &self.mode {
-            PromptMode::TextMode => "bisecting",
-            PromptMode::NerdfontMode { .. } => "󰩫 ", //TOOD
-        }
-    }
-
-    pub fn git_revert(&self) -> &'static str {
-        match &self.mode {
-            PromptMode::TextMode => "reverting",
-            PromptMode::NerdfontMode { .. } => "",
-        }
-    }
-
-    pub fn git_cherry(&self) -> &'static str {
-        match &self.mode {
-            PromptMode::TextMode => "cherry-picking",
-            PromptMode::NerdfontMode { .. } => "",
-        }
-    }
-
-    pub fn git_merge(&self) -> &'static str {
-        match &self.mode {
-            PromptMode::TextMode => "merging",
-            PromptMode::NerdfontMode { .. } => "",
-        }
-    }
-
-    pub fn git_rebase(&self) -> &'static str {
-        match &self.mode {
-            PromptMode::TextMode => "rebasing",
-            PromptMode::NerdfontMode { .. } => "󰝖",
-        }
-    }
-
-    pub fn return_ok(&self) -> &'static str {
-        match &self.mode {
-            PromptMode::TextMode => "OK",
-            PromptMode::NerdfontMode { .. } => "✓",
-        }
-    }
-
-    pub fn return_fail(&self) -> &'static str {
-        match &self.mode {
-            PromptMode::TextMode => "Failed",
-            PromptMode::NerdfontMode { .. } => "✗",
-        }
-    }
-
-    pub fn return_unavailable(&self) -> &'static str {
-        match &self.mode {
-            PromptMode::TextMode => "N/A",
-            PromptMode::NerdfontMode { .. } => "⁇",
-        }
-    }
-
-    pub fn took_time(&self) -> &'static str {
-        match &self.mode {
-            PromptMode::TextMode => "took",
-            PromptMode::NerdfontMode { .. } => "",
-        }
-    }
-
-    pub fn venv(&self) -> &'static str {
-        match &self.mode {
-            PromptMode::TextMode => "py",
-            PromptMode::NerdfontMode { .. } => "",
+impl Icon {
+    fn pretty(&self, mode: &IconMode) -> &'static str {
+        use Icon::*;
+        use IconMode::*;
+        match &self {
+            Host => match &mode {
+                Text => "",
+                Icons | MinimalIcons => Chassis::get().icon(),
+            },
+            User => match &mode {
+                Text => "as",
+                Icons | MinimalIcons => "",
+            },
+            HostAt => match &mode {
+                Text => " at ",
+                Icons | MinimalIcons => "＠",
+            },
+            ReadOnly => match &mode {
+                Text => "R/O",
+                Icons | MinimalIcons => "",
+            },
+            OnBranch => match &mode {
+                Text => "on",
+                Icons | MinimalIcons => "",
+            },
+            AtCommit => match &mode {
+                Text => "at",
+                Icons | MinimalIcons => "",
+            },
+            Ahead => match &mode {
+                Text => "^",
+                Icons | MinimalIcons => "󰞙 ",
+            },
+            Behind => match &mode {
+                Text => "v",
+                Icons | MinimalIcons => "󰞕 ",
+            },
+            Stashes => match &mode {
+                Text => "*",
+                Icons | MinimalIcons => " ",
+            },
+            Conflict => match &mode {
+                Text => "~",
+                Icons => "󰞇 ",
+                MinimalIcons => " ",
+            },
+            Staged => match &mode {
+                Text => "+",
+                Icons | MinimalIcons => " ",
+            },
+            Dirty => match &mode {
+                Text => "!",
+                Icons | MinimalIcons => " ",
+            },
+            Untracked => match &mode {
+                Text => "?",
+                Icons => " ",
+                MinimalIcons => " ",
+            },
+            Bisecting => match &mode {
+                Text => "bisecting",
+                Icons | MinimalIcons => "󰩫 ", //TOOD
+            },
+            Reverting => match &mode {
+                Text => "reverting",
+                Icons | MinimalIcons => "",
+            },
+            CherryPicking => match &mode {
+                Text => "cherry-picking",
+                Icons | MinimalIcons => "",
+            },
+            Merging => match &mode {
+                Text => "merging",
+                Icons | MinimalIcons => "",
+            },
+            Rebasing => match &mode {
+                Text => "rebasing",
+                Icons | MinimalIcons => "󰝖",
+            },
+            ReturnOk => match &mode {
+                Text => "OK",
+                Icons | MinimalIcons => "✓",
+            },
+            ReturnFail => match &mode {
+                Text => "Failed",
+                Icons | MinimalIcons => "✗",
+            },
+            ReturnNA => match &mode {
+                Text => "N/A",
+                Icons | MinimalIcons => "⁇",
+            },
+            TookTime => match &mode {
+                Text => "took",
+                Icons | MinimalIcons => "",
+            },
+            Venv => match &mode {
+                Text => "py",
+                Icons | MinimalIcons => "",
+            },
         }
     }
 }

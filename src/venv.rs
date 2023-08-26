@@ -1,4 +1,4 @@
-use crate::prompt::Prompt;
+use crate::{Icon, Icons};
 use anyhow::Result;
 use std::{
     env,
@@ -25,8 +25,8 @@ impl Venv {
         Some(Venv { name, version })
     }
 
-    pub fn pretty(&self, prompt: &Prompt) -> String {
-        format!("{} {}|{}", prompt.venv(), self.version, self.name)
+    pub fn pretty(&self, icons: &Icons) -> String {
+        format!("{} {}|{}", icons.icon(Icon::Venv), self.version, self.name)
     }
 }
 

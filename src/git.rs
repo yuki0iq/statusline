@@ -1,5 +1,5 @@
 use crate::file;
-use crate::prompt::Prompt;
+use crate::{Icon, Icons};
 use anyhow::{anyhow, bail, Result};
 use mmarinus::{perms, Map, Private};
 use std::{
@@ -171,11 +171,11 @@ enum Head {
 }
 
 impl Head {
-    fn pretty(&self, root: &Path, prompt: &Prompt) -> String {
+    fn pretty(&self, root: &Path, icons: &Icons) -> String {
         match &self {
-            Head::Branch(name) => format!("{} {}", prompt.on_branch(), name),
+            Head::Branch(name) => format!("{} {}", icons.icon(Icon::OnBranch), name),
             Head::Commit(id) => {
-                format!("{} {}", prompt.at_commit(), &id[..abbrev_commit(root, id)])
+                format!("{} {}", icons.icon(Icon::AtCommit), &id[..abbrev_commit(root, id)])
                 // TODO show tag?
             }
             _ => "<unknown>".to_string(),
@@ -233,14 +233,14 @@ impl State {
         })
     }
 
-    fn pretty(&self, prompt: &Prompt) -> String {
+    fn pretty(&self, icons: &Icons) -> String {
         match self {
-            State::Bisecting => prompt.git_bisect().to_string(),
-            State::Reverting { head } => format!("{} {}", prompt.git_revert(), head),
-            State::CherryPicking { head } => format!("{} {}", prompt.git_cherry(), head),
-            State::Merging { head } => format!("{} {}", prompt.git_merge(), head),
+            State::Bisecting => icons.icon(Icon::Bisecting).to_string(),
+            State::Reverting { head } => format!("{} {}", icons.icon(Icon::Reverting), head),
+            State::CherryPicking { head } => format!("{} {}", icons.icon(Icon::CherryPicking), head),
+            State::Merging { head } => format!("{} {}", icons.icon(Icon::Merging), head),
             State::Rebasing { done, todo } => {
-                format!("{} {}/{}", prompt.git_rebase(), done, done + todo)
+                format!("{} {}/{}", icons.icon(Icon::Rebasing), done, done + todo)
             }
         }
     }
@@ -429,14 +429,14 @@ impl GitStatus {
     }
 
     /// Pretty-formats git status with respect to the chosen mode
-    pub fn pretty(&self, prompt: &Prompt) -> String {
+    pub fn pretty(&self, icons: &Icons) -> String {
         let mut res = vec![];
 
         if let Some(state) = &self.state {
-            res.push(format!("{}|", state.pretty(prompt)));
+            res.push(format!("{}|", state.pretty(icons)));
         }
 
-        let head = self.head.pretty(&self.root, prompt);
+        let head = self.head.pretty(&self.root, icons);
         res.push(head);
 
         match (&self.head, &self.remote) {
@@ -458,14 +458,14 @@ impl GitStatus {
 
 impl GitStatusExtended {
     /// Pretty-formats extended git status with respect to the chosen mode
-    pub fn pretty(&self, prompt: &Prompt) -> String {
+    pub fn pretty(&self, icons: &Icons) -> String {
         [
-            (prompt.behind(), self.behind),
-            (prompt.ahead(), self.ahead),
-            (prompt.conflict(), self.unmerged),
-            (prompt.staged(), self.staged),
-            (prompt.dirty(), self.dirty),
-            (prompt.untracked(), self.untracked),
+            (icons.icon(Icon::Behind), self.behind),
+            (icons.icon(Icon::Ahead), self.ahead),
+            (icons.icon(Icon::Conflict), self.unmerged),
+            (icons.icon(Icon::Staged), self.staged),
+            (icons.icon(Icon::Dirty), self.dirty),
+            (icons.icon(Icon::Untracked), self.untracked),
         ]
         .into_iter()
         .filter(|(_, val)| val != &0)

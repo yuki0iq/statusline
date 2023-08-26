@@ -26,7 +26,7 @@
 
 mod chassis;
 mod git;
-mod prompt;
+mod icon;
 mod style;
 mod time;
 mod venv;
@@ -40,7 +40,7 @@ pub mod virt;
 pub use crate::{
     chassis::Chassis,
     git::{GitStatus, GitStatusExtended},
-    prompt::{Prompt, PromptMode},
+    icon::{Icon, IconMode as Icons},
     style::{Style, Styled},
 };
 
@@ -120,7 +120,7 @@ impl CommandLineArgs {
 
 /// The statusline main object
 pub struct StatusLine {
-    prompt: Prompt,
+    icons: Icons,
     hostname: String,
     read_only: bool,
     git: Option<GitStatus>,
@@ -146,7 +146,7 @@ impl StatusLine {
         let workdir = env::current_dir().unwrap_or_else(|_| PathBuf::new());
         let read_only = unistd::access(&workdir, AccessFlags::W_OK).is_err();
         StatusLine {
-            prompt: Prompt::build(),
+            icons: Icons::build(),
             hostname: file::get_hostname(),
             read_only,
             git: GitStatus::build(&workdir).ok(),
@@ -218,12 +218,12 @@ impl StatusLine {
 
     /// Format the top part of statusline.
     pub fn to_top(&self) -> String {
-        let user_str = format!("[{} {}", self.prompt.user_text(), self.username);
+        let user_str = format!("[{} {}", self.icons.icon(Icon::User), self.username);
         let host_str = format!(
             "{}{} {}]",
-            self.prompt.hostuser_at(),
+            self.icons.icon(Icon::HostAt),
             self.hostname,
-            self.prompt.host_text(),
+            self.icons.icon(Icon::Host),
         );
         let hostuser = format!(
             "{}{}",
@@ -237,7 +237,7 @@ impl StatusLine {
         let workdir = self.get_workdir_str();
         let readonly = self
             .read_only
-            .then_some(self.prompt.read_only().red().with_reset().to_string())
+            .then_some(self.icons.icon(Icon::ReadOnly).red().with_reset().to_string())
             .unwrap_or_default();
 
         let buildinfo = self
@@ -268,13 +268,13 @@ impl StatusLine {
             .git
             .as_ref()
             .map(|git_status| {
-                (git_status.pretty(&self.prompt)
+                (git_status.pretty(&self.icons)
                     + &self
                         .is_ext
                         .then_some(
                             self.git_ext
                                 .as_ref()
-                                .map(|x| x.pretty(&self.prompt))
+                                .map(|x| x.pretty(&self.icons))
                                 .unwrap_or_default(),
                         )
                         .unwrap_or("...".to_string()))
@@ -291,7 +291,7 @@ impl StatusLine {
             .elapsed_time
             .and_then(time::microseconds_to_string)
             .map(|ms| {
-                format!("{} {}", self.prompt.took_time(), ms)
+                format!("{} {}", self.icons.icon(Icon::TookTime), ms)
                     .rounded()
                     .cyan()
                     .with_reset()
@@ -303,7 +303,7 @@ impl StatusLine {
             .venv
             .as_ref()
             .map(|venv| {
-                venv.pretty(&self.prompt)
+                venv.pretty(&self.icons)
                     .boxed()
                     .yellow()
                     .bold()
@@ -339,9 +339,9 @@ impl StatusLine {
             .to_string();
 
         let (ok, fail, na) = (
-            self.prompt.return_ok().visible(),
-            self.prompt.return_fail().visible(),
-            self.prompt.return_unavailable().visible(),
+            self.icons.icon(Icon::ReturnOk).visible(),
+            self.icons.icon(Icon::ReturnFail).visible(),
+            self.icons.icon(Icon::ReturnNA).visible(),
         );
         let returned = match &self.args.ret_code {
             Some(0) | Some(130) => ok.light_green(),
