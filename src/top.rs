@@ -1,6 +1,6 @@
 use crate::{
-    file, time, venv::Venv, CommandLineArgs, GitStatus, GitStatusExtended, Icon, Icons, Pretty,
-    Style,
+    file, time, venv::Venv, Environment, FromEnv, GitStatus, GitStatusExtended, Icon, Icons,
+    Pretty, Style,
 };
 use chrono::prelude::*;
 use nix::unistd::{self, AccessFlags};
@@ -76,15 +76,16 @@ pub struct Top {
     is_ext: bool,
 }
 
-impl Top {
+impl FromEnv for Top {
     /// Creates top statusline from environment variables and command line arguments (return code,
     /// jobs count and elapsed time in microseconds).
     ///
     /// The statusline created is __basic__ --- it only knows the information which can be
     /// acquired fast. Currently, the only slow information is full git status.
-    pub fn from_env(args: &CommandLineArgs) -> Self {
+    // TODO use enviromnent
+    fn from_env(args: &Environment) -> Self {
         let username = env::var("USER").unwrap_or_else(|_| String::from("<user>"));
-        let workdir = env::current_dir().unwrap_or_else(|_| PathBuf::new());
+        let workdir = args.work_dir.clone();
         let read_only = unistd::access(&workdir, AccessFlags::W_OK).is_err();
         Self {
             hostname: file::get_hostname(),
@@ -100,7 +101,9 @@ impl Top {
             is_ext: false,
         }
     }
+}
 
+impl Top {
     /// Extends the statusline.
     ///
     /// This queries "slow" information, which is currently a git status.
@@ -169,7 +172,7 @@ impl Top {
 
 impl Pretty for Top {
     /// Format the top part of statusline.
-    fn pretty(&self, icons: &Icons) -> String {
+    fn pretty(&self, icons: &Icons) -> Option<String> {
         let user_str = format!("[{} {}", icons(Icon::User), self.username);
         let host_str = format!(
             "{}{} {}]",
@@ -270,11 +273,11 @@ impl Pretty for Top {
             " ",
         );
 
-        format!(
+        Some(format!(
             "{}{}{}",
             top_left_line,
             (if self.is_ext { "   " } else { "" }),
             datetime,
-        )
+        ))
     }
 }

@@ -1,81 +1,26 @@
-use crate::{CommandLineArgs, Icon, Icons, Pretty, Style};
-use nix::unistd;
-
-fn autojoin(vec: &[&str], sep: &str) -> String {
-    vec.iter()
-        .copied()
-        .filter(|el| !el.is_empty())
-        .collect::<Vec<&str>>()
-        .join(sep)
-}
+use crate::{autopretty, BlockType, Environment, FromEnv, Icons, Pretty};
 
 /// The bottom part of statusline. Immutable, intended to use in `readline`-like functions
 pub struct Bottom {
-    is_root: bool,
-
-    // Background jobs count
-    jobs: usize,
-
-    // Process return code
-    return_code: Option<u8>,
+    blocks: Vec<Box<dyn Pretty>>,
 }
 
-impl Bottom {
-    pub fn from_env(args: &CommandLineArgs) -> Self {
+impl FromEnv for Bottom {
+    fn from_env(args: &Environment) -> Self {
         Self {
-            is_root: unistd::getuid().is_root(),
-            jobs: args.jobs_count,
-            return_code: args.ret_code,
+            blocks: vec![
+                BlockType::Jobs.create_from_env(args),
+                BlockType::ReturnCode.create_from_env(args),
+                BlockType::RootShell.create_from_env(args),
+            ],
         }
     }
 }
 
 impl Pretty for Bottom {
     /// Format the bottom part of the statusline.
-    fn pretty(&self, icons: &Icons) -> String {
-        let root = self
-            .is_root
-            .then_some("#".visible().red())
-            .unwrap_or("$".visible().green())
-            .bold()
-            .with_reset()
-            .invisible()
-            .to_string();
-
-        let (ok, fail, na) = (
-            icons(Icon::ReturnOk).visible(),
-            icons(Icon::ReturnFail).visible(),
-            icons(Icon::ReturnNA).visible(),
-        );
-        let returned = match &self.return_code {
-            Some(0) | Some(130) => ok.light_green(),
-            Some(_) => fail.light_red(),
-            None => na.light_gray(),
-        }
-        .with_reset()
-        .invisible()
-        .to_string();
-
-        let jobs = 0
-            .ne(&self.jobs)
-            .then_some(
-                format!(
-                    "{} job{}",
-                    self.jobs,
-                    1.ne(&self.jobs).then_some("s").unwrap_or_default()
-                )
-                .boxed()
-                .visible()
-                .green()
-                .bold()
-                .with_reset()
-                .invisible()
-                .to_string(),
-            )
-            .unwrap_or_default();
-
-        let bottom_line = autojoin(&[&jobs, &returned, &root], " ");
-
-        format!("{} ", bottom_line)
+    fn pretty(&self, icons: &Icons) -> Option<String> {
+        let bottom_line = autopretty(&self.blocks, icons, " ");
+        Some(format!("{} ", bottom_line))
     }
 }

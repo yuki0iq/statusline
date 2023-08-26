@@ -1,8 +1,7 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use pwd::Passwd;
 use std::{
     fs,
-    io::{Error, ErrorKind},
     path::{Path, PathBuf},
 };
 
@@ -35,7 +34,7 @@ pub fn exists<P: AsRef<Path> + ?Sized>(path: &P) -> bool {
     fs::try_exists(path.as_ref()).unwrap_or(false)
 }
 
-pub fn exists_that<F: Fn(&str) -> bool, P: AsRef<Path>>(path: &P, f: F) -> Result<bool> {
+pub fn exists_that<F: Fn(&str) -> bool, P: AsRef<Path>>(path: P, f: F) -> Result<bool> {
     for entry in fs::read_dir(path)? {
         if let Ok(filename) = entry?.file_name().into_string() && f(&filename) {
             return Ok(true);
@@ -44,12 +43,13 @@ pub fn exists_that<F: Fn(&str) -> bool, P: AsRef<Path>>(path: &P, f: F) -> Resul
     Ok(false)
 }
 
-pub fn upfind(start: &Path, filename: &str) -> Result<PathBuf> {
+pub fn upfind<P: AsRef<Path>>(start: P, filename: &str) -> Result<PathBuf> {
     Ok(start
+        .as_ref()
         .ancestors()
         .map(|path| path.join(filename))
         .find(exists)
-        .ok_or(Error::from(ErrorKind::NotFound))?)
+        .ok_or(anyhow!("upfind could not find parent"))?)
 }
 
 pub fn get_hostname() -> String {

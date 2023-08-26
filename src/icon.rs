@@ -48,7 +48,7 @@ impl Fn<(Icon,)> for Icons {
 }
 
 pub trait Pretty {
-    fn pretty(&self, icons: &Icons) -> String;
+    fn pretty(&self, icons: &Icons) -> Option<String>;
 }
 
 /// TODO

@@ -30,6 +30,7 @@
 #![feature(unboxed_closures)]
 
 mod args;
+mod block;
 mod bottom;
 mod chassis;
 mod git;
@@ -46,7 +47,8 @@ pub mod file;
 pub mod virt;
 
 pub use crate::{
-    args::CommandLineArgs,
+    args::{Environment, FromEnv},
+    block::{autopretty, Block, BlockType},
     bottom::Bottom,
     chassis::Chassis,
     git::{GitStatus, GitStatusExtended},
