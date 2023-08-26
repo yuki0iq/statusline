@@ -45,7 +45,12 @@ fn main() {
             eprint!("{}", top_line(&line));
         }
         _ => {
-            println!("Bash status line --- written in rust. Add `eval \"$(\"{exec}\" --env)\"` to your .bashrc!");
+            println!(
+                "[statusline {}] --- bash status line, written in Rust",
+                env!("CARGO_PKG_VERSION")
+            );
+            println!("Simple install:");
+            println!("    eval \"$(\"{exec}\" --env)\" >> ~/.bashrc");
         }
     }
 }
