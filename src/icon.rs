@@ -27,9 +27,27 @@ impl IconMode {
         }
     }
 
-    /// TODO
-    pub fn icon(&self, icon: Icon) -> &'static str {
+    fn icon(&self, icon: Icon) -> &'static str {
         icon.pretty(&self)
+    }
+}
+
+impl FnOnce<(Icon,)> for IconMode {
+    type Output = &'static str;
+    extern "rust-call" fn call_once(self, args: (Icon,)) -> Self::Output {
+        self.icon(args.0)
+    }
+}
+
+impl FnMut<(Icon,)> for IconMode {
+    extern "rust-call" fn call_mut(&mut self, args: (Icon,)) -> Self::Output {
+        self.icon(args.0)
+    }
+}
+
+impl Fn<(Icon,)> for IconMode {
+    extern "rust-call" fn call(&self, args: (Icon,)) -> Self::Output {
+        self.icon(args.0)
     }
 }
 

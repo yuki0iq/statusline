@@ -19,10 +19,12 @@
 #![feature(byte_slice_trim_ascii)]
 #![feature(io_error_more)]
 #![feature(iter_next_chunk)]
+#![feature(fn_traits)]
 #![feature(fs_try_exists)]
 #![feature(let_chains)]
 #![feature(slice_first_last_chunk)]
 #![feature(stdsimd)]
+#![feature(unboxed_closures)]
 
 mod chassis;
 mod git;
@@ -218,12 +220,12 @@ impl StatusLine {
 
     /// Format the top part of statusline.
     pub fn to_top(&self) -> String {
-        let user_str = format!("[{} {}", self.icons.icon(Icon::User), self.username);
+        let user_str = format!("[{} {}", (self.icons)(Icon::User), self.username);
         let host_str = format!(
             "{}{} {}]",
-            self.icons.icon(Icon::HostAt),
+            (self.icons)(Icon::HostAt),
             self.hostname,
-            self.icons.icon(Icon::Host),
+            (self.icons)(Icon::Host),
         );
         let hostuser = format!(
             "{}{}",
@@ -237,7 +239,12 @@ impl StatusLine {
         let workdir = self.get_workdir_str();
         let readonly = self
             .read_only
-            .then_some(self.icons.icon(Icon::ReadOnly).red().with_reset().to_string())
+            .then_some(
+                (self.icons)(Icon::ReadOnly)
+                    .red()
+                    .with_reset()
+                    .to_string(),
+            )
             .unwrap_or_default();
 
         let buildinfo = self
@@ -291,7 +298,7 @@ impl StatusLine {
             .elapsed_time
             .and_then(time::microseconds_to_string)
             .map(|ms| {
-                format!("{} {}", self.icons.icon(Icon::TookTime), ms)
+                format!("{} {}", (self.icons)(Icon::TookTime), ms)
                     .rounded()
                     .cyan()
                     .with_reset()
@@ -339,9 +346,9 @@ impl StatusLine {
             .to_string();
 
         let (ok, fail, na) = (
-            self.icons.icon(Icon::ReturnOk).visible(),
-            self.icons.icon(Icon::ReturnFail).visible(),
-            self.icons.icon(Icon::ReturnNA).visible(),
+            (self.icons)(Icon::ReturnOk).visible(),
+            (self.icons)(Icon::ReturnFail).visible(),
+            (self.icons)(Icon::ReturnNA).visible(),
         );
         let returned = match &self.args.ret_code {
             Some(0) | Some(130) => ok.light_green(),

@@ -173,9 +173,13 @@ enum Head {
 impl Head {
     fn pretty(&self, root: &Path, icons: &Icons) -> String {
         match &self {
-            Head::Branch(name) => format!("{} {}", icons.icon(Icon::OnBranch), name),
+            Head::Branch(name) => format!("{} {}", icons(Icon::OnBranch), name),
             Head::Commit(id) => {
-                format!("{} {}", icons.icon(Icon::AtCommit), &id[..abbrev_commit(root, id)])
+                format!(
+                    "{} {}",
+                    icons(Icon::AtCommit),
+                    &id[..abbrev_commit(root, id)]
+                )
                 // TODO show tag?
             }
             _ => "<unknown>".to_string(),
@@ -235,12 +239,14 @@ impl State {
 
     fn pretty(&self, icons: &Icons) -> String {
         match self {
-            State::Bisecting => icons.icon(Icon::Bisecting).to_string(),
-            State::Reverting { head } => format!("{} {}", icons.icon(Icon::Reverting), head),
-            State::CherryPicking { head } => format!("{} {}", icons.icon(Icon::CherryPicking), head),
-            State::Merging { head } => format!("{} {}", icons.icon(Icon::Merging), head),
+            State::Bisecting => icons(Icon::Bisecting).to_string(),
+            State::Reverting { head } => format!("{} {}", icons(Icon::Reverting), head),
+            State::CherryPicking { head } => {
+                format!("{} {}", icons(Icon::CherryPicking), head)
+            }
+            State::Merging { head } => format!("{} {}", icons(Icon::Merging), head),
             State::Rebasing { done, todo } => {
-                format!("{} {}/{}", icons.icon(Icon::Rebasing), done, done + todo)
+                format!("{} {}/{}", icons(Icon::Rebasing), done, done + todo)
             }
         }
     }
@@ -446,7 +452,7 @@ impl GitStatus {
             _ => (),
         };
 
-        for (s, val) in [("*", self.stashes)] {
+        for (s, val) in [(icons(Icon::Stashes), self.stashes)] {
             if val != 0 {
                 res.push(format!(" {}{}", s, val));
             }
@@ -460,12 +466,12 @@ impl GitStatusExtended {
     /// Pretty-formats extended git status with respect to the chosen mode
     pub fn pretty(&self, icons: &Icons) -> String {
         [
-            (icons.icon(Icon::Behind), self.behind),
-            (icons.icon(Icon::Ahead), self.ahead),
-            (icons.icon(Icon::Conflict), self.unmerged),
-            (icons.icon(Icon::Staged), self.staged),
-            (icons.icon(Icon::Dirty), self.dirty),
-            (icons.icon(Icon::Untracked), self.untracked),
+            (icons(Icon::Behind), self.behind),
+            (icons(Icon::Ahead), self.ahead),
+            (icons(Icon::Conflict), self.unmerged),
+            (icons(Icon::Staged), self.staged),
+            (icons(Icon::Dirty), self.dirty),
+            (icons(Icon::Untracked), self.untracked),
         ]
         .into_iter()
         .filter(|(_, val)| val != &0)

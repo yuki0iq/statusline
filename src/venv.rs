@@ -26,7 +26,7 @@ impl Venv {
     }
 
     pub fn pretty(&self, icons: &Icons) -> String {
-        format!("{} {}|{}", icons.icon(Icon::Venv), self.version, self.name)
+        format!("{} {}|{}", icons(Icon::Venv), self.version, self.name)
     }
 }
 
