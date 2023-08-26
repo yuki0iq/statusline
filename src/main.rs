@@ -3,7 +3,7 @@ use nix::{
     fcntl::{self, FcntlArg, OFlag},
     unistd,
 };
-use statusline::{Bottom, CommandLineArgs, Icons, Style, Top};
+use statusline::{Bottom, CommandLineArgs, Icons, Pretty, Style, Top};
 use std::{
     env, fs,
     io::{self, Write},

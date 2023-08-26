@@ -81,7 +81,10 @@ pub enum Icon {
 
 impl Icon {
     fn static_pretty(&self, icons: &Icons) -> &'static str {
-        use self::{Icon::*, Icons::{Text, Icons, MinimalIcons}};
+        use self::{
+            Icon::*,
+            Icons::{Icons, MinimalIcons, Text},
+        };
         match &self {
             Host => match &icons {
                 Text => "",
