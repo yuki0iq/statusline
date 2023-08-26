@@ -5,13 +5,15 @@
 //! # Example
 //!
 //! ```
-//! use statusline::{CommandLineArgs, Icons, StatusLine};
+//! use statusline::{Bottom, CommandLineArgs, Icons, Top};
 //!
 //! let icons = Icons::MinimalIcons;
-//! let line = StatusLine::from_env(CommandLineArgs::from_env::<&str>(&[]));
-//! println!("{}", line.to_title(Some("test")));
-//! println!("{}", line.to_top(&icons));
-//! print!("{}", line.to_bottom(&icons));  // Or you can use readline with `line.to_bottom()` as prompt
+//! let args = CommandLineArgs::from_env::<&str>(&[]);
+//! let top = Top::from_env(&args);
+//! let bottom = Bottom::from_env(&args);
+//! println!("{}", top.to_title(Some("test")));
+//! println!("{}", top.pretty(&icons));
+//! print!("{}", bottom.pretty(&icons));  // Or you can use readline with result as prompt
 //!
 //! // And, additionally, you can start a separate thread for getting more info
 //! // which should be outputed "over" the first top line
@@ -99,7 +101,7 @@ pub struct CommandLineArgs {
     /// Last command's return code
     ret_code: Option<u8>,
     /// Jobs currently running
-    jobs_count: u16,
+    jobs_count: usize,
     /// Last command's elapsed tile
     elapsed_time: Option<u64>,
 }
@@ -121,33 +123,57 @@ impl CommandLineArgs {
     }
 }
 
-/// The statusline main object
-pub struct StatusLine {
+/// The top part of status line
+pub struct Top {
+    // HostUser
+    username: String,
     hostname: String,
+
+    // Workdir
+    current_home: Option<(PathBuf, String)>,
+    workdir: PathBuf,
     read_only: bool,
+
+    // Git
     git: Option<GitStatus>,
     git_ext: Option<GitStatusExtended>,
-    current_home: Option<(PathBuf, String)>,
+
+    // Buildinfo
     build_info: String,
-    workdir: PathBuf,
-    username: String,
-    is_root: bool,
-    args: CommandLineArgs,
+
+    // Elapsed
+    elapsed_time: Option<u64>,
+
+    // Python venv
     venv: Option<Venv>,
+
+    // Shared:
+    // - git tree (Option PathBuf)
     is_ext: bool,
 }
 
-impl StatusLine {
-    /// Creates statusline from environment variables and command line arguments (return code,
-    /// jobs count and elapsed time in what??).
+/// The bottom part of statusline. Immutable, intended to use in `readline`-like functions
+pub struct Bottom {
+    is_root: bool,
+
+    // Background jobs count
+    jobs: usize,
+
+    // Process return code
+    return_code: Option<u8>,
+}
+
+impl Top {
+    /// Creates top statusline from environment variables and command line arguments (return code,
+    /// jobs count and elapsed time in microseconds).
     ///
     /// The statusline created is __basic__ --- it only knows the information which can be
     /// acquired fast. Currently, the only slow information is full git status.
-    pub fn from_env(args: CommandLineArgs) -> Self {
+    pub fn from_env(args: &CommandLineArgs) -> Self {
         let username = env::var("USER").unwrap_or_else(|_| String::from("<user>"));
         let workdir = env::current_dir().unwrap_or_else(|_| PathBuf::new());
         let read_only = unistd::access(&workdir, AccessFlags::W_OK).is_err();
-        StatusLine {
+        Self {
             hostname: file::get_hostname(),
             read_only,
             git: GitStatus::build(&workdir).ok(),
@@ -156,8 +182,7 @@ impl StatusLine {
             build_info: buildinfo(&workdir),
             workdir,
             username,
-            is_root: unistd::getuid().is_root(),
-            args,
+            elapsed_time: args.elapsed_time,
             venv: Venv::get(),
             is_ext: false,
         }
@@ -167,7 +192,7 @@ impl StatusLine {
     ///
     /// This queries "slow" information, which is currently a git status.
     pub fn extended(self) -> Self {
-        StatusLine {
+        Top {
             is_ext: true,
             git_ext: self.git.as_ref().and_then(|st| st.extended()),
             ..self
@@ -218,7 +243,7 @@ impl StatusLine {
     }
 
     /// Format the top part of statusline.
-    pub fn to_top(&self, icons: &Icons) -> String {
+    pub fn pretty(&self, icons: &Icons) -> String {
         let user_str = format!("[{} {}", icons(Icon::User), self.username);
         let host_str = format!(
             "{}{} {}]",
@@ -288,7 +313,6 @@ impl StatusLine {
             .unwrap_or_default();
 
         let elapsed = self
-            .args
             .elapsed_time
             .and_then(time::microseconds_to_string)
             .map(|ms| {
@@ -328,8 +352,29 @@ impl StatusLine {
         )
     }
 
+    /// Format the title for terminal.
+    pub fn to_title(&self, prefix: Option<&str>) -> String {
+        let pwd = self.workdir.to_str().unwrap_or("<path>");
+        let prefix = prefix
+            .map(|p| format!("{} ", p.boxed()))
+            .unwrap_or_default();
+        format!("{}{}@{}: {}", prefix, self.username, self.hostname, pwd)
+            .as_title()
+            .to_string()
+    }
+}
+
+impl Bottom {
+    pub fn from_env(args: &CommandLineArgs) -> Self {
+        Self {
+            is_root: unistd::getuid().is_root(),
+            jobs: args.jobs_count,
+            return_code: args.ret_code,
+        }
+    }
+
     /// Format the bottom part of the statusline.
-    pub fn to_bottom(&self, icons: &Icons) -> String {
+    pub fn pretty(&self, icons: &Icons) -> String {
         let root = self
             .is_root
             .then_some("#".visible().red())
@@ -344,7 +389,7 @@ impl StatusLine {
             icons(Icon::ReturnFail).visible(),
             icons(Icon::ReturnNA).visible(),
         );
-        let returned = match &self.args.ret_code {
+        let returned = match &self.return_code {
             Some(0) | Some(130) => ok.light_green(),
             Some(_) => fail.light_red(),
             None => na.light_gray(),
@@ -354,14 +399,12 @@ impl StatusLine {
         .to_string();
 
         let jobs = 0
-            .ne(&self.args.jobs_count)
+            .ne(&self.jobs)
             .then_some(
                 format!(
                     "{} job{}",
-                    self.args.jobs_count,
-                    1.ne(&self.args.jobs_count)
-                        .then_some("s")
-                        .unwrap_or_default()
+                    self.jobs,
+                    1.ne(&self.jobs).then_some("s").unwrap_or_default()
                 )
                 .boxed()
                 .visible()
@@ -376,16 +419,5 @@ impl StatusLine {
         let bottom_line = autojoin(&[&jobs, &returned, &root], " ");
 
         format!("{} ", bottom_line)
-    }
-
-    /// Format the title for terminal.
-    pub fn to_title(&self, prefix: Option<&str>) -> String {
-        let pwd = self.workdir.to_str().unwrap_or("<path>");
-        let prefix = prefix
-            .map(|p| format!("{} ", p.boxed()))
-            .unwrap_or_default();
-        format!("{}{}@{}: {}", prefix, self.username, self.hostname, pwd)
-            .as_title()
-            .to_string()
     }
 }

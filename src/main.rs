@@ -3,7 +3,7 @@ use nix::{
     fcntl::{self, FcntlArg, OFlag},
     unistd,
 };
-use statusline::{CommandLineArgs, Icons, StatusLine, Style};
+use statusline::{Bottom, CommandLineArgs, Icons, Style, Top};
 use std::{
     env, fs,
     io::{self, Write},
@@ -31,17 +31,17 @@ fn main() {
 
             let icons = Icons::build();
             let args = CommandLineArgs::from_env(&args.collect::<Vec<String>>());
-            let line = StatusLine::from_env(args);
+            let line = Top::from_env(&args);
+            let bottom = Bottom::from_env(&args);
 
-            let top_line =
-                |line: &StatusLine| line.to_top(&icons).prev_line(1).save_restore().to_string();
+            let top_line = |line: &Top| line.pretty(&icons).prev_line(1).save_restore().to_string();
 
             eprint!("{}", top_line(&line));
 
             print!(
                 "{}{}",
                 line.to_title(None).invisible(),
-                line.to_bottom(&icons)
+                bottom.pretty(&icons)
             );
             io::stdout().flush().unwrap();
             unistd::close(1).unwrap();
@@ -50,10 +50,8 @@ fn main() {
             eprint!("{}", top_line(&line));
         }
         _ => {
-            println!(
-                "[statusline {}] --- bash status line, written in Rust",
-                env!("CARGO_PKG_VERSION")
-            );
+            let ver = env!("CARGO_PKG_VERSION");
+            println!("[statusline {ver}] --- bash status line, written in Rust");
             println!("Simple install:");
             println!("    eval \"$(\"{exec}\" --env)\" >> ~/.bashrc");
         }
