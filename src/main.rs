@@ -3,7 +3,7 @@ use nix::{
     fcntl::{self, FcntlArg, OFlag},
     unistd,
 };
-use statusline::{CommandLineArgs, StatusLine, Style};
+use statusline::{CommandLineArgs, Icons, StatusLine, Style};
 use std::{
     env, fs,
     io::{self, Write},
@@ -29,15 +29,20 @@ fn main() {
             }
             fcntl::fcntl(3, FcntlArg::F_SETFL(OFlag::O_ASYNC)).unwrap();
 
-            let args = args.collect::<Vec<String>>();
-            let line = StatusLine::from_env(CommandLineArgs::from_env(&args));
+            let icons = Icons::build();
+            let args = CommandLineArgs::from_env(&args.collect::<Vec<String>>());
+            let line = StatusLine::from_env(args);
 
             let top_line =
-                |line: &StatusLine| line.to_top().prev_line(1).save_restore().to_string();
+                |line: &StatusLine| line.to_top(&icons).prev_line(1).save_restore().to_string();
 
             eprint!("{}", top_line(&line));
 
-            print!("{}{}", line.to_title(None).invisible(), line.to_bottom());
+            print!(
+                "{}{}",
+                line.to_title(None).invisible(),
+                line.to_bottom(&icons)
+            );
             io::stdout().flush().unwrap();
             unistd::close(1).unwrap();
 

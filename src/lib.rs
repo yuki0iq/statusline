@@ -5,12 +5,13 @@
 //! # Example
 //!
 //! ```
-//! use statusline::{CommandLineArgs, StatusLine};
+//! use statusline::{CommandLineArgs, Icons, StatusLine};
 //!
+//! let icons = Icons::MinimalIcons;
 //! let line = StatusLine::from_env(CommandLineArgs::from_env::<&str>(&[]));
 //! println!("{}", line.to_title(Some("test")));
-//! println!("{}", line.to_top());
-//! print!("{}", line.to_bottom());  // Or you can use readline with `line.to_bottom()` as prompt
+//! println!("{}", line.to_top(&icons));
+//! print!("{}", line.to_bottom(&icons));  // Or you can use readline with `line.to_bottom()` as prompt
 //!
 //! // And, additionally, you can start a separate thread for getting more info
 //! // which should be outputed "over" the first top line
@@ -122,7 +123,6 @@ impl CommandLineArgs {
 
 /// The statusline main object
 pub struct StatusLine {
-    icons: Icons,
     hostname: String,
     read_only: bool,
     git: Option<GitStatus>,
@@ -148,7 +148,6 @@ impl StatusLine {
         let workdir = env::current_dir().unwrap_or_else(|_| PathBuf::new());
         let read_only = unistd::access(&workdir, AccessFlags::W_OK).is_err();
         StatusLine {
-            icons: Icons::build(),
             hostname: file::get_hostname(),
             read_only,
             git: GitStatus::build(&workdir).ok(),
@@ -219,13 +218,13 @@ impl StatusLine {
     }
 
     /// Format the top part of statusline.
-    pub fn to_top(&self) -> String {
-        let user_str = format!("[{} {}", (self.icons)(Icon::User), self.username);
+    pub fn to_top(&self, icons: &Icons) -> String {
+        let user_str = format!("[{} {}", icons(Icon::User), self.username);
         let host_str = format!(
             "{}{} {}]",
-            (self.icons)(Icon::HostAt),
+            icons(Icon::HostAt),
             self.hostname,
-            (self.icons)(Icon::Host),
+            icons(Icon::Host),
         );
         let hostuser = format!(
             "{}{}",
@@ -239,12 +238,7 @@ impl StatusLine {
         let workdir = self.get_workdir_str();
         let readonly = self
             .read_only
-            .then_some(
-                (self.icons)(Icon::ReadOnly)
-                    .red()
-                    .with_reset()
-                    .to_string(),
-            )
+            .then_some(icons(Icon::ReadOnly).red().with_reset().to_string())
             .unwrap_or_default();
 
         let buildinfo = self
@@ -275,13 +269,13 @@ impl StatusLine {
             .git
             .as_ref()
             .map(|git_status| {
-                (git_status.pretty(&self.icons)
+                (git_status.pretty(icons)
                     + &self
                         .is_ext
                         .then_some(
                             self.git_ext
                                 .as_ref()
-                                .map(|x| x.pretty(&self.icons))
+                                .map(|x| x.pretty(icons))
                                 .unwrap_or_default(),
                         )
                         .unwrap_or("...".to_string()))
@@ -298,7 +292,7 @@ impl StatusLine {
             .elapsed_time
             .and_then(time::microseconds_to_string)
             .map(|ms| {
-                format!("{} {}", (self.icons)(Icon::TookTime), ms)
+                format!("{} {}", icons(Icon::TookTime), ms)
                     .rounded()
                     .cyan()
                     .with_reset()
@@ -310,7 +304,7 @@ impl StatusLine {
             .venv
             .as_ref()
             .map(|venv| {
-                venv.pretty(&self.icons)
+                venv.pretty(icons)
                     .boxed()
                     .yellow()
                     .bold()
@@ -335,7 +329,7 @@ impl StatusLine {
     }
 
     /// Format the bottom part of the statusline.
-    pub fn to_bottom(&self) -> String {
+    pub fn to_bottom(&self, icons: &Icons) -> String {
         let root = self
             .is_root
             .then_some("#".visible().red())
@@ -346,9 +340,9 @@ impl StatusLine {
             .to_string();
 
         let (ok, fail, na) = (
-            (self.icons)(Icon::ReturnOk).visible(),
-            (self.icons)(Icon::ReturnFail).visible(),
-            (self.icons)(Icon::ReturnNA).visible(),
+            icons(Icon::ReturnOk).visible(),
+            icons(Icon::ReturnFail).visible(),
+            icons(Icon::ReturnNA).visible(),
         );
         let returned = match &self.args.ret_code {
             Some(0) | Some(130) => ok.light_green(),
