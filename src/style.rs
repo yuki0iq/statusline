@@ -152,7 +152,7 @@ pub trait Style: Display {
     /// ```
     /// use statusline::Style;
     /// assert_eq!("\x01\x1b[31m\x02Visible\x01\x1b[0m\x02",
-    ///     "Visible".visible().red().with_reset().invisible().to_string);
+    ///     "Visible".visible().red().with_reset().invisible().to_string());
     /// ```
     fn visible(&self) -> Styled<Self> {
         Styled {
