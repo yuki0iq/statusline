@@ -2,7 +2,7 @@ use crate::Chassis;
 use std::env;
 
 /// Icons' modes
-pub enum IconMode {
+pub enum Icons {
     /// Use text instead of icons
     Text,
     /// Use icons from nerdfonts
@@ -11,7 +11,7 @@ pub enum IconMode {
     MinimalIcons,
 }
 
-impl IconMode {
+impl Icons {
     /// Detect prompt mode from `PS1_MODE` environment variable
     ///
     /// | Environment        | Resulting IconMode   |
@@ -21,30 +21,34 @@ impl IconMode {
     /// | otherwise          | Default nerdfont     |
     pub fn build() -> Self {
         match env::var("PS1_MODE") {
-            Ok(x) if x == "text" => IconMode::Text,
-            Ok(x) if x == "minimal" => IconMode::MinimalIcons,
-            _ => IconMode::Icons,
+            Ok(x) if x == "text" => Icons::Text,
+            Ok(x) if x == "minimal" => Icons::MinimalIcons,
+            _ => Icons::Icons,
         }
     }
 }
 
-impl FnOnce<(Icon,)> for IconMode {
+impl FnOnce<(Icon,)> for Icons {
     type Output = &'static str;
     extern "rust-call" fn call_once(self, args: (Icon,)) -> Self::Output {
-        args.0.pretty(&self)
+        args.0.static_pretty(&self)
     }
 }
 
-impl FnMut<(Icon,)> for IconMode {
+impl FnMut<(Icon,)> for Icons {
     extern "rust-call" fn call_mut(&mut self, args: (Icon,)) -> Self::Output {
-        args.0.pretty(self)
+        args.0.static_pretty(self)
     }
 }
 
-impl Fn<(Icon,)> for IconMode {
+impl Fn<(Icon,)> for Icons {
     extern "rust-call" fn call(&self, args: (Icon,)) -> Self::Output {
-        args.0.pretty(self)
+        args.0.static_pretty(self)
     }
+}
+
+pub trait Pretty {
+    fn pretty(&self, icons: &Icons) -> String;
 }
 
 /// TODO
@@ -76,101 +80,100 @@ pub enum Icon {
 }
 
 impl Icon {
-    fn pretty(&self, mode: &IconMode) -> &'static str {
-        use Icon::*;
-        use IconMode::*;
+    fn static_pretty(&self, icons: &Icons) -> &'static str {
+        use self::{Icon::*, Icons::{Text, Icons, MinimalIcons}};
         match &self {
-            Host => match &mode {
+            Host => match &icons {
                 Text => "",
                 Icons | MinimalIcons => Chassis::get().icon(),
             },
-            User => match &mode {
+            User => match &icons {
                 Text => "as",
                 Icons | MinimalIcons => "",
             },
-            HostAt => match &mode {
+            HostAt => match &icons {
                 Text => " at ",
                 Icons | MinimalIcons => "＠",
             },
-            ReadOnly => match &mode {
+            ReadOnly => match &icons {
                 Text => "R/O",
                 Icons | MinimalIcons => "",
             },
-            OnBranch => match &mode {
+            OnBranch => match &icons {
                 Text => "on",
                 Icons | MinimalIcons => "",
             },
-            AtCommit => match &mode {
+            AtCommit => match &icons {
                 Text => "at",
                 Icons | MinimalIcons => "",
             },
-            Ahead => match &mode {
+            Ahead => match &icons {
                 Text => "^",
                 Icons | MinimalIcons => "󰞙 ",
             },
-            Behind => match &mode {
+            Behind => match &icons {
                 Text => "v",
                 Icons | MinimalIcons => "󰞕 ",
             },
-            Stashes => match &mode {
+            Stashes => match &icons {
                 Text => "*",
                 Icons | MinimalIcons => " ",
             },
-            Conflict => match &mode {
+            Conflict => match &icons {
                 Text => "~",
                 Icons => "󰞇 ",
                 MinimalIcons => " ",
             },
-            Staged => match &mode {
+            Staged => match &icons {
                 Text => "+",
                 Icons | MinimalIcons => " ",
             },
-            Dirty => match &mode {
+            Dirty => match &icons {
                 Text => "!",
                 Icons | MinimalIcons => " ",
             },
-            Untracked => match &mode {
+            Untracked => match &icons {
                 Text => "?",
                 Icons => " ",
                 MinimalIcons => " ",
             },
-            Bisecting => match &mode {
+            Bisecting => match &icons {
                 Text => "bisecting",
                 Icons | MinimalIcons => "󰩫 ", //TOOD
             },
-            Reverting => match &mode {
+            Reverting => match &icons {
                 Text => "reverting",
                 Icons | MinimalIcons => "",
             },
-            CherryPicking => match &mode {
+            CherryPicking => match &icons {
                 Text => "cherry-picking",
                 Icons | MinimalIcons => "",
             },
-            Merging => match &mode {
+            Merging => match &icons {
                 Text => "merging",
                 Icons | MinimalIcons => "",
             },
-            Rebasing => match &mode {
+            Rebasing => match &icons {
                 Text => "rebasing",
                 Icons | MinimalIcons => "󰝖",
             },
-            ReturnOk => match &mode {
+            ReturnOk => match &icons {
                 Text => "OK",
                 Icons | MinimalIcons => "✓",
             },
-            ReturnFail => match &mode {
+            ReturnFail => match &icons {
                 Text => "Failed",
                 Icons | MinimalIcons => "✗",
             },
-            ReturnNA => match &mode {
+            ReturnNA => match &icons {
                 Text => "N/A",
                 Icons | MinimalIcons => "⁇",
             },
-            TookTime => match &mode {
+            TookTime => match &icons {
                 Text => "took",
                 Icons | MinimalIcons => "",
             },
-            Venv => match &mode {
+            Venv => match &icons {
                 Text => "py",
                 Icons | MinimalIcons => "",
             },

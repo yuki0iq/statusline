@@ -45,7 +45,7 @@ pub mod virt;
 pub use crate::{
     chassis::Chassis,
     git::{GitStatus, GitStatusExtended},
-    icon::{Icon, IconMode as Icons},
+    icon::{Icon, Icons},
     style::{Style, Styled},
 };
 
