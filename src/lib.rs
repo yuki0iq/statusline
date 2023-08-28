@@ -31,7 +31,6 @@
 
 mod args;
 mod block;
-mod bottom;
 mod chassis;
 mod file;
 mod git;
@@ -42,10 +41,11 @@ mod top;
 mod venv;
 mod virt;
 
+pub mod default;
+
 pub use crate::{
     args::{Environment, FromEnv},
     block::BlockType,
-    bottom::Bottom,
     chassis::Chassis,
     icon::{Icon, Icons, Pretty},
     style::{Style, Styled},

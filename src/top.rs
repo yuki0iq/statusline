@@ -157,17 +157,6 @@ impl Top {
 
         autojoin(&[&home_str, &middle_str], "/") + &highlighted_str
     }
-
-    /// Format the title for terminal.
-    pub fn to_title(&self, prefix: Option<&str>) -> String {
-        let pwd = self.workdir.to_str().unwrap_or("<path>");
-        let prefix = prefix
-            .map(|p| format!("{} ", p.boxed()))
-            .unwrap_or_default();
-        format!("{}{}@{}: {}", prefix, self.username, self.hostname, pwd)
-            .as_title()
-            .to_string()
-    }
 }
 
 impl Pretty for Top {

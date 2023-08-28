@@ -3,7 +3,7 @@ use nix::{
     fcntl::{self, FcntlArg, OFlag},
     unistd,
 };
-use statusline::{Bottom, Environment, FromEnv, Icons, Pretty, Style, Top};
+use statusline::{default, Environment, FromEnv, Icons, Pretty, Style, Top};
 use std::{
     env, fs,
     io::{self, Write},
@@ -32,7 +32,7 @@ fn main() {
             let icons = Icons::build();
             let args = Environment::from_env(&args.collect::<Vec<String>>());
             let line = Top::from_env(&args);
-            let bottom = Bottom::from_env(&args);
+            let bottom = default::bottom(&args);
 
             let top_line = |line: &Top| {
                 line.pretty(&icons)
@@ -46,8 +46,8 @@ fn main() {
 
             print!(
                 "{}{}",
-                line.to_title(None).invisible(),
-                bottom.pretty(&icons).unwrap_or_default()
+                default::title(&args).invisible(),
+                bottom.as_slice().pretty(&icons).unwrap_or_default()
             );
             io::stdout().flush().unwrap();
             unistd::close(1).unwrap();

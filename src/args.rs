@@ -13,6 +13,10 @@ pub struct Environment {
     pub work_dir: PathBuf,
     /// Git worktree path if any
     pub git_tree: Option<PathBuf>,
+    /// Username
+    pub user: String,
+    /// Hostname
+    pub host: String,
 }
 
 impl Environment {
@@ -31,12 +35,18 @@ impl Environment {
         let git_tree = file::upfind(&work_dir, ".git")
             .ok()
             .map(|dg| dg.parent().unwrap().to_path_buf());
+
+        let user = env::var("USER").unwrap_or_else(|_| String::from("<user>"));
+        let host = file::get_hostname();
+
         Environment {
             ret_code,
             jobs_count,
             elapsed_time,
             git_tree,
             work_dir,
+            user,
+            host,
         }
     }
 }
