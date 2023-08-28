@@ -1,4 +1,4 @@
-use crate::{Environment, FromEnv, Pretty};
+use crate::{Environment, Pretty};
 
 pub mod jobs;
 pub mod return_code;
@@ -27,9 +27,9 @@ impl BlockType {
     // TODO blocktype "trait Extend"
     pub fn create_from_env(&self, env: &Environment) -> Box<dyn Pretty> {
         match &self {
-            Self::Jobs => Box::new(jobs::Jobs::from_env(env)),
-            Self::ReturnCode => Box::new(return_code::ReturnCode::from_env(env)),
-            Self::RootShell => Box::new(root_shell::RootShell::from_env(env)),
+            Self::Jobs => Box::new(jobs::Jobs::from(env)),
+            Self::ReturnCode => Box::new(return_code::ReturnCode::from(env)),
+            Self::RootShell => Box::new(root_shell::RootShell::from(env)),
         }
     }
 }

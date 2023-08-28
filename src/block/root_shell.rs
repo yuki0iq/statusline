@@ -1,10 +1,10 @@
-use crate::{Environment, FromEnv, Icons, Pretty, Style, Styled};
+use crate::{Environment, Icons, Pretty, Style, Styled};
 use nix::unistd;
 
 pub struct RootShell(bool);
 
-impl FromEnv for RootShell {
-    fn from_env(_: &Environment) -> Self {
+impl From<&Environment> for RootShell {
+    fn from(_: &Environment) -> Self {
         RootShell(unistd::getuid().is_root())
     }
 }

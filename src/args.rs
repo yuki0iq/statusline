@@ -50,9 +50,3 @@ impl Environment {
         }
     }
 }
-
-/// Constructable from environment object
-pub trait FromEnv {
-    /// Construct object from given environment
-    fn from_env(args: &Environment) -> Self;
-}

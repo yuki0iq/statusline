@@ -1,11 +1,10 @@
 use crate::{
-    file, git::GitStatus, git::GitStatusExtended, time, venv::Venv, Environment, FromEnv, Icon,
-    Icons, Pretty, Style,
+    file, git::GitStatus, git::GitStatusExtended, time, venv::Venv, Environment, Icon, Icons,
+    Pretty, Style,
 };
 use chrono::prelude::*;
 use nix::unistd::{self, AccessFlags};
 use std::{
-    env,
     ops::Not,
     path::{Path, PathBuf},
 };
@@ -76,15 +75,15 @@ pub struct Top {
     is_ext: bool,
 }
 
-impl FromEnv for Top {
+impl From<&Environment> for Top {
     /// Creates top statusline from environment variables and command line arguments (return code,
     /// jobs count and elapsed time in microseconds).
     ///
     /// The statusline created is __basic__ --- it only knows the information which can be
     /// acquired fast. Currently, the only slow information is full git status.
-    // TODO use enviromnent
-    fn from_env(args: &Environment) -> Self {
-        let username = env::var("USER").unwrap_or_else(|_| String::from("<user>"));
+    // TODO use enviromnent especially for git.
+    fn from(args: &Environment) -> Self {
+        let username = args.user.clone();
         let workdir = args.work_dir.clone();
         let read_only = unistd::access(&workdir, AccessFlags::W_OK).is_err();
         Self {

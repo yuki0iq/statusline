@@ -1,9 +1,9 @@
-use crate::{Environment, FromEnv, Icons, Pretty, Style};
+use crate::{Environment, Icons, Pretty, Style};
 
 pub struct Jobs(usize);
 
-impl FromEnv for Jobs {
-    fn from_env(args: &Environment) -> Self {
+impl From<&Environment> for Jobs {
+    fn from(args: &Environment) -> Self {
         Jobs(args.jobs_count)
     }
 }

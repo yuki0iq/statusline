@@ -44,7 +44,7 @@ mod virt;
 pub mod default;
 
 pub use crate::{
-    args::{Environment, FromEnv},
+    args::Environment,
     block::BlockType,
     chassis::Chassis,
     icon::{Icon, Icons, Pretty},

@@ -1,4 +1,4 @@
-use crate::{Environment, FromEnv, Icon, Icons, Pretty, Style, Styled};
+use crate::{Environment, Icon, Icons, Pretty, Style, Styled};
 
 pub enum ReturnCode {
     Ok,
@@ -6,8 +6,8 @@ pub enum ReturnCode {
     NotAvailable,
 }
 
-impl FromEnv for ReturnCode {
-    fn from_env(args: &Environment) -> Self {
+impl From<&Environment> for ReturnCode {
+    fn from(args: &Environment) -> Self {
         match args.ret_code {
             Some(0) | Some(130) => Self::Ok,
             Some(_) => Self::Failed,
