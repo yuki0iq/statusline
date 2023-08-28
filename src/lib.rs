@@ -33,25 +33,20 @@ mod args;
 mod block;
 mod bottom;
 mod chassis;
+mod file;
 mod git;
 mod icon;
 mod style;
 mod time;
 mod top;
 mod venv;
-
-/// Filesystem-related operations
-pub mod file;
-
-/// Virtualization detector (not tested tho)
-pub mod virt;
+mod virt;
 
 pub use crate::{
     args::{Environment, FromEnv},
-    block::{autopretty, Block, BlockType},
+    block::BlockType,
     bottom::Bottom,
     chassis::Chassis,
-    git::{GitStatus, GitStatusExtended},
     icon::{Icon, Icons, Pretty},
     style::{Style, Styled},
     top::Top,

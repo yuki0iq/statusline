@@ -1,7 +1,20 @@
 use crate::Chassis;
 use std::env;
 
-/// Icons' modes
+/// Icon mode configurer and pretty-printer
+///
+/// Pretty-prints icons according to selected mode.
+///
+/// # Example
+///
+/// ```
+/// use statusline::{Icon, Icons};
+///
+/// let icons = Icons::Text;
+/// assert_eq!("R/O", icons(Icon::ReadOnly));
+/// ```
+///
+/// This, however, requires nightly rust and some feature flags.
 pub enum Icons {
     /// Use text instead of icons
     Text,
@@ -47,35 +60,74 @@ impl Fn<(Icon,)> for Icons {
     }
 }
 
+/// Pretty formatter with respect to selected icon mode
 pub trait Pretty {
+    /// Pretty formats the object
     fn pretty(&self, icons: &Icons) -> Option<String>;
 }
 
-/// TODO
+impl Pretty for &[Box<dyn Pretty>] {
+    fn pretty(&self, icons: &Icons) -> Option<String> {
+        // TODO collect -- why??
+        Some(
+            self.iter()
+                .filter_map(|x| x.as_ref().pretty(icons))
+                .collect::<Vec<_>>()
+                .join(" "),
+        )
+    }
+}
+
+/// All available icons
+///
+/// Use [Icons] to convert them to string:
 #[non_exhaustive]
 pub enum Icon {
+    /// Chassis icon (near hostname)
     Host,
+    /// User icon (near username)
     User,
+    /// "At" symbol between hostname and username
     HostAt,
+    /// Read-only marker
     ReadOnly,
+    /// Git info: HEAD is branch
     OnBranch,
+    /// Git info: HEAD is a commit
     AtCommit,
+    /// Git info: "ahead" the remote
     Ahead,
+    /// Git info: "behind" the remote
     Behind,
+    /// Git info: stashes
     Stashes,
+    /// Git tree: merge conflicts
     Conflict,
+    /// Git tree: staged
     Staged,
+    /// Git tree: dirty
     Dirty,
+    /// Git tree: untracked
     Untracked,
+    /// Git action: bisecting
     Bisecting,
+    /// Git action: reverting
     Reverting,
+    /// Git action: cherry-picking
     CherryPicking,
+    /// Git action: merging
     Merging,
+    /// Git action: rebasing (with merge backend)
     Rebasing,
+    /// Return code is a success
     ReturnOk,
+    /// Return code is a failure
     ReturnFail,
+    /// Return code information is unavailable (WHY is it an icon WHY do we need a placeholder there)
     ReturnNA,
+    /// Stopwatch icon for last command's execution time
     TookTime,
+    /// Python logo
     Venv,
 }
 

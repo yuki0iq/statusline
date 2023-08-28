@@ -1,4 +1,4 @@
-use crate::{autopretty, BlockType, Environment, FromEnv, Icons, Pretty};
+use crate::{BlockType, Environment, FromEnv, Icons, Pretty};
 
 /// The bottom part of statusline. Immutable, intended to use in `readline`-like functions
 pub struct Bottom {
@@ -8,11 +8,10 @@ pub struct Bottom {
 impl FromEnv for Bottom {
     fn from_env(args: &Environment) -> Self {
         Self {
-            blocks: vec![
-                BlockType::Jobs.create_from_env(args),
-                BlockType::ReturnCode.create_from_env(args),
-                BlockType::RootShell.create_from_env(args),
-            ],
+            blocks: vec![BlockType::Jobs, BlockType::ReturnCode, BlockType::RootShell]
+                .iter()
+                .map(|x| x.create_from_env(args))
+                .collect(),
         }
     }
 }
@@ -20,7 +19,7 @@ impl FromEnv for Bottom {
 impl Pretty for Bottom {
     /// Format the bottom part of the statusline.
     fn pretty(&self, icons: &Icons) -> Option<String> {
-        let bottom_line = autopretty(&self.blocks, icons, " ");
+        let bottom_line = self.blocks.as_slice().pretty(icons)?;
         Some(format!("{} ", bottom_line))
     }
 }

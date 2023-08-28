@@ -1,6 +1,6 @@
 use crate::{
-    file, time, venv::Venv, Environment, FromEnv, GitStatus, GitStatusExtended, Icon, Icons,
-    Pretty, Style,
+    file, git::GitStatus, git::GitStatusExtended, time, venv::Venv, Environment, FromEnv, Icon,
+    Icons, Pretty, Style,
 };
 use chrono::prelude::*;
 use nix::unistd::{self, AccessFlags};
