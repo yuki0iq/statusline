@@ -7,23 +7,23 @@ use std::{
 
 #[derive(Debug)]
 pub enum VirtualizationType {
-    KVM,
+    Kvm,
     Amazon,
-    QEMU,
+    Qemu,
     Bochs,
     Xen,
-    UML,
+    Uml,
     VMware,
     Oracle,
     Microsoft,
-    ZVM,
+    Zvm,
     Parallels,
     Bhyve,
-    QNX,
-    ACRN,
+    Qnx,
+    Acrn,
     PowerVM,
     Apple,
-    SRE,
+    Sre,
     Other,
 }
 
@@ -63,15 +63,15 @@ fn detect_vm_cpuid() -> Option<VirtualizationType> {
 
     Some(match &vendor[..12] {
         b"XenVMMXenVMM" => VirtualizationType::Xen,
-        b"KVMKVMKVM" => VirtualizationType::KVM,
-        b"Linux KVM Hv" => VirtualizationType::KVM,
-        b"TCGTCGTCGTCG" => VirtualizationType::QEMU,
+        b"KVMKVMKVM" => VirtualizationType::Kvm,
+        b"Linux KVM Hv" => VirtualizationType::Kvm,
+        b"TCGTCGTCGTCG" => VirtualizationType::Qemu,
         b"VMwareVMware" => VirtualizationType::VMware,
         b"Microsoft Hv" => VirtualizationType::Microsoft,
         b"bhyve bhyve " => VirtualizationType::Bhyve,
-        b"QNXQVMBSQG" => VirtualizationType::QNX,
-        b"ACRNACRNACRN" => VirtualizationType::ACRN,
-        b"SRESRESRESRE" => VirtualizationType::SRE,
+        b"QNXQVMBSQG" => VirtualizationType::Qnx,
+        b"ACRNACRNACRN" => VirtualizationType::Acrn,
+        b"SRESRESRESRE" => VirtualizationType::Sre,
         _ => VirtualizationType::Other,
     })
 }
@@ -84,7 +84,7 @@ fn detect_vm_cpuid() -> Result<Option<VirtualizationType>> {
 fn detect_vm_device_tree() -> Result<Option<VirtualizationType>> {
     Ok(
         match fs::read_to_string("/proc/device-tree/hypervisor/compatible") {
-            Ok(s) if s == "linux,kvm" => Some(VirtualizationType::KVM),
+            Ok(s) if s == "linux,kvm" => Some(VirtualizationType::Kvm),
             Ok(s) if s.contains("xen") => Some(VirtualizationType::Xen),
             Ok(s) if s.contains("vmware") => Some(VirtualizationType::VMware),
             Ok(_) => Some(VirtualizationType::Other),
@@ -95,12 +95,12 @@ fn detect_vm_device_tree() -> Result<Option<VirtualizationType>> {
                         .unwrap_or(false)
                 {
                     true => Some(VirtualizationType::PowerVM),
-                    false => match file::exists_that(&"/proc/device-tree", |name| {
+                    false => match file::exists_that("/proc/device-tree", |name| {
                         name.contains("fw-cfg")
                     }) {
-                        Ok(true) => Some(VirtualizationType::QEMU),
+                        Ok(true) => Some(VirtualizationType::Qemu),
                         Ok(false) => match fs::read_to_string("/proc/device-tree/compatible") {
-                            Ok(s) if s == "qemu,pseries" => Some(VirtualizationType::QEMU),
+                            Ok(s) if s == "qemu,pseries" => Some(VirtualizationType::Qemu),
                             Ok(_) => None,
                             Err(e) if e.kind() == ErrorKind::NotFound => None,
                             Err(e) => Err(e)?,
@@ -132,11 +132,11 @@ fn detect_vm_dmi_vendor() -> Result<Option<VirtualizationType>> {
         match fs::read_to_string(path) {
             Ok(s) => {
                 for (vendor, vm) in [
-                    ("KVM", VirtualizationType::KVM),
-                    ("OpenStack", VirtualizationType::KVM),
-                    ("KubeVirt", VirtualizationType::KVM),
+                    ("KVM", VirtualizationType::Kvm),
+                    ("OpenStack", VirtualizationType::Kvm),
+                    ("KubeVirt", VirtualizationType::Kvm),
                     ("Amazon EC2", VirtualizationType::Amazon),
-                    ("QEMU", VirtualizationType::QEMU),
+                    ("QEMU", VirtualizationType::Qemu),
                     ("VMware", VirtualizationType::VMware),
                     ("VMW", VirtualizationType::VMware),
                     ("innotek GmbH", VirtualizationType::Oracle),
@@ -225,7 +225,7 @@ fn detect_vm_uml() -> Result<Option<VirtualizationType>> {
         .lines()
         .find_map(|x| Some(x.ok()?.strip_prefix("vendor_id\t: User Mode Linux")?.len()))
         .is_some()
-        .then_some(VirtualizationType::UML))
+        .then_some(VirtualizationType::Uml))
 }
 
 fn detect_vm_zvm() -> Result<Option<VirtualizationType>> {
@@ -241,8 +241,8 @@ fn detect_vm_zvm() -> Result<Option<VirtualizationType>> {
                 .split_whitespace()
                 .next()
             {
-                Some(x) if x == "z/VM" => Some(VirtualizationType::ZVM),
-                Some(_) => Some(VirtualizationType::KVM),
+                Some("z/VM") => Some(VirtualizationType::Zvm),
+                Some(_) => Some(VirtualizationType::Kvm),
                 None => None,
             }
         }),
@@ -352,8 +352,8 @@ pub enum ContainerType {
     OpenVZ,
     Docker,
     Podman,
-    RKT,
-    WSL,
+    Rkt,
+    Wsl,
     Proot,
     Pouch,
     Other,
@@ -388,8 +388,8 @@ fn translate_name(name: &str) -> ContainerType {
         "systemd-nspawn" => ContainerType::SystemdNspawn,
         "docker" => ContainerType::Docker,
         "podman" => ContainerType::Podman,
-        "rkt" => ContainerType::RKT,
-        "wsl" => ContainerType::WSL,
+        "rkt" => ContainerType::Rkt,
+        "wsl" => ContainerType::Wsl,
         "proot" => ContainerType::Proot,
         "pouch" => ContainerType::Pouch,
         _ => ContainerType::Other,
@@ -403,7 +403,7 @@ pub fn detect_container() -> Result<Option<ContainerType>> {
 
     if let Ok(s) = fs::read_to_string("/proc/sys/kernel/osrelease")
         && (s.contains("Microsoft") || s.contains("WSL")) {
-        return Ok(Some(ContainerType::WSL));
+        return Ok(Some(ContainerType::Wsl));
     }
 
     if let Ok(file) = File::open("/proc/self/status") {
