@@ -1,4 +1,4 @@
-use crate::{Icon, Icons};
+use crate::{Environment, Icon, IconMode, Pretty, SimpleBlock, Style};
 use anyhow::Result;
 use std::{
     env,
@@ -14,8 +14,16 @@ pub struct Venv {
     version: String,
 }
 
-impl Venv {
-    pub fn get() -> Option<Venv> {
+pub type MaybeVenv = Option<Venv>;
+
+impl SimpleBlock for MaybeVenv {
+    fn extend(self: Box<Self>) -> Box<dyn Pretty> {
+        self
+    }
+}
+
+impl From<&Environment> for MaybeVenv {
+    fn from(_: &Environment) -> Self {
         let path = PathBuf::from(env::var("VIRTUAL_ENV").ok()?);
         let name = venv_name(&path).to_string();
         let version = venv_ver(&path)
@@ -24,9 +32,28 @@ impl Venv {
 
         Some(Venv { name, version })
     }
+}
 
-    pub fn pretty(&self, icons: &Icons) -> String {
-        format!("{} {}|{}", icons(Icon::Venv), self.version, self.name)
+impl Pretty for MaybeVenv {
+    fn pretty(&self, icons: &IconMode) -> Option<String> {
+        self.as_ref().map(|venv| {
+            format!("{} {}|{}", venv.icon(icons), venv.version, venv.name)
+                .boxed()
+                .yellow()
+                .bold()
+                .with_reset()
+                .to_string()
+        })
+    }
+}
+
+impl Icon for Venv {
+    fn icon(&self, mode: &IconMode) -> &'static str {
+        use IconMode::*;
+        match &mode {
+            Text => "py",
+            Icons | MinimalIcons => "",
+        }
     }
 }
 

@@ -1,4 +1,4 @@
-use crate::virt;
+use crate::{virt, Icon, IconMode};
 use std::{
     fs::{read_to_string, File},
     io::{BufRead, BufReader},
@@ -6,6 +6,7 @@ use std::{
 };
 
 /// Chassis type, according to hostnamectl
+#[derive(Copy, Clone)]
 pub enum Chassis {
     /// Desktops, nettops, etc
     Desktop,
@@ -49,9 +50,9 @@ impl From<&str> for Chassis {
     }
 }
 
-impl Chassis {
-    /// Printable chassis icon. These icons require nerd fonts
-    pub fn icon(&self) -> &'static str {
+impl Icon for Chassis {
+    fn icon(&self, _: &IconMode) -> &'static str {
+        // TODO chassis respecting iconmode?
         match self {
             Chassis::Desktop => " ",
             Chassis::Server => "󰒋 ",
@@ -63,10 +64,12 @@ impl Chassis {
             Chassis::Embedded => " ",
             Chassis::Virtual => "🖴 ",
             Chassis::Container => " ",
-            Chassis::Unknown => "??",
+            Chassis::Unknown => "??", // TODO: find "unknown" icon
         }
     }
+}
 
+impl Chassis {
     /// Gets chassis type from system information, as in systemd
     ///
     /// Containered and virtual environments are likely to be misdetected. You can try overriding

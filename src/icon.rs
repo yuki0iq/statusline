@@ -1,21 +1,9 @@
-use crate::Chassis;
 use std::env;
 
 /// Icon mode configurer and pretty-printer
 ///
 /// Pretty-prints icons according to selected mode.
-///
-/// # Example
-///
-/// ```
-/// use statusline::{Icon, Icons};
-///
-/// let icons = Icons::Text;
-/// assert_eq!("R/O", icons(Icon::ReadOnly));
-/// ```
-///
-/// This, however, requires nightly rust and some feature flags.
-pub enum Icons {
+pub enum IconMode {
     /// Use text instead of icons
     Text,
     /// Use icons from nerdfonts
@@ -24,7 +12,7 @@ pub enum Icons {
     MinimalIcons,
 }
 
-impl Icons {
+impl IconMode {
     /// Detect prompt mode from `PS1_MODE` environment variable
     ///
     /// | Environment        | Resulting IconMode   |
@@ -34,61 +22,31 @@ impl Icons {
     /// | otherwise          | Default nerdfont     |
     pub fn build() -> Self {
         match env::var("PS1_MODE") {
-            Ok(x) if x == "text" => Icons::Text,
-            Ok(x) if x == "minimal" => Icons::MinimalIcons,
-            _ => Icons::Icons,
+            Ok(x) if x == "text" => Self::Text,
+            Ok(x) if x == "minimal" => Self::MinimalIcons,
+            _ => Self::Icons,
         }
     }
 }
 
-impl FnOnce<(Icon,)> for Icons {
-    type Output = &'static str;
-    extern "rust-call" fn call_once(self, args: (Icon,)) -> Self::Output {
-        args.0.static_pretty(&self)
-    }
-}
-
-impl FnMut<(Icon,)> for Icons {
-    extern "rust-call" fn call_mut(&mut self, args: (Icon,)) -> Self::Output {
-        args.0.static_pretty(self)
-    }
-}
-
-impl Fn<(Icon,)> for Icons {
-    extern "rust-call" fn call(&self, args: (Icon,)) -> Self::Output {
-        args.0.static_pretty(self)
-    }
+/// Associated icon getter, which respects icon mode
+pub trait Icon {
+    /// Returns associated icon with respect to icon mode
+    fn icon(&self, mode: &IconMode) -> &'static str;
 }
 
 /// Pretty formatter with respect to selected icon mode
 pub trait Pretty {
     /// Pretty formats the object
-    fn pretty(&self, icons: &Icons) -> Option<String>;
+    fn pretty(&self, mode: &IconMode) -> Option<String>;
 }
 
-impl Pretty for &[Box<dyn Pretty>] {
-    fn pretty(&self, icons: &Icons) -> Option<String> {
-        // TODO collect -- why??
-        Some(
-            self.iter()
-                .filter_map(|x| x.as_ref().pretty(icons))
-                .collect::<Vec<_>>()
-                .join(" "),
-        )
-    }
-}
-
+/*
 /// All available icons
 ///
 /// Use [Icons] to convert them to string:
 #[non_exhaustive]
-pub enum Icon {
-    /// Chassis icon (near hostname)
-    Host,
-    /// User icon (near username)
-    User,
-    /// "At" symbol between hostname and username
-    HostAt,
+pub enum _Icon {
     /// Read-only marker
     ReadOnly,
     /// Git info: HEAD is branch
@@ -119,16 +77,8 @@ pub enum Icon {
     Merging,
     /// Git action: rebasing (with merge backend)
     Rebasing,
-    /// Return code is a success
-    ReturnOk,
-    /// Return code is a failure
-    ReturnFail,
-    /// Return code information is unavailable (WHY is it an icon WHY do we need a placeholder there)
-    ReturnNA,
     /// Stopwatch icon for last command's execution time
     TookTime,
-    /// Python logo
-    Venv,
 }
 
 impl Icon {
@@ -138,22 +88,6 @@ impl Icon {
             Icons::{Icons, MinimalIcons, Text},
         };
         match &self {
-            Host => match &icons {
-                Text => "",
-                Icons | MinimalIcons => Chassis::get().icon(),
-            },
-            User => match &icons {
-                Text => "as",
-                Icons | MinimalIcons => "",
-            },
-            HostAt => match &icons {
-                Text => " at ",
-                Icons | MinimalIcons => "＠",
-            },
-            ReadOnly => match &icons {
-                Text => "R/O",
-                Icons | MinimalIcons => "",
-            },
             OnBranch => match &icons {
                 Text => "on",
                 Icons | MinimalIcons => "",
@@ -212,26 +146,7 @@ impl Icon {
                 Text => "rebasing",
                 Icons | MinimalIcons => "󰝖",
             },
-            ReturnOk => match &icons {
-                Text => "OK",
-                Icons | MinimalIcons => "✓",
-            },
-            ReturnFail => match &icons {
-                Text => "Failed",
-                Icons | MinimalIcons => "✗",
-            },
-            ReturnNA => match &icons {
-                Text => "N/A",
-                Icons | MinimalIcons => "⁇",
-            },
-            TookTime => match &icons {
-                Text => "took",
-                Icons | MinimalIcons => "",
-            },
-            Venv => match &icons {
-                Text => "py",
-                Icons | MinimalIcons => "",
-            },
         }
     }
 }
+*/

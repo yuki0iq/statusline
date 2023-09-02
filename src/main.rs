@@ -3,7 +3,7 @@ use nix::{
     fcntl::{self, FcntlArg, OFlag},
     unistd,
 };
-use statusline::{default, Environment, Icons, Pretty, Style, Top};
+use statusline::{default, Environment, IconMode, Style};
 use std::{
     env, fs,
     io::{self, Write},
@@ -29,31 +29,25 @@ fn main() {
             }
             fcntl::fcntl(3, FcntlArg::F_SETFL(OFlag::O_ASYNC)).unwrap();
 
-            let icons = Icons::build();
+            let mode = IconMode::build();
             let args = Environment::from_env(&args.collect::<Vec<String>>());
-            let line = Top::from(&args);
+            let line = default::top(&args);
             let bottom = default::bottom(&args);
 
-            let top_line = |line: &Top| {
-                line.pretty(&icons)
-                    .unwrap_or_default()
-                    .prev_line(1)
-                    .save_restore()
-                    .to_string()
-            };
+            let top_line = |line: String| line.prev_line(1).save_restore().to_string();
 
-            eprint!("{}", top_line(&line));
+            eprint!("{}", top_line(default::pretty(&line, &mode)));
 
             print!(
                 "{}{}",
                 default::title(&args).invisible(),
-                bottom.as_slice().pretty(&icons).unwrap_or_default()
+                default::pretty(&bottom, &mode)
             );
             io::stdout().flush().unwrap();
             unistd::close(1).unwrap();
 
-            let line = line.extended();
-            eprint!("{}", top_line(&line));
+            let line = default::extend(line);
+            eprint!("{}", top_line(default::pretty(&line, &mode)));
         }
         _ => {
             let ver = env!("CARGO_PKG_VERSION");

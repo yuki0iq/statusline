@@ -1,7 +1,13 @@
-use crate::{Environment, Icons, Pretty, Style, Styled};
+use crate::{Environment, Icon, IconMode, Pretty, SimpleBlock, Style};
 use nix::unistd;
 
 pub struct RootShell(bool);
+
+impl SimpleBlock for RootShell {
+    fn extend(self: Box<Self>) -> Box<dyn Pretty> {
+        self
+    }
+}
 
 impl From<&Environment> for RootShell {
     fn from(_: &Environment) -> Self {
@@ -9,15 +15,19 @@ impl From<&Environment> for RootShell {
     }
 }
 
-impl RootShell {
-    fn icon(&self) -> Styled<'_, str> {
-        if self.0 { "#" } else { "$" }.visible()
+impl Icon for RootShell {
+    fn icon(&self, _: &IconMode) -> &'static str {
+        if self.0 {
+            "#"
+        } else {
+            "$"
+        }
     }
 }
 
 impl Pretty for RootShell {
-    fn pretty(&self, _: &Icons) -> Option<String> {
-        let icon = self.icon();
+    fn pretty(&self, mode: &IconMode) -> Option<String> {
+        let icon = self.icon(mode).visible();
         Some(
             if self.0 { icon.red() } else { icon.green() }
                 .bold()

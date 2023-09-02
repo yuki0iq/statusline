@@ -44,12 +44,12 @@ pub fn exists_that<F: Fn(&str) -> bool, P: AsRef<Path>>(path: P, f: F) -> Result
 }
 
 pub fn upfind<P: AsRef<Path>>(start: P, filename: &str) -> Result<PathBuf> {
-    Ok(start
+    start
         .as_ref()
         .ancestors()
         .map(|path| path.join(filename))
         .find(exists)
-        .ok_or(anyhow!("upfind could not find parent"))?)
+        .ok_or(anyhow!("upfind could not find parent"))
 }
 
 pub fn get_hostname() -> String {

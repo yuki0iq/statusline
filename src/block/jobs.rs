@@ -1,6 +1,12 @@
-use crate::{Environment, Icons, Pretty, Style};
+use crate::{Environment, IconMode, Pretty, SimpleBlock, Style};
 
 pub struct Jobs(usize);
+
+impl SimpleBlock for Jobs {
+    fn extend(self: Box<Self>) -> Box<dyn Pretty> {
+        self
+    }
+}
 
 impl From<&Environment> for Jobs {
     fn from(args: &Environment) -> Self {
@@ -9,7 +15,7 @@ impl From<&Environment> for Jobs {
 }
 
 impl Pretty for Jobs {
-    fn pretty(&self, _: &Icons) -> Option<String> {
+    fn pretty(&self, _: &IconMode) -> Option<String> {
         if self.0 == 0 {
             None?
         }

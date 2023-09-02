@@ -22,32 +22,27 @@
 #![feature(byte_slice_trim_ascii)]
 #![feature(io_error_more)]
 #![feature(iter_next_chunk)]
-#![feature(fn_traits)]
 #![feature(fs_try_exists)]
 #![feature(let_chains)]
 #![feature(slice_first_last_chunk)]
 #![feature(stdsimd)]
-#![feature(unboxed_closures)]
 
 mod args;
 mod block;
 mod chassis;
 mod file;
-mod git;
+// mod git;
 mod icon;
 mod style;
 mod time;
-mod top;
-mod venv;
 mod virt;
 
 pub mod default;
 
 pub use crate::{
     args::Environment,
-    block::BlockType,
+    block::{BlockType, SimpleBlock},
     chassis::Chassis,
-    icon::{Icon, Icons, Pretty},
+    icon::{Icon, IconMode, Pretty},
     style::{Style, Styled},
-    top::Top,
 };

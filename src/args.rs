@@ -1,4 +1,4 @@
-use crate::file;
+use crate::{file, Chassis};
 use std::{env, path::PathBuf};
 
 /// Environment variables available to statusline
@@ -7,7 +7,7 @@ pub struct Environment {
     pub ret_code: Option<u8>,
     /// Jobs currently running
     pub jobs_count: usize,
-    /// Last command's elapsed tile
+    /// Last command's elapsed time, in us
     pub elapsed_time: Option<u64>,
     /// Working directory
     pub work_dir: PathBuf,
@@ -17,6 +17,8 @@ pub struct Environment {
     pub user: String,
     /// Hostname
     pub host: String,
+    /// Chassis
+    pub chassis: Chassis,
 }
 
 impl Environment {
@@ -38,6 +40,7 @@ impl Environment {
 
         let user = env::var("USER").unwrap_or_else(|_| String::from("<user>"));
         let host = file::get_hostname();
+        let chassis = Chassis::get();
 
         Environment {
             ret_code,
@@ -47,6 +50,7 @@ impl Environment {
             work_dir,
             user,
             host,
+            chassis,
         }
     }
 }
