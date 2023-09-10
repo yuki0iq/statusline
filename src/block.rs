@@ -39,8 +39,7 @@ pub enum BlockType {
 }
 
 impl BlockType {
-    /// Creates a block from given environment. These blocks can only be pretty-printed
-    // TODO blocktype "trait Extend"
+    /// Creates a block from given environment. These blocks can be pretty-printed and extended
     pub fn create_from_env(&self, env: &Environment) -> Box<dyn SimpleBlock> {
         match &self {
             Self::Separator => Box::new(separator::Separator()),
