@@ -1,8 +1,6 @@
 use std::env;
 
-/// Icon mode configurer and pretty-printer
-///
-/// Pretty-prints icons according to selected mode.
+/// Icon mode configurer
 pub enum IconMode {
     /// Use text instead of icons
     Text,

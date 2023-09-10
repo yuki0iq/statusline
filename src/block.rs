@@ -57,7 +57,8 @@ impl BlockType {
         }
     }
 }
-
+/// Simple block which can be extended (only once) and pretty-printed
 pub trait SimpleBlock: Pretty {
+    /// Extend block once. Many blocks remain untouched
     fn extend(self: Box<Self>) -> Box<dyn Pretty>;
 }

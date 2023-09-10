@@ -4,19 +4,25 @@
 //!
 //! # Example
 //!
+//! Default statusline as a readline prompt generator:
 //! ```
-//! use statusline::{Bottom, CommandLineArgs, Icons, Pretty, Top};
+//! use statusline::{default, Environment, IconMode, Style};
 //!
-//! let icons = Icons::MinimalIcons;
-//! let args = CommandLineArgs::from_env::<&str>(&[]);
-//! let top = Top::from_env(&args);
-//! let bottom = Bottom::from_env(&args);
-//! println!("{}", top.to_title(Some("test")));
-//! println!("{}", top.pretty(&icons));
-//! print!("{}", bottom.pretty(&icons));  // Or you can use readline with result as prompt
+//! let mode = IconMode::build();
+//! let args = Environment::from_env::<&str>(&[]);
+//! let top = default::extend(default::top(&args));
+//! let bottom = default::bottom(&args);
 //!
-//! // And, additionally, you can start a separate thread for getting more info
-//! // which should be outputed "over" the first top line
+// TODO all blocks should follow .visible().style(...).invisible()
+//! // Top line is not intended to use in readline-like environments
+//! eprintln!("{}", default::pretty(&top, &mode));
+//!
+//! // But bottom line is --- because it has "invisibility"
+//! print!(
+//!     "{}{}",
+//!     default::title(&args).invisible(),
+//!     default::pretty(&bottom, &mode)
+//! );
 //! ```
 
 #![feature(byte_slice_trim_ascii)]
@@ -31,7 +37,6 @@ mod args;
 mod block;
 mod chassis;
 mod file;
-// mod git;
 mod icon;
 mod style;
 mod time;
