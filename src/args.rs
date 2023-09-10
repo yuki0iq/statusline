@@ -33,7 +33,7 @@ impl Environment {
             .unwrap_or(0);
         let elapsed_time = arg.get(2).map(|val| val.as_ref().parse().unwrap());
 
-        let work_dir = env::current_dir().unwrap_or_else(|_| PathBuf::new());
+        let work_dir = env::current_dir().unwrap_or_else(|_| PathBuf::from(env::var("PWD").unwrap()));
         let git_tree = file::upfind(&work_dir, ".git")
             .ok()
             .map(|dg| dg.parent().unwrap().to_path_buf());

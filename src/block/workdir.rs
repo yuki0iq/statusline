@@ -1,12 +1,61 @@
 use crate::{file, Environment, Icon, IconMode, Pretty, SimpleBlock, Style};
-use nix::unistd::{self, AccessFlags};
+use nix::{
+    sys::stat,
+    unistd::{self, AccessFlags},
+};
 use std::path::{Path, PathBuf};
+
+enum State {
+    Writeable,
+    Readable,
+    Unavailable,
+}
+
+impl Icon for State {
+    fn icon(&self, mode: &IconMode) -> &'static str {
+        use IconMode::*;
+        match self {
+            Self::Writeable => "",
+            Self::Readable => match mode {
+                Text => "R/O",
+                Icons | MinimalIcons => " ",
+            },
+            Self::Unavailable => match mode {
+                Text => "DEL",
+                Icons | MinimalIcons => "󰇾 ",
+            },
+        }
+    }
+}
+
+impl Pretty for State {
+    fn pretty(&self, mode: &IconMode) -> Option<String> {
+        Some(self.icon(mode).red().with_reset().to_string())
+    }
+}
+
+fn get_state(work_dir: &Path) -> State {
+    let read_only = unistd::access(work_dir, AccessFlags::W_OK).is_err();
+    let Ok(stat_dot) = stat::stat(".") else {
+        return State::Unavailable;
+    };
+    let Ok(stat_pwd) = stat::stat(work_dir) else {
+        return State::Unavailable;
+    };
+    if (stat_dot.st_dev, stat_dot.st_ino) != (stat_pwd.st_dev, stat_pwd.st_ino) {
+        State::Unavailable
+    } else if read_only {
+        State::Readable
+    } else {
+        State::Writeable
+    }
+}
 
 pub struct Workdir {
     work_dir: PathBuf,
     git_tree: Option<PathBuf>,
     current_home: Option<(PathBuf, String)>,
-    read_only: bool,
+    state: State,
 }
 
 impl SimpleBlock for Workdir {
@@ -20,23 +69,13 @@ impl From<&Environment> for Workdir {
         let work_dir = env.work_dir.clone();
         let git_tree = env.git_tree.clone();
         let current_home = file::find_current_home(&work_dir, &env.user);
-        let read_only = unistd::access(&work_dir, AccessFlags::W_OK).is_err();
+        let state = get_state(&work_dir);
 
         Workdir {
             work_dir,
             git_tree,
             current_home,
-            read_only,
-        }
-    }
-}
-
-impl Icon for Workdir {
-    fn icon(&self, mode: &IconMode) -> &'static str {
-        use IconMode::*;
-        match mode {
-            Text => "R/O",
-            Icons | MinimalIcons => "",
+            state,
         }
     }
 }
@@ -85,14 +124,6 @@ impl Pretty for Workdir {
             .join("/")
             + &highlighted_str.unwrap_or_default();
 
-        let read_only = self.icon(mode).red().with_reset().to_string();
-
-        let formatted = if self.read_only {
-            format!("{} {}", read_only, work_dir)
-        } else {
-            work_dir
-        };
-
-        Some(formatted)
+        Some(format!("{}{}", self.state.pretty(mode).unwrap(), work_dir))
     }
 }
