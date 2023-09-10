@@ -2,6 +2,7 @@ use crate::{Environment, Pretty};
 
 pub mod build_info;
 pub mod elapsed;
+pub mod git;
 pub mod hostuser;
 pub mod jobs;
 pub mod return_code;
@@ -23,7 +24,8 @@ pub enum BlockType {
     RootShell,
     /// Hostname and username display
     HostUser,
-    //Git,
+    /// Git repo info
+    Git,
     /// Build for ???
     BuildInfo,
     /// Python virtual environment name and version
@@ -46,6 +48,7 @@ impl BlockType {
             Self::ReturnCode => Box::new(return_code::ReturnCode::from(env)),
             Self::RootShell => Box::new(root_shell::RootShell::from(env)),
             Self::HostUser => Box::new(hostuser::HostUser::from(env)),
+            Self::Git => Box::new(git::ResGit::from(env)),
             Self::BuildInfo => Box::new(build_info::BuildInfo::from(env)),
             Self::Venv => Box::new(venv::MaybeVenv::from(env)),
             Self::Workdir => Box::new(workdir::Workdir::from(env)),

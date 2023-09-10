@@ -95,25 +95,26 @@ fn detect_vm_device_tree() -> Result<Option<VirtualizationType>> {
                         .unwrap_or(false)
                 {
                     true => Some(VirtualizationType::PowerVM),
-                    false => match file::exists_that("/proc/device-tree", |name| {
-                        name.contains("fw-cfg")
-                    }) {
-                        Ok(true) => Some(VirtualizationType::Qemu),
-                        Ok(false) => match fs::read_to_string("/proc/device-tree/compatible") {
-                            Ok(s) if s == "qemu,pseries" => Some(VirtualizationType::Qemu),
-                            Ok(_) => None,
-                            Err(e) if e.kind() == ErrorKind::NotFound => None,
-                            Err(e) => Err(e)?,
-                        },
-                        Err(e)
-                            if e.is::<std::io::Error>()
-                                && e.downcast_ref::<std::io::Error>().unwrap().kind()
-                                    == ErrorKind::NotFound =>
+                    false => {
+                        match file::exists_that("/proc/device-tree", |name| name.contains("fw-cfg"))
                         {
-                            None
+                            Ok(true) => Some(VirtualizationType::Qemu),
+                            Ok(false) => match fs::read_to_string("/proc/device-tree/compatible") {
+                                Ok(s) if s == "qemu,pseries" => Some(VirtualizationType::Qemu),
+                                Ok(_) => None,
+                                Err(e) if e.kind() == ErrorKind::NotFound => None,
+                                Err(e) => Err(e)?,
+                            },
+                            Err(e)
+                                if e.is::<std::io::Error>()
+                                    && e.downcast_ref::<std::io::Error>().unwrap().kind()
+                                        == ErrorKind::NotFound =>
+                            {
+                                None
+                            }
+                            Err(e) => Err(e)?,
                         }
-                        Err(e) => Err(e)?,
-                    },
+                    }
                 }
             }
             Err(e) => Err(e)?,

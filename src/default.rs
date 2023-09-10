@@ -5,10 +5,10 @@
 use crate::{BlockType, Environment, IconMode, Pretty, SimpleBlock, Style};
 
 /// Default top part of statusline
-pub fn top(env: &Environment) -> [Box<dyn SimpleBlock>; 6] {
+pub fn top(env: &Environment) -> [Box<dyn SimpleBlock>; 7] {
     [
         BlockType::HostUser,
-        //BlockType::Git,
+        BlockType::Git,
         BlockType::BuildInfo,
         BlockType::Venv,
         BlockType::Workdir,

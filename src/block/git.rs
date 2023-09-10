@@ -1,5 +1,4 @@
-use crate::file;
-use crate::{Icon, Icons};
+use crate::{file, Environment, Icon, IconMode, Pretty, SimpleBlock, Style};
 use anyhow::{anyhow, bail, Result};
 use mmarinus::{perms, Map, Private};
 use std::{
@@ -29,11 +28,17 @@ thanks to
     7 untracked   -> ?
 */
 
-fn parse_ref_by_name<T: AsRef<str>>(name: T) -> Head {
+fn parse_ref_by_name<T: AsRef<str>>(name: T, root: PathBuf) -> Head {
     if let Some(name) = name.as_ref().trim().strip_prefix("refs/heads/") {
-        Head::Branch(name.to_owned())
+        Head {
+            kind: HeadKind::Branch(name.to_owned()),
+            root,
+        }
     } else {
-        Head::Unknown
+        Head {
+            kind: HeadKind::Unknown,
+            root,
+        }
     }
 }
 
@@ -164,26 +169,48 @@ fn abbrev_commit(root: &Path, id: &str) -> usize {
     abbrev_len
 }
 
-enum Head {
+enum HeadKind {
     Branch(String),
     Commit(String),
     Unknown,
 }
 
-impl Head {
-    fn pretty(&self, root: &Path, icons: &Icons) -> String {
-        match &self {
-            Head::Branch(name) => format!("{} {}", icons(Icon::OnBranch), name),
-            Head::Commit(id) => {
+struct Head {
+    root: PathBuf,
+    kind: HeadKind,
+}
+
+impl Icon for HeadKind {
+    fn icon(&self, mode: &IconMode) -> &'static str {
+        use IconMode::*;
+        match self {
+            Self::Branch(_) => match mode {
+                Text => "at",
+                Icons | MinimalIcons => "",
+            },
+            Self::Commit(_) => match mode {
+                Text => "at",
+                Icons | MinimalIcons => "",
+            },
+            Self::Unknown => "<unknown>",
+        }
+    }
+}
+
+impl Pretty for Head {
+    fn pretty(&self, mode: &IconMode) -> Option<String> {
+        Some(match &self.kind {
+            branch @ HeadKind::Branch(name) => format!("{} {}", branch.icon(mode), name),
+            oid @ HeadKind::Commit(id) => {
                 format!(
                     "{} {}",
-                    icons(Icon::AtCommit),
-                    &id[..abbrev_commit(root, id)]
+                    oid.icon(mode),
+                    &id[..abbrev_commit(&self.root, id)]
                 )
                 // TODO show tag?
             }
-            _ => "<unknown>".to_string(),
-        }
+            other => other.icon(mode).to_string(),
+        })
     }
 }
 
@@ -236,27 +263,59 @@ impl State {
             None?
         })
     }
+}
 
-    fn pretty(&self, icons: &Icons) -> String {
+impl Icon for State {
+    fn icon(&self, mode: &IconMode) -> &'static str {
+        use IconMode::*;
         match self {
-            State::Bisecting => icons(Icon::Bisecting).to_string(),
-            State::Reverting { head } => format!("{} {}", icons(Icon::Reverting), head),
-            State::CherryPicking { head } => {
-                format!("{} {}", icons(Icon::CherryPicking), head)
-            }
-            State::Merging { head } => format!("{} {}", icons(Icon::Merging), head),
-            State::Rebasing { done, todo } => {
-                format!("{} {}/{}", icons(Icon::Rebasing), done, done + todo)
-            }
+            Self::Bisecting => match mode {
+                Text => "bisecting",
+                Icons | MinimalIcons => "󰩫 ", //TOOD
+            },
+            Self::Reverting { .. } => match mode {
+                Text => "reverting",
+                Icons | MinimalIcons => "",
+            },
+            Self::CherryPicking { .. } => match mode {
+                Text => "cherry-picking",
+                Icons | MinimalIcons => "",
+            },
+            Self::Merging { .. } => match mode {
+                Text => "merging",
+                Icons | MinimalIcons => "",
+            },
+            Self::Rebasing { .. } => match mode {
+                Text => "rebasing",
+                Icons | MinimalIcons => "󰝖",
+            },
         }
     }
 }
 
-fn get_remote(root: &Path, head: &Head) -> Option<(String, String)> {
-    let Head::Branch(br) = head else {
+impl Pretty for State {
+    fn pretty(&self, mode: &IconMode) -> Option<String> {
+        let icon = self.icon(mode);
+        Some(match self {
+            State::Bisecting => icon.to_string(),
+            State::Reverting { head } => format!("{icon} {}", head),
+            State::CherryPicking { head } => {
+                format!("{icon} {}", head)
+            }
+            State::Merging { head } => format!("{icon} {}", head),
+            State::Rebasing { done, todo } => {
+                format!("{icon} {}/{}", done, done + todo)
+            }
+        })
+    }
+}
+
+fn get_remote(head: &Head) -> Option<(String, String)> {
+    let HeadKind::Branch(br) = &head.kind else {
         return None;
     };
 
+    let root = &head.root;
     let section = format!("[branch \"{br}\"]");
     let mut remote_name = None;
     let mut remote_branch = None;
@@ -278,9 +337,7 @@ fn get_remote(root: &Path, head: &Head) -> Option<(String, String)> {
 
 /// Fast git status information from `.git` folder
 pub struct GitStatus {
-    /// Working tree path
-    pub tree: PathBuf,
-    root: PathBuf,
+    tree: PathBuf,
     head: Head,
     remote: Option<(String, String)>,
     stashes: usize,
@@ -289,6 +346,7 @@ pub struct GitStatus {
 
 /// Additional git status information, about branch tracking and working tree state
 pub struct GitStatusExtended {
+    gs: Box<ResGit>,
     behind: usize,
     ahead: usize,
     unmerged: usize,
@@ -297,11 +355,16 @@ pub struct GitStatusExtended {
     untracked: usize,
 }
 
-impl GitStatus {
-    /// Get git status for current working directory --- for the innermost repository or submodule
-    pub fn build(workdir: &Path) -> Result<GitStatus> {
-        let dotgit = file::upfind(workdir, ".git")?;
-        let tree = dotgit.parent().unwrap().to_path_buf();
+pub type ResGit = Result<GitStatus>;
+
+impl From<&Environment> for ResGit {
+    fn from(env: &Environment) -> Result<GitStatus> {
+        let tree = env
+            .git_tree
+            .as_ref()
+            .ok_or(anyhow!("No git tree found"))?
+            .clone();
+        let dotgit = tree.join(".git");
         let root = if dotgit.is_file() {
             tree.join(
                 fs::read_to_string(&dotgit)?
@@ -313,32 +376,6 @@ impl GitStatus {
             dotgit
         };
 
-        // eprintln!("ok tree {tree:?} | {root:?}");
-
-        let head_path = root.join("HEAD");
-
-        let head = if head_path.is_symlink() {
-            parse_ref_by_name(
-                fs::read_link(head_path)?
-                    .to_str()
-                    .ok_or(Error::from(ErrorKind::InvalidFilename))?,
-            )
-        } else {
-            let head = fs::read_to_string(head_path)?;
-            if let Some(rest) = head.strip_prefix("ref:") {
-                parse_ref_by_name(rest)
-            } else {
-                Head::Commit(
-                    head.split_whitespace()
-                        .next()
-                        .unwrap_or_default()
-                        .to_owned(),
-                )
-            }
-        };
-
-        let remote = get_remote(&root, &head);
-
         let stash_path = root.join("logs/refs/stash");
         // eprintln!("try find stashes in {stash_path:?}");
         let stashes = fs::File::open(stash_path)
@@ -347,28 +384,65 @@ impl GitStatus {
 
         let state = State::from_env(&root);
 
+        // eprintln!("ok tree {tree:?} | {root:?}");
+        let head_path = root.join("HEAD");
+
+        let head = if head_path.is_symlink() {
+            parse_ref_by_name(
+                fs::read_link(head_path)?
+                    .to_str()
+                    .ok_or(Error::from(ErrorKind::InvalidFilename))?,
+                root,
+            )
+        } else {
+            let head = fs::read_to_string(head_path)?;
+            if let Some(rest) = head.strip_prefix("ref:") {
+                parse_ref_by_name(rest, root)
+            } else {
+                Head {
+                    kind: HeadKind::Commit(
+                        head.split_whitespace()
+                            .next()
+                            .unwrap_or_default()
+                            .to_owned(),
+                    ),
+                    root,
+                }
+            }
+        };
+
+        let remote = get_remote(&head);
+
         Ok(GitStatus {
             tree,
-            root,
             head,
             remote,
             stashes,
             state,
         })
     }
+}
 
-    /// Get extended git informtion, if possible. Relies on `git` executable
-    pub fn extended(&self) -> Option<GitStatusExtended> {
+impl SimpleBlock for ResGit {
+    fn extend(self: Box<Self>) -> Box<dyn Pretty> {
+        let self_ref = match self.as_ref() {
+            Result::Ok(a) => a,
+            _ => return self,
+        };
+
         let out = Command::new("git")
             .arg("-C")
-            .arg(&self.tree)
+            .arg(&self_ref.tree)
             .arg("status")
             .arg("--porcelain=2")
             .output()
-            .ok()?;
+            .ok();
+        let Some(out) = out else {
+            return self;
+        };
         let lines = out.stdout.split(|&c| c == b'\n').peekable();
 
-        let (ahead, behind) = self.get_ahead_behind().unwrap_or((0, 0));
+        let (ahead, behind) = self_ref.get_ahead_behind().unwrap_or((0, 0));
 
         // println!("ahead and behind is {ahead} {behind}");
 
@@ -402,7 +476,8 @@ impl GitStatus {
             }
         }
 
-        Some(GitStatusExtended {
+        Box::new(GitStatusExtended {
+            gs: self,
             behind,
             ahead,
             unmerged,
@@ -411,9 +486,11 @@ impl GitStatus {
             untracked,
         })
     }
+}
 
+impl GitStatus {
     fn get_ahead_behind(&self) -> Result<(usize, usize)> {
-        let (Head::Branch(head), Some((name, branch))) = (&self.head, &self.remote) else {
+        let (HeadKind::Branch(head), Some((name, branch))) = (&self.head.kind, &self.remote) else {
             bail!("Head is not a branch or remote is missing");
         };
         Ok(Command::new("git")
@@ -433,50 +510,127 @@ impl GitStatus {
             .map_err(|_| anyhow!("Invalid rev-list output"))?
             .into())
     }
+}
 
-    /// Pretty-formats git status with respect to the chosen mode
-    pub fn pretty(&self, icons: &Icons) -> String {
+impl Pretty for ResGit {
+    fn pretty(&self, mode: &IconMode) -> Option<String> {
+        let ans = self.as_ref().ok()?.pretty(mode)?;
+        Some(
+            format!("{ans}...")
+                .boxed()
+                .pink()
+                .bold()
+                .with_reset()
+                .to_string(),
+        )
+    }
+}
+
+impl Pretty for GitStatus {
+    fn pretty(&self, mode: &IconMode) -> Option<String> {
         let mut res = vec![];
 
         if let Some(state) = &self.state {
-            res.push(format!("{}|", state.pretty(icons)));
+            res.push(format!("{}|", state.pretty(mode).unwrap_or_default()));
         }
 
-        let head = self.head.pretty(&self.root, icons);
+        let head = self.head.pretty(mode).unwrap_or_default();
         res.push(head);
 
-        match (&self.head, &self.remote) {
-            (Head::Branch(head), Some((_, remote))) if head != remote => {
+        match (&self.head.kind, &self.remote) {
+            (HeadKind::Branch(head), Some((_, remote))) if head != remote => {
                 res.push(format!(":{}", remote));
             }
             _ => (),
         };
 
-        for (s, val) in [(icons(Icon::Stashes), self.stashes)] {
+        for (s, val) in [(GitIcon::Stashes, self.stashes)] {
             if val != 0 {
-                res.push(format!(" {}{}", s, val));
+                res.push(format!(" {}{}", s.icon(mode), val));
             }
         }
 
-        res.join("")
+        Some(res.join(""))
     }
 }
 
-impl GitStatusExtended {
-    /// Pretty-formats extended git status with respect to the chosen mode
-    pub fn pretty(&self, icons: &Icons) -> String {
-        [
-            (icons(Icon::Behind), self.behind),
-            (icons(Icon::Ahead), self.ahead),
-            (icons(Icon::Conflict), self.unmerged),
-            (icons(Icon::Staged), self.staged),
-            (icons(Icon::Dirty), self.dirty),
-            (icons(Icon::Untracked), self.untracked),
-        ]
-        .into_iter()
-        .filter(|(_, val)| val != &0)
-        .map(|(s, val)| format!(" {}{}", s, val))
-        .collect::<Vec<_>>()
-        .join("")
+impl Pretty for GitStatusExtended {
+    fn pretty(&self, mode: &IconMode) -> Option<String> {
+        Some(
+            (self.gs.as_ref().as_ref().unwrap().pretty(mode)?
+                + &[
+                    (GitIcon::Behind, self.behind),
+                    (GitIcon::Ahead, self.ahead),
+                    (GitIcon::Conflict, self.unmerged),
+                    (GitIcon::Staged, self.staged),
+                    (GitIcon::Dirty, self.dirty),
+                    (GitIcon::Untracked, self.untracked),
+                ]
+                .into_iter()
+                .filter(|(_, val)| val != &0)
+                .map(|(s, val)| format!(" {}{}", s.icon(mode), val))
+                .collect::<Vec<_>>()
+                .join(""))
+                .boxed()
+                .pink()
+                .bold()
+                .with_reset()
+                .to_string(),
+        )
+    }
+}
+
+enum GitIcon {
+    /// Git info: "ahead" the remote
+    Ahead,
+    /// Git info: "behind" the remote
+    Behind,
+    /// Git info: stashes
+    Stashes,
+    /// Git tree: merge conflicts
+    Conflict,
+    /// Git tree: staged
+    Staged,
+    /// Git tree: dirty
+    Dirty,
+    /// Git tree: untracked
+    Untracked,
+}
+
+impl Icon for GitIcon {
+    fn icon(&self, mode: &IconMode) -> &'static str {
+        use IconMode::*;
+        match &self {
+            Self::Ahead => match mode {
+                Text => "^",
+                Icons | MinimalIcons => "󰞙 ",
+            },
+            Self::Behind => match mode {
+                Text => "v",
+                Icons | MinimalIcons => "󰞕 ",
+            },
+            Self::Stashes => match mode {
+                Text => "*",
+                Icons | MinimalIcons => " ",
+            },
+            Self::Conflict => match mode {
+                Text => "~",
+                Icons => "󰞇 ",
+                MinimalIcons => " ",
+            },
+            Self::Staged => match mode {
+                Text => "+",
+                Icons | MinimalIcons => " ",
+            },
+            Self::Dirty => match mode {
+                Text => "!",
+                Icons | MinimalIcons => " ",
+            },
+            Self::Untracked => match mode {
+                Text => "?",
+                Icons => " ",
+                MinimalIcons => " ",
+            },
+        }
     }
 }
