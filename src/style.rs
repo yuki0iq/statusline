@@ -21,6 +21,7 @@ enum StyleKind {
     CursorHorizontalAbsolute(i32),
     CursorPreviousLine(i32),
     CursorSaveRestore,
+    ClearLine,
 }
 
 /// Styled "string"-like object
@@ -69,6 +70,7 @@ impl<T: Display + ?Sized> Display for Styled<'_, T> {
             StyleKind::CursorHorizontalAbsolute(n) => write!(f, "{CSI}{n}G{}", self.value),
             StyleKind::CursorPreviousLine(n) => write!(f, "{CSI}{n}A{CSI}G{}", self.value),
             StyleKind::CursorSaveRestore => write!(f, "{CSI}s{}{CSI}u", self.value),
+            StyleKind::ClearLine => write!(f, "{CSI}0K{}", self.value),
         }
     }
 }
@@ -221,6 +223,14 @@ pub trait Style: Display {
     fn save_restore(&self) -> Styled<Self> {
         Styled {
             style: StyleKind::CursorSaveRestore,
+            value: self,
+        }
+    }
+
+    /// Prepends line cleaner
+    fn clear_till_end(&self) -> Styled<Self> {
+        Styled {
+            style: StyleKind::ClearLine,
             value: self,
         }
     }

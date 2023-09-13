@@ -34,7 +34,7 @@ fn main() {
             let line = default::top(&args);
             let bottom = default::bottom(&args);
 
-            let top_line = |line: String| line.prev_line(1).save_restore().to_string();
+            let top_line = |line: String| line.clear_till_end().prev_line(1).save_restore().to_string();
 
             eprint!("{}", top_line(default::pretty(&line, &mode)));
 
