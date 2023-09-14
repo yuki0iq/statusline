@@ -7,6 +7,32 @@ const CSI: &str = "\x1b[";
 const RESET: &str = "\x1b[0m";
 const BEL: &str = "\x07";
 const COLOR_TABLE: [u8; 5] = [255, 203, 153, 100, 0];
+const HSV_COLOR_TABLE: [(u8, u8, u8); 24] = [
+    (255, 0, 0),
+    (255, 85, 0),
+    (255, 128, 0),
+    (255, 170, 0),
+    (255, 213, 0),
+    (255, 255, 0),
+    (213, 255, 0),
+    (170, 255, 0),
+    (128, 255, 0),
+    (0, 255, 85),
+    (0, 255, 128),
+    (0, 255, 170),
+    (0, 255, 213),
+    (0, 213, 255),
+    (0, 128, 255),
+    (0, 85, 255),
+    (128, 0, 255),
+    (170, 0, 255),
+    (213, 0, 255),
+    (255, 0, 255),
+    (255, 0, 212),
+    (255, 0, 170),
+    (255, 0, 128),
+    (255, 0, 85),
+];
 
 enum StyleKind {
     Title,
@@ -353,7 +379,7 @@ pub trait Style: Display {
     ///
     /// Given this we can interpret our "color number" as a base-5 number and take green, blue,
     /// and red colors from it.
-    fn colorize_with(&self, with: &str) -> Styled<Self> {
+    fn colorize_with_prev(&self, with: &str) -> Styled<Self> {
         /*
         How to "colorize" a string
 
@@ -391,7 +417,35 @@ pub trait Style: Display {
             self.true_color(r, g, b)
         }
     }
+
+    /// String autocolorizer.
+    ///
+    /// Colors `self` with a "random" color associated with given string `with`.
+    ///
+    /// |`with` value|Resulting color     |
+    /// |------------|--------------------|
+    /// |`="root"`   | Red                |
+    /// |other       | Some non-red color |
+    ///
+    /// There are 24 different colors, simpler version with less colors
+    fn colorize_with(&self, with: &str) -> Styled<Self> {
+        if with == "root" {
+            self.red()
+        } else {
+            let idx = polyhash(with, 23, 179, with.len()) + 1;
+            let (r, g, b) = HSV_COLOR_TABLE[idx];
+            self.true_color(r, g, b)
+        }
+    }
 }
 
 /// All types which can be displayed can be styled too
 impl<T: Display + ?Sized> Style for T {}
+
+fn polyhash(s: &str, m: usize, p: usize, h_init: usize) -> usize {
+    let mut h = h_init % m;
+    for by in s.bytes() {
+        h = (h * p + by as usize) % m;
+    }
+    h
+}
