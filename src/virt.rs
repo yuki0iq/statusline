@@ -77,8 +77,8 @@ fn detect_vm_cpuid() -> Option<VirtualizationType> {
 }
 
 #[cfg(not(any(target_arch = "x86_64", target_arch = "x86")))]
-fn detect_vm_cpuid() -> Result<Option<VirtualizationType>> {
-    Ok(None)
+fn detect_vm_cpuid() -> Option<VirtualizationType> {
+    None
 }
 
 fn detect_vm_device_tree() -> Result<Option<VirtualizationType>> {

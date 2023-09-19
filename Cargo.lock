@@ -163,9 +163,9 @@ dependencies = [
 
 [[package]]
 name = "fahtsex"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d0deaba4f6477d0bef97b87d3cf2d7c716acf72b817fba44906f4cfd785abfcf"
+checksum = "ebd5d1215cd4bfc8824452db5e52f34a1e36c173472acec71cc587cb90f941eb"
 
 [[package]]
 name = "generic-array"
@@ -375,7 +375,7 @@ dependencies = [
 
 [[package]]
 name = "statusline"
-version = "0.12.2"
+version = "0.12.3"
 dependencies = [
  "anyhow",
  "chrono",
