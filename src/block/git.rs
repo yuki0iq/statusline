@@ -335,6 +335,32 @@ fn get_remote(head: &Head) -> Option<(String, String)> {
     remote_name.zip(remote_branch)
 }
 
+fn get_ahead_behind(
+    tree: &Path,
+    head: &HeadKind,
+    remote: &Option<(String, String)>,
+) -> Result<(usize, usize)> {
+    let (HeadKind::Branch(head), Some((name, branch))) = (head, remote) else {
+        bail!("Head is not a branch or remote is missing");
+    };
+    Ok(Command::new("git")
+        .arg("-C")
+        .arg(tree)
+        .arg("rev-list")
+        .arg("--count")
+        .arg("--left-right")
+        .arg(format!("{head}...{name}/{branch}"))
+        .output()?
+        .stdout
+        .trim_ascii_end()
+        .split(|&c| c == b'\t')
+        .map(|x| Result::<usize>::Ok(std::str::from_utf8(x)?.parse::<usize>()?))
+        .filter_map(Result::ok)
+        .next_chunk::<2>()
+        .map_err(|_| anyhow!("Invalid rev-list output"))?
+        .into())
+}
+
 /// Fast git status information from `.git` folder
 pub struct GitStatus {
     tree: PathBuf,
@@ -342,13 +368,13 @@ pub struct GitStatus {
     remote: Option<(String, String)>,
     stashes: usize,
     state: Option<State>,
+    behind: usize,
+    ahead: usize,
 }
 
 /// Additional git status information, about branch tracking and working tree state
 pub struct GitStatusExtended {
     gs: Box<ResGit>,
-    behind: usize,
-    ahead: usize,
     unmerged: usize,
     staged: usize,
     dirty: usize,
@@ -413,12 +439,16 @@ impl From<&Environment> for ResGit {
 
         let remote = get_remote(&head);
 
+        let (ahead, behind) = get_ahead_behind(&tree, &head.kind, &remote).unwrap_or((0, 0));
+
         Ok(GitStatus {
             tree,
             head,
             remote,
             stashes,
             state,
+            behind,
+            ahead,
         })
     }
 }
@@ -441,10 +471,6 @@ impl SimpleBlock for ResGit {
             return self;
         };
         let lines = out.stdout.split(|&c| c == b'\n').peekable();
-
-        let (ahead, behind) = self_ref.get_ahead_behind().unwrap_or((0, 0));
-
-        // println!("ahead and behind is {ahead} {behind}");
 
         let mut unmerged = 0;
         let mut staged = 0;
@@ -478,8 +504,6 @@ impl SimpleBlock for ResGit {
 
         Box::new(GitStatusExtended {
             gs: self,
-            behind,
-            ahead,
             unmerged,
             staged,
             dirty,
@@ -488,43 +512,9 @@ impl SimpleBlock for ResGit {
     }
 }
 
-impl GitStatus {
-    fn get_ahead_behind(&self) -> Result<(usize, usize)> {
-        let (HeadKind::Branch(head), Some((name, branch))) = (&self.head.kind, &self.remote) else {
-            bail!("Head is not a branch or remote is missing");
-        };
-        Ok(Command::new("git")
-            .arg("-C")
-            .arg(&self.tree)
-            .arg("rev-list")
-            .arg("--count")
-            .arg("--left-right")
-            .arg(format!("{head}...{name}/{branch}"))
-            .output()?
-            .stdout
-            .trim_ascii_end()
-            .split(|&c| c == b'\t')
-            .map(|x| Result::<usize>::Ok(std::str::from_utf8(x)?.parse::<usize>()?))
-            .filter_map(Result::ok)
-            .next_chunk::<2>()
-            .map_err(|_| anyhow!("Invalid rev-list output"))?
-            .into())
-    }
-}
-
 impl Pretty for ResGit {
     fn pretty(&self, mode: &IconMode) -> Option<String> {
-        let ans = self.as_ref().ok()?.pretty(mode)?;
-        Some(
-            format!("{ans}...")
-                .boxed()
-                .visible()
-                .pink()
-                .bold()
-                .with_reset()
-                .invisible()
-                .to_string(),
-        )
+        self.as_ref().ok()?.pretty(mode)
     }
 }
 
@@ -546,23 +536,35 @@ impl Pretty for GitStatus {
             _ => (),
         };
 
-        for (s, val) in [(GitIcon::Stashes, self.stashes)] {
+        for (icon, val) in [
+            (GitIcon::Stashes, self.stashes),
+            (GitIcon::Behind, self.behind),
+            (GitIcon::Ahead, self.ahead),
+        ] {
             if val != 0 {
-                res.push(format!(" {}{}", s.icon(mode), val));
+                res.push(format!(" {}{}", icon.icon(mode), val));
             }
         }
 
-        Some(res.join(""))
+        Some(
+            res.join("")
+                .boxed()
+                .visible()
+                .pink()
+                .bold()
+                .with_reset()
+                .invisible()
+                .to_string(),
+        )
     }
 }
 
 impl Pretty for GitStatusExtended {
     fn pretty(&self, mode: &IconMode) -> Option<String> {
         Some(
-            (self.gs.as_ref().as_ref().unwrap().pretty(mode)?
+            self.gs.as_ref().as_ref().unwrap().pretty(mode)?
+                + " "
                 + &[
-                    (GitIcon::Behind, self.behind),
-                    (GitIcon::Ahead, self.ahead),
                     (GitIcon::Conflict, self.unmerged),
                     (GitIcon::Staged, self.staged),
                     (GitIcon::Dirty, self.dirty),
@@ -570,9 +572,9 @@ impl Pretty for GitStatusExtended {
                 ]
                 .into_iter()
                 .filter(|(_, val)| val != &0)
-                .map(|(s, val)| format!(" {}{}", s.icon(mode), val))
+                .map(|(s, val)| format!("{}{}", s.icon(mode), val))
                 .collect::<Vec<_>>()
-                .join(""))
+                .join(" ")
                 .boxed()
                 .visible()
                 .pink()
