@@ -8,7 +8,7 @@ rewritten in Rust.
 * Linux-compatible OS. Other OSes were not tested, but it will probably fail to run
 * Bash, for the shell
 * *(Optional)* Git, for repo information
-* Processor with SSSE3 support (AVX2 is recommended)
+* *(Optional for x86)* SSSE3 support or better (prefer AVX2)
 * Cargo, for installing and updating
 
 ## Installation

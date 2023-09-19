@@ -1,6 +1,6 @@
 [package]
 name = "statusline"
-version = "0.12.0"
+version = "0.12.1"
 edition = "2021"
 description = "Simple and fast bash PS1 line with useful features"
 license-file = "license.txt"
@@ -15,7 +15,7 @@ term_size = "0.3.2"
 libc = "0.2.147"
 anyhow = "1.0.72"
 mmarinus = "0.4.0"
-fahtsex = "0.1.0"
+fahtsex = "0.2.0"
 
 [profile.release]
 codegen-units = 1
