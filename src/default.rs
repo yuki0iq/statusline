@@ -18,6 +18,7 @@
 //! ```
 
 use crate::{BlockType, Environment, IconMode, Pretty, SimpleBlock, Style};
+use std::borrow::Cow;
 
 /// Default top part of statusline
 pub fn top(env: &Environment) -> [Box<dyn SimpleBlock>; 7] {
@@ -55,7 +56,21 @@ pub fn bottom(env: &Environment) -> [Box<dyn SimpleBlock>; 4] {
 ///
 /// Shows username, hostname and current working directory
 pub fn title(env: &Environment) -> String {
-    let pwd = env.work_dir.to_str().unwrap_or("<path>");
+    let pwd = if let Some((home, user)) = &env.current_home {
+        let wd = env
+            .work_dir
+            .strip_prefix(home)
+            .unwrap_or(&env.work_dir)
+            .to_str()
+            .unwrap_or("<path>");
+        Cow::from(if wd.is_empty() {
+            format!("~{user}")
+        } else {
+            format!("~{user}/{wd}")
+        })
+    } else {
+        Cow::from(env.work_dir.to_str().unwrap_or("<path>"))
+    };
     format!("{}@{}: {}", env.user, env.host, pwd)
         .as_title()
         .to_string()

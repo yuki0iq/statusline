@@ -19,6 +19,8 @@ pub struct Environment {
     pub host: String,
     /// Chassis
     pub chassis: Chassis,
+    /// Cheernt home: dir and username
+    pub current_home: Option<(PathBuf, String)>
 }
 
 impl Environment {
@@ -41,6 +43,8 @@ impl Environment {
         let user = env::var("USER").unwrap_or_else(|_| String::from("<user>"));
         let host = file::get_hostname();
         let chassis = Chassis::get();
+        
+        let current_home = file::find_current_home(&work_dir, &user);
 
         Environment {
             ret_code,
@@ -51,6 +55,7 @@ impl Environment {
             user,
             host,
             chassis,
+            current_home
         }
     }
 }

@@ -1,4 +1,4 @@
-use crate::{file, Environment, Icon, IconMode, Pretty, SimpleBlock, Style};
+use crate::{Environment, Icon, IconMode, Pretty, SimpleBlock, Style};
 use nix::{
     sys::stat,
     unistd::{self, AccessFlags},
@@ -68,7 +68,7 @@ impl From<&Environment> for Workdir {
     fn from(env: &Environment) -> Self {
         let work_dir = env.work_dir.clone();
         let git_tree = env.git_tree.clone();
-        let current_home = file::find_current_home(&work_dir, &env.user);
+        let current_home = env.current_home.clone();
         let state = get_state(&work_dir);
 
         Workdir {
