@@ -11,6 +11,7 @@ pub enum BuildInfoKind {
     Jr,
     Qbs,
     Qmake,
+    Kks,
 }
 
 impl Display for BuildInfoKind {
@@ -27,6 +28,7 @@ impl Display for BuildInfoKind {
                 Self::Jr => "./jr",
                 Self::Qbs => "qbs",
                 Self::Qmake => "qmake",
+                Self::Kks => "kks",
             }
         )
     }
@@ -75,6 +77,10 @@ impl From<&Environment> for BuildInfo {
 
         if file::upfind(workdir, "Cargo.toml").is_ok() {
             bi.insert(BuildInfoKind::Cargo);
+        }
+
+        if file::upfind(workdir, ".kks-workspace").is_ok() {
+            bi.insert(BuildInfoKind::Kks);
         }
 
         bi
