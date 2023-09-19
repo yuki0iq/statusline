@@ -20,7 +20,7 @@ pub struct Environment {
     /// Chassis
     pub chassis: Chassis,
     /// Cheernt home: dir and username
-    pub current_home: Option<(PathBuf, String)>
+    pub current_home: Option<(PathBuf, String)>,
 }
 
 impl Environment {
@@ -35,7 +35,9 @@ impl Environment {
             .unwrap_or(0);
         let elapsed_time = arg.get(2).map(|val| val.as_ref().parse().unwrap());
 
-        let work_dir = env::current_dir().unwrap_or_else(|_| PathBuf::from(env::var("PWD").unwrap()));
+        let work_dir =
+            env::current_dir().unwrap_or_else(|_| PathBuf::from(env::var("PWD").unwrap()));
+
         let git_tree = file::upfind(&work_dir, ".git")
             .ok()
             .map(|dg| dg.parent().unwrap().to_path_buf());
@@ -43,7 +45,7 @@ impl Environment {
         let user = env::var("USER").unwrap_or_else(|_| String::from("<user>"));
         let host = file::get_hostname();
         let chassis = Chassis::get();
-        
+
         let current_home = file::find_current_home(&work_dir, &user);
 
         Environment {
@@ -55,7 +57,7 @@ impl Environment {
             user,
             host,
             chassis,
-            current_home
+            current_home,
         }
     }
 }
