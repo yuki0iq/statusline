@@ -33,8 +33,10 @@ impl Pretty for Elapsed {
                 time::microseconds_to_string(self.0)?
             )
             .rounded()
+            .visible()
             .cyan()
             .with_reset()
+            .invisible()
             .to_string(),
         )
     }

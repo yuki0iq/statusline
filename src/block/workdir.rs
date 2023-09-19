@@ -103,19 +103,25 @@ impl Pretty for Workdir {
 
         let home_str = self.current_home.as_ref().map(|(_, user)| {
             format!("~{}", user)
+                .visible()
                 .yellow()
                 .bold()
                 .with_reset()
+                .invisible()
                 .to_string()
         });
 
         let middle_str = middle.and_then(Path::to_str).map(ToString::to_string);
 
-        let highlighted_str = highlighted
-            .and_then(Path::to_str)
-            .map(|s| format!("/{}", s).cyan().with_reset().to_string());
+        let highlighted_str = highlighted.and_then(Path::to_str).map(|s| {
+            format!("/{}", s)
+                .visible()
+                .cyan()
+                .with_reset()
+                .invisible()
+                .to_string()
+        });
 
-        // eprintln!("home: {home_str:?} | middle: {middle_str:?}\n");
         let work_dir = [home_str, middle_str]
             .into_iter()
             .filter(|x| matches!(x, Some(q) if !q.is_empty()))

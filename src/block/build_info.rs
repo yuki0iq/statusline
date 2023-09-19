@@ -98,9 +98,11 @@ impl Pretty for BuildInfo {
                 .collect::<Vec<_>>()
                 .join(" ")
                 .boxed()
+                .visible()
                 .purple()
                 .bold()
                 .with_reset()
+                .invisible()
                 .to_string(),
         )
     }

@@ -39,9 +39,11 @@ impl Pretty for MaybeVenv {
         self.as_ref().map(|venv| {
             format!("{} {}|{}", venv.icon(icons), venv.version, venv.name)
                 .boxed()
+                .visible()
                 .yellow()
                 .bold()
                 .with_reset()
+                .invisible()
                 .to_string()
         })
     }

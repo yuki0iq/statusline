@@ -518,9 +518,11 @@ impl Pretty for ResGit {
         Some(
             format!("{ans}...")
                 .boxed()
+                .visible()
                 .pink()
                 .bold()
                 .with_reset()
+                .invisible()
                 .to_string(),
         )
     }
@@ -572,9 +574,11 @@ impl Pretty for GitStatusExtended {
                 .collect::<Vec<_>>()
                 .join(""))
                 .boxed()
+                .visible()
                 .pink()
                 .bold()
                 .with_reset()
+                .invisible()
                 .to_string(),
         )
     }

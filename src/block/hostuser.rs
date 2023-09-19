@@ -58,7 +58,9 @@ impl Pretty for Host {
     fn pretty(&self, mode: &IconMode) -> Option<String> {
         Some(
             format!("{}{} {}]", self.pre_icon(mode), self.1, self.icon(mode),)
+                .visible()
                 .colorize_with(&self.1)
+                .invisible()
                 .to_string(),
         )
     }
@@ -68,7 +70,9 @@ impl Pretty for User {
     fn pretty(&self, mode: &IconMode) -> Option<String> {
         Some(
             format!("[{} {}", self.icon(mode), self.0)
+                .visible()
                 .colorize_with(&self.0)
+                .invisible()
                 .to_string(),
         )
     }
@@ -78,8 +82,10 @@ impl Pretty for HostUser {
     fn pretty(&self, mode: &IconMode) -> Option<String> {
         Some(
             format!("{}{}", self.0.pretty(mode)?, self.1.pretty(mode)?)
+                .visible()
                 .bold()
                 .with_reset()
+                .invisible()
                 .to_string(),
         )
     }
