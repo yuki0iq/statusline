@@ -6,7 +6,6 @@ const ESC: &str = "\x1b";
 const CSI: &str = "\x1b[";
 const RESET: &str = "\x1b[0m";
 const BEL: &str = "\x07";
-const COLOR_TABLE: [u8; 5] = [255, 203, 153, 100, 0];
 const HSV_COLOR_TABLE: [(u8, u8, u8); 24] = [
     (255, 0, 0),
     (255, 85, 0),
@@ -325,109 +324,7 @@ pub trait Style: Display {
     /// |`="root"`   | Red                |
     /// |other       | Some non-red color |
     ///
-    /// There are 115 different colors. Here is the algorithm overview:
-    ///
-    /// ## Algorithm and reasoning behind it
-    ///
-    /// - Take first 4 hex numbers from sha256 digest of `with` with `'\n'` appended (later: take
-    ///   first 5 digits, digest of string `"<with.len()> <with>"`)
-    /// - Take modulo 115 as `color_number`
-    /// - Let `color_table` be `[255, 203, 153, 100, 0]` with `FCA60` as a shorthand for its items
-    /// - Let `green` be `color_number / 25`
-    /// - Let `blue` be `color_number / 5 % 5`
-    /// - Let `red` = `color_number % 5`
-    ///
-    /// `color_table` was chosen with a scientifick pick. It holds all of the possible values
-    /// a single color channel can hold. The table was generated to make _all_ colors differ
-    /// from each other.
-    ///
-    /// I have been experimenting with tables of size 6, but I was unlucky and did not find
-    /// anything suitable and reverted to five colors.
-    ///
-    /// If the full table was used, then there would be 125 colors, but there are only 115.
-    ///
-    /// You may have noticed that `blue`, `green`, and `red` can be seen as a digits in base-5
-    /// number. I will use the "FCA60" abbreviation for values in the color table --- these were
-    /// chosen as a nearest hex number if value was divided by 16.
-    ///
-    /// I have examinated all these colors with a simple shell script (three `for` loops in some
-    /// combinations to make sure everything's clear) and allowed only colors which were
-    /// not too dark and not too red at the same time.
-    ///
-    /// All the colors were then marked as "allowed" or "disallowed" and similar patterns were
-    /// merged into one. Here is the resulting table:
-    ///
-    /// |  Red  | Green |   Blue  | Allow?|
-    /// |-------|-------|---------|-------|
-    /// |  any  | not 0 |   any   |  yes  |
-    /// |  any  |   0   | F, C, A |  yes  |
-    /// |  any  |   0   | 6, 0    |  no   |
-    ///
-    /// The last line --- the only holding the disallowed colors --- was actually constructed some
-    /// time later when I needed to convert the "number" to its color.
-    ///
-    /// If we order colors as in `F < C < A < 6 < 0` --- the order in which I have fiddled with
-    /// the table --- we can see that only some of the "higher" numbers from blue and green channel
-    /// are banned, and luckily one channel has only one banned item.
-    ///
-    /// 10 colors are banned. They, in GBR (strange one) look like `06_` and `00_`, where
-    /// underscore denotes placeholder for every allowed value.
-    ///
-    /// Suppose we've written those numbers in big endian format. If we converted them to decimal
-    /// values we would've got all the numbers from 115 to 124 --- the minimal is
-    /// `06F = 4*25 + 3*5 + 0 = 115` and the maximal is `000 = 4*25 + 4*5 + 4 = 124`.
-    ///
-    /// Given this we can interpret our "color number" as a base-5 number and take green, blue,
-    /// and red colors from it.
-    fn colorize_with_prev(&self, with: &str) -> Styled<Self> {
-        /*
-        How to "colorize" a string
-
-        using colors table
-           F   C   A   6   0
-         255 203 153 100   0
-         -> scientific "pick" moment
-
-        allow (block too dark and too red)
-        FCA60 FCA6 FCA60
-        FCA60 0 FCA
-
-        block (r06 r00)
-
-        total 115 of 5^3 = 125, ban 10 highest
-        store in BGR (ban 00r, 06r)
-
-        then for hash from 0 to 114
-        B = hash / 25
-        G = hash / 5 % 5
-        R = hash % 5
-
-        COLOR_TABLE=(255 203 153 100 0)
-        */
-        if with == "root" {
-            self.red()
-        } else {
-            let hash =
-                usize::from_str_radix(&sha256::digest(format!("{} {}", with.len(), with))[..5], 16)
-                    .unwrap()
-                    % 115;
-            let g = COLOR_TABLE[hash / 25];
-            let b = COLOR_TABLE[hash / 5 % 5];
-            let r = COLOR_TABLE[hash % 5];
-            self.true_color(r, g, b)
-        }
-    }
-
-    /// String autocolorizer.
-    ///
-    /// Colors `self` with a "random" color associated with given string `with`.
-    ///
-    /// |`with` value|Resulting color     |
-    /// |------------|--------------------|
-    /// |`="root"`   | Red                |
-    /// |other       | Some non-red color |
-    ///
-    /// There are 24 different colors, simpler version with less colors
+    /// There are 24 different colors
     fn colorize_with(&self, with: &str) -> Styled<Self> {
         if with == "root" {
             self.red()

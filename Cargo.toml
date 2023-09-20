@@ -7,7 +7,6 @@ license-file = "license.txt"
 repository = "https://git.yukii.keenetic.pro/yuki0iq/statusline"
 
 [dependencies]
-sha256 = "1.2.1"
 pwd = "1.4.0"
 nix = { version = "0.26.2", features = ["fs", "user"] }
 chrono = "0.4.26"
