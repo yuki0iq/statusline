@@ -14,7 +14,6 @@ PROMPT_COMMAND='
         PS1_ELAPSED=0
     fi
     jobs -n
-    printf "\n\n"
 '
 PS1='$("<exec>" --run "$?" "\j" "$PS1_ELAPSED" 3<&$PS1_FD &)'
 

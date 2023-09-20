@@ -4,10 +4,22 @@ use nix::{
     unistd,
 };
 use statusline::{default, Environment, IconMode, Style};
-use std::{
-    env, fs,
-    io::{self, Write},
-};
+use std::{env, fs, io, io::Write};
+use unicode_width::UnicodeWidthChar;
+
+fn readline_width(s: &str) -> usize {
+    let mut res = 0;
+    let mut skip = false;
+    for c in s.chars() {
+        match c {
+            '\x01' => skip = true,
+            '\x02' => skip = false,
+            c if !skip => res += c.width().unwrap_or(0),
+            _ => {}
+        }
+    }
+    res
+}
 
 fn main() {
     let exec = fs::read_link("/proc/self/exe")
@@ -29,30 +41,84 @@ fn main() {
             }
             fcntl::fcntl(3, FcntlArg::F_SETFL(OFlag::O_ASYNC)).unwrap();
 
+            use statusline::BlockType; //<===
+
             let mode = IconMode::build();
             let args = Environment::from_env(&args.collect::<Vec<String>>());
-            let line = default::top(&args);
             let bottom = default::bottom(&args);
 
-            let top_line = |line: String| {
+            let mut line: [Box<_>; 8] = [
+                BlockType::HostUser,
+                BlockType::GitRepo,
+                BlockType::GitTree,
+                BlockType::BuildInfo,
+                BlockType::Venv,
+                BlockType::Workdir, //<===[5]
+                BlockType::Elapsed,
+                BlockType::Time,
+            ]
+            .map(|x| x.create_from_env(&args));
+
+            let line_length: usize = line
+                .iter()
+                .map(|x| x.pretty(&mode))
+                .filter_map(|x| x)
+                .map(|x| readline_width(&x))
+                .sum();
+
+            let make_line = |line: String, up: i32| {
                 line.clear_till_end()
-                    .prev_line(1)
+                    .prev_line(up)
                     .save_restore()
                     .to_string()
             };
 
-            eprint!("{}", top_line(default::pretty(&line, &mode)));
+            if line_length + 25 >= term_size::dimensions().map(|s| s.0).unwrap_or(80) {
+                // three lines
+                eprint!("\n\n\n");
 
-            print!(
-                "{}{}",
-                default::title(&args).invisible(),
-                default::pretty(&bottom, &mode)
-            );
-            io::stdout().flush().unwrap();
-            unistd::close(1).unwrap();
+                let mut second = BlockType::Empty.create_from_env(&args);
+                std::mem::swap(&mut second, &mut line[5]);
+                let second = [BlockType::Continue.create_from_env(&args), second];
 
-            let line = default::extend(line);
-            eprint!("{}", top_line(default::pretty(&line, &mode)));
+                eprint!(
+                    "{}{}",
+                    make_line(default::pretty(&line, &mode), 2),
+                    make_line(default::pretty(&second, &mode), 1)
+                );
+
+                print!(
+                    "{}{}",
+                    default::title(&args).invisible(),
+                    default::pretty(&bottom, &mode)
+                );
+                io::stdout().flush().unwrap();
+                unistd::close(1).unwrap();
+                
+                let line = default::extend(line);
+                let second = default::extend(second);
+                eprint!(
+                    "{}{}",
+                    make_line(default::pretty(&line, &mode), 2),
+                    make_line(default::pretty(&second, &mode), 1)
+                );
+            } else {
+                // two lines
+                eprint!("\n\n");
+
+                eprint!("{}", make_line(default::pretty(&line, &mode), 1));
+
+                print!(
+                    "{}{}",
+                    default::title(&args).invisible(),
+                    default::pretty(&bottom, &mode)
+                );
+                io::stdout().flush().unwrap();
+                unistd::close(1).unwrap();
+
+                let line = default::extend(line);
+                eprint!("{}", make_line(default::pretty(&line, &mode), 1));
+            }
         }
         _ => {
             let ver = env!("CARGO_PKG_VERSION");
