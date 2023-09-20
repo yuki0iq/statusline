@@ -34,7 +34,7 @@ impl Display for BuildInfoKind {
     }
 }
 
-pub type BuildInfo = std::collections::HashSet<BuildInfoKind>;
+pub type BuildInfo = Vec<BuildInfoKind>;
 
 impl SimpleBlock for BuildInfo {
     fn extend(self: Box<Self>) -> Box<dyn Pretty> {
@@ -48,39 +48,39 @@ impl From<&Environment> for BuildInfo {
         let mut bi = BuildInfo::new();
 
         if file::exists("CMakeLists.txt") {
-            bi.insert(BuildInfoKind::Cmake);
+            bi.push(BuildInfoKind::Cmake);
         }
 
         if file::exists("configure") {
-            bi.insert(BuildInfoKind::Configure);
+            bi.push(BuildInfoKind::Configure);
         }
 
         if file::exists("Makefile") {
-            bi.insert(BuildInfoKind::Makefile);
+            bi.push(BuildInfoKind::Makefile);
         }
 
         if file::exists("install") {
-            bi.insert(BuildInfoKind::Install);
+            bi.push(BuildInfoKind::Install);
         }
 
         if file::exists("jr") {
-            bi.insert(BuildInfoKind::Jr);
+            bi.push(BuildInfoKind::Jr);
         }
 
         if let Ok(true) = file::exists_that(workdir, |filename| filename.ends_with(".qbs")) {
-            bi.insert(BuildInfoKind::Qbs);
+            bi.push(BuildInfoKind::Qbs);
         }
 
         if let Ok(true) = file::exists_that(workdir, |filename| filename.ends_with(".pro")) {
-            bi.insert(BuildInfoKind::Qmake);
+            bi.push(BuildInfoKind::Qmake);
         }
 
         if file::upfind(workdir, "Cargo.toml").is_ok() {
-            bi.insert(BuildInfoKind::Cargo);
+            bi.push(BuildInfoKind::Cargo);
         }
 
         if file::upfind(workdir, ".kks-workspace").is_ok() {
-            bi.insert(BuildInfoKind::Kks);
+            bi.push(BuildInfoKind::Kks);
         }
 
         bi
