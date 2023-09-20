@@ -1,6 +1,6 @@
-use libc::fcntl as fcntl_unsafe;
 use nix::{
     fcntl::{self, FcntlArg, OFlag},
+    libc,
     unistd,
 };
 use statusline::{default, Environment, IconMode, Style};
@@ -37,7 +37,7 @@ fn main() {
         }
         Some("--top") => {
             unsafe {
-                fcntl_unsafe(3, libc::F_SETOWN, unistd::getpid());
+                libc::fcntl(3, libc::F_SETOWN, unistd::getpid());
             }
             fcntl::fcntl(3, FcntlArg::F_SETFL(OFlag::O_ASYNC)).unwrap();
 

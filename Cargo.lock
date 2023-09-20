@@ -213,7 +213,6 @@ dependencies = [
  "anyhow",
  "chrono",
  "fahtsex",
- "libc",
  "mmarinus",
  "nix",
  "pwd",
