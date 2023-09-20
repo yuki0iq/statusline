@@ -2,6 +2,7 @@ use crate::{file, Environment, Icon, IconMode, Pretty, SimpleBlock, Style};
 use anyhow::{anyhow, bail, Result};
 use mmarinus::{perms, Map, Private};
 use std::{
+    borrow::Cow,
     fs::{self, File},
     io::{BufRead, BufReader, Error, ErrorKind},
     iter, mem,
@@ -211,6 +212,17 @@ impl Pretty for Head {
             }
             other => other.icon(mode).to_string(),
         })
+    }
+}
+
+impl Head {
+    // Please WHY
+    fn git_value(&self) -> Cow<str> {
+        match &self.kind {
+            HeadKind::Branch(name) => Cow::from(format!("refs/heads/{name}")),
+            HeadKind::Commit(id) => Cow::from(id),
+            HeadKind::Unknown => Cow::from("<head>"),
+        }
     }
 }
 
@@ -566,7 +578,7 @@ impl Pretty for GitRepo {
             res.join("")
                 .boxed()
                 .visible()
-                .pink()
+                .colorize_with(self.head.git_value().as_ref()) //.pink()
                 .bold()
                 .with_reset()
                 .invisible()
@@ -583,26 +595,31 @@ impl Pretty for Tree {
 
 impl Pretty for GitTree {
     fn pretty(&self, mode: &IconMode) -> Option<String> {
-        Some(
-            [
-                (GitIcon::Conflict, self.unmerged),
-                (GitIcon::Staged, self.staged),
-                (GitIcon::Dirty, self.dirty),
-                (GitIcon::Untracked, self.untracked),
-            ]
-            .into_iter()
-            .filter(|(_, val)| val != &0)
-            .map(|(s, val)| format!("{}{}", s.icon(mode), val))
-            .collect::<Vec<_>>()
-            .join(" ")
-            .boxed()
-            .visible()
-            .pink()
-            .bold()
-            .with_reset()
-            .invisible()
-            .to_string(),
-        )
+        let vec = [
+            (GitIcon::Conflict, self.unmerged),
+            (GitIcon::Staged, self.staged),
+            (GitIcon::Dirty, self.dirty),
+            (GitIcon::Untracked, self.untracked),
+        ]
+        .into_iter()
+        .filter(|(_, val)| val != &0)
+        .map(|(s, val)| format!("{}{}", s.icon(mode), val))
+        .collect::<Vec<_>>();
+        
+        if vec.is_empty() {
+            None
+        } else {
+            Some(
+                vec.join(" ")
+                    .boxed()
+                    .visible()
+                    .pink()
+                    .bold()
+                    .with_reset()
+                    .invisible()
+                    .to_string(),
+            )
+        }
     }
 }
 
