@@ -21,10 +21,11 @@ use crate::{BlockType, Environment, IconMode, Pretty, SimpleBlock, Style};
 use std::borrow::Cow;
 
 /// Default top part of statusline
-pub fn top(env: &Environment) -> [Box<dyn SimpleBlock>; 7] {
+pub fn top(env: &Environment) -> [Box<dyn SimpleBlock>; 8] {
     [
         BlockType::HostUser,
-        BlockType::Git,
+        BlockType::GitRepo,
+        BlockType::GitTree,
         BlockType::BuildInfo,
         BlockType::Venv,
         BlockType::Workdir,

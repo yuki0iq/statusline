@@ -361,9 +361,7 @@ fn get_ahead_behind(
         .into())
 }
 
-/// Fast git status information from `.git` folder
-pub struct GitStatus {
-    tree: PathBuf,
+pub struct GitRepo {
     head: Head,
     remote: Option<(String, String)>,
     stashes: usize,
@@ -372,19 +370,32 @@ pub struct GitStatus {
     ahead: usize,
 }
 
-/// Additional git status information, about branch tracking and working tree state
-pub struct GitStatusExtended {
-    gs: Box<ResGit>,
+pub type Repo = Result<GitRepo>;
+
+pub struct GitTree {
+    tree: PathBuf,
     unmerged: usize,
     staged: usize,
     dirty: usize,
     untracked: usize,
 }
 
-pub type ResGit = Result<GitStatus>;
+pub type Tree = Option<GitTree>;
 
-impl From<&Environment> for ResGit {
-    fn from(env: &Environment) -> Result<GitStatus> {
+impl From<&Environment> for Tree {
+    fn from(env: &Environment) -> Tree {
+        let tree = env.git_tree.as_ref()?.clone();
+        Some(GitTree {
+            tree,
+            unmerged: 0,
+            staged: 0,
+            dirty: 0,
+            untracked: 0,
+        })
+    }
+}
+impl From<&Environment> for Repo {
+    fn from(env: &Environment) -> Repo {
         let tree = env
             .git_tree
             .as_ref()
@@ -441,8 +452,7 @@ impl From<&Environment> for ResGit {
 
         let (ahead, behind) = get_ahead_behind(&tree, &head.kind, &remote).unwrap_or((0, 0));
 
-        Ok(GitStatus {
-            tree,
+        Ok(GitRepo {
             head,
             remote,
             stashes,
@@ -453,10 +463,16 @@ impl From<&Environment> for ResGit {
     }
 }
 
-impl SimpleBlock for ResGit {
+impl SimpleBlock for Repo {
     fn extend(self: Box<Self>) -> Box<dyn Pretty> {
-        let self_ref = match self.as_ref() {
-            Result::Ok(a) => a,
+        self
+    }
+}
+
+impl SimpleBlock for Tree {
+    fn extend(self: Box<Self>) -> Box<dyn Pretty> {
+        let self_ref = match *self {
+            Some(x) => x,
             _ => return self,
         };
 
@@ -468,7 +484,7 @@ impl SimpleBlock for ResGit {
             .output()
             .ok();
         let Some(out) = out else {
-            return self;
+            return Box::new(self_ref);
         };
         let lines = out.stdout.split(|&c| c == b'\n').peekable();
 
@@ -502,8 +518,8 @@ impl SimpleBlock for ResGit {
             }
         }
 
-        Box::new(GitStatusExtended {
-            gs: self,
+        Box::new(GitTree {
+            tree: self_ref.tree,
             unmerged,
             staged,
             dirty,
@@ -512,13 +528,13 @@ impl SimpleBlock for ResGit {
     }
 }
 
-impl Pretty for ResGit {
+impl Pretty for Repo {
     fn pretty(&self, mode: &IconMode) -> Option<String> {
         self.as_ref().ok()?.pretty(mode)
     }
 }
 
-impl Pretty for GitStatus {
+impl Pretty for GitRepo {
     fn pretty(&self, mode: &IconMode) -> Option<String> {
         let mut res = vec![];
 
@@ -559,29 +575,33 @@ impl Pretty for GitStatus {
     }
 }
 
-impl Pretty for GitStatusExtended {
+impl Pretty for Tree {
+    fn pretty(&self, mode: &IconMode) -> Option<String> {
+        self.as_ref()?.pretty(mode)
+    }
+}
+
+impl Pretty for GitTree {
     fn pretty(&self, mode: &IconMode) -> Option<String> {
         Some(
-            self.gs.as_ref().as_ref().unwrap().pretty(mode)?
-                + " "
-                + &[
-                    (GitIcon::Conflict, self.unmerged),
-                    (GitIcon::Staged, self.staged),
-                    (GitIcon::Dirty, self.dirty),
-                    (GitIcon::Untracked, self.untracked),
-                ]
-                .into_iter()
-                .filter(|(_, val)| val != &0)
-                .map(|(s, val)| format!("{}{}", s.icon(mode), val))
-                .collect::<Vec<_>>()
-                .join(" ")
-                .boxed()
-                .visible()
-                .pink()
-                .bold()
-                .with_reset()
-                .invisible()
-                .to_string(),
+            [
+                (GitIcon::Conflict, self.unmerged),
+                (GitIcon::Staged, self.staged),
+                (GitIcon::Dirty, self.dirty),
+                (GitIcon::Untracked, self.untracked),
+            ]
+            .into_iter()
+            .filter(|(_, val)| val != &0)
+            .map(|(s, val)| format!("{}{}", s.icon(mode), val))
+            .collect::<Vec<_>>()
+            .join(" ")
+            .boxed()
+            .visible()
+            .pink()
+            .bold()
+            .with_reset()
+            .invisible()
+            .to_string(),
         )
     }
 }
