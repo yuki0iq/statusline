@@ -1,13 +1,11 @@
+extern crate git2;
 use crate::{file, Environment, Icon, IconMode, Pretty, SimpleBlock, Style};
-use anyhow::{anyhow, bail, Result};
-use mmarinus::{perms, Map, Private};
+use anyhow::{anyhow, Result};
 use std::{
     borrow::Cow,
     fs::{self, File},
     io::{BufRead, BufReader, Error, ErrorKind},
-    iter, mem,
     path::{Path, PathBuf},
-    process::Command,
 };
 
 /*
@@ -18,170 +16,56 @@ thanks to
 thanks to
     https://git-scm.com/docs/git-status
     https://github.com/romkatv/powerlevel10k
- feature[:master] v1^2 *3 ~4 +5 !6 ?7
-    (feature) Current LOCAL branch   -> # branch.head <name>
-    (master) Remote branch IF DIFFERENT and not null   -> # branch.upstream <origin>/<name>
-    1 commit behind, 2 commits ahead   -> # branch.ab +<ahead> -<behind>
-    3 stashes   -> # stash <count>
-    4 unmerged   -> XX
-    5 staged   -> X.
-    6 dirty   -> .X
-    7 untracked   -> ?
+    https://docs.rs/git2
+    and some more links...
+
+Git Repo status:
+  Merging 32df|feature[:master] *3 v1^2
+    Merging 32df: current repo state and additional info
+    (feature) Current LOCAL branch
+    (master) Remote branch IF DIFFERENT and not null
+    3 stashes
+    1 commit behind, 2 commits ahead
+
+Git Tree status:
+  ~4 +5 !6 ?7
+    4 unmerged
+    5 staged
+    6 dirty
+    7 untracked
 */
 
-fn parse_ref_by_name<T: AsRef<str>>(name: T, root: PathBuf) -> Head {
-    if let Some(name) = name.as_ref().trim().strip_prefix("refs/heads/") {
-        Head {
-            kind: HeadKind::Branch(name.to_owned()),
-            root,
-        }
-    } else {
-        Head {
-            kind: HeadKind::Unknown,
-            root,
-        }
-    }
-}
-
-fn lcp<T: AsRef<str>>(a: T, b: T) -> usize {
-    iter::zip(a.as_ref().chars(), b.as_ref().chars())
-        .position(|(a, b)| a != b)
-        .unwrap_or(0) // if equal then LCP should be zero
-}
-
-fn lcp_bytes(a: &[u8], b: &[u8]) -> usize {
-    let pos = iter::zip(a.iter(), b.iter()).position(|(a, b)| a != b);
-    match pos {
-        None => 0,
-        Some(i) => i * 2 + ((a[i] >> 4) == (b[i] >> 4)) as usize,
-    }
-}
-
-fn load_objects(root: &Path, fanout: &str) -> Result<Vec<String>> {
-    Ok(fs::read_dir(root.join("objects").join(fanout))?
-        .map(|res| res.map(|e| String::from(e.file_name().to_string_lossy())))
-        .collect::<Result<Vec<_>, _>>()?)
-}
-
-fn objects_dir_len(root: &Path, id: &str) -> Result<usize> {
-    let (fanout, rest) = id.split_at(2);
-
-    // Find len from ".git/objects/xx/..."
-    let best_lcp = load_objects(root, fanout)?
-        .iter()
-        .map(|val| lcp(val.as_str(), rest))
-        .max();
-    Ok(match best_lcp {
-        None => 2,
-        Some(val) => 3 + val,
-    })
-}
-
-fn packed_objects_len(root: &Path, commit: &str) -> Result<usize> {
-    let commit = fahtsex::parse_oid_str(commit).ok_or(Error::from(ErrorKind::InvalidData))?;
-
-    let mut res = 0;
-    for entry in fs::read_dir(root.join("objects/pack"))? {
-        let path = entry?.path();
-        // eprintln!("entry {path:?}");
-        let Some(ext) = path.extension() else {
-            continue;
-        };
-        if ext != "idx" {
-            continue;
-        }
-
-        let map = Map::load(path, Private, perms::Read)?;
-        // eprintln!("mmaped");
-
-        // Git packed objects index file format is easy -- Yuki
-        // Statements dreamed up by the utterly deranged -- purplesyringa
-        // See https://github.com/purplesyringa/gitcenter -> main/dist/js/git.md
-
-        let map_size = map.size() / 4;
-        let integers: &[u32] = unsafe { mem::transmute(&map[..4 * map_size]) };
-
-        // Should contain 0x102 ints (magic, version and fanout)
-        if map_size < 0x102 {
-            continue;
-        }
-
-        let (magic, version) = (integers[0], integers[1]);
-        let fanout_table: &[u32] = &integers[2..0x102];
-
-        // Magic int is 0xFF744F63 ('\377tOc')
-        // probably should be read as "table of contents" which this index is
-        // Only version 2 is supported
-        if magic != 0xFF744F63 && version != 2 {
-            continue;
-        }
-
-        // eprintln!("magic + version ok");
-        // [0x0008 -- 0x0408] is fanout table as [u32, 256]
-        // where `table[i]` is count of objects with `fanout <= i`
-        // object range is from `table[i-1]` to `table[i] - 1` including both borders
-        let fanout = *commit.first().unwrap() as usize;
-        let begin = if fanout == 0 {
-            0
-        } else {
-            fanout_table[fanout - 1]
-        } as usize;
-        let end = fanout_table[fanout] as usize;
-
-        // begin and end are sha1 *indexes* and not positions of their beginning
-        if begin == end {
-            continue;
-        }
-
-        let commit_position = |idx: usize| 0x102 + 5 * idx;
-        if map_size < commit_position(*fanout_table.last().unwrap() as usize) {
-            continue;
-        }
-
-        let hashes: &[[u8; 20]] =
-            unsafe { mem::transmute(&integers[commit_position(begin)..commit_position(end)]) };
-
-        //eprintln!("left and right are {left:?} and {right:?}");
-
-        let index = hashes.partition_point(|hash| hash < &commit);
-        if index > 0 {
-            res = res.max(lcp_bytes(&hashes[begin + index - 1], &commit));
-        }
-        if index < end - begin {
-            res = res.max(lcp_bytes(
-                &hashes[begin + index + (hashes[begin + index] == commit) as usize],
-                &commit,
-            ));
-        }
-    }
-    //eprintln!("packed: {res:?}");
-    //eprintln!("");
-    Ok(1 + res)
-}
-
-fn abbrev_commit(root: &Path, id: &str) -> usize {
-    let mut abbrev_len = 4;
-    if let Ok(x) = objects_dir_len(root, id) {
-        abbrev_len = abbrev_len.max(x);
-    }
-    if let Ok(x) = packed_objects_len(root, id) {
-        abbrev_len = abbrev_len.max(x);
-    }
-    abbrev_len
-}
-
-enum HeadKind {
+// TODO show tags? annotated ones?
+enum Head {
     Branch(String),
     Commit(String),
-    Unknown,
+    Tag(String),
 }
 
-struct Head {
-    root: PathBuf,
-    kind: HeadKind,
+impl<'repo> From<git2::Reference<'repo>> for Head {
+    fn from(reference: git2::Reference<'repo>) -> Head {
+        if reference.is_branch() {
+            Head::Branch(reference.name().unwrap_or("refs/heads/<branch>")[11..].to_owned())
+        } else if reference.is_tag() {
+            Head::Tag(reference.name().unwrap_or("refs/tags/<tag>")[10..].to_owned())
+        } else {
+            match reference.peel(git2::ObjectType::Commit) {
+                Ok(object) => match object.describe(&git2::DescribeOptions::new()) {
+                    Ok(describe) => match describe
+                        .format(Some(git2::DescribeFormatOptions::new().abbreviated_size(4)))
+                    {
+                        Ok(abbrev) => Head::Commit(abbrev),
+                        Err(_) => Head::Commit("<fmt?>".to_owned()),
+                    },
+                    Err(_) => Head::Commit("<desc?>".to_owned()),
+                },
+                Err(_) => Head::Commit("<oid?>".to_owned()),
+            }
+        }
+    }
 }
 
-impl Icon for HeadKind {
+impl Icon for Head {
     fn icon(&self, mode: &IconMode) -> &'static str {
         use IconMode::*;
         match self {
@@ -190,27 +74,24 @@ impl Icon for HeadKind {
                 Icons | MinimalIcons => "",
             },
             Self::Commit(_) => match mode {
-                Text => "at",
+                Text => "on",
                 Icons | MinimalIcons => "",
             },
-            Self::Unknown => "<unknown>",
+            Self::Tag(_) => match mode {
+                Text => "tag",
+                Icons | MinimalIcons => "TAG", //TODO
+            },
         }
     }
 }
 
 impl Pretty for Head {
     fn pretty(&self, mode: &IconMode) -> Option<String> {
-        Some(match &self.kind {
-            branch @ HeadKind::Branch(name) => format!("{} {}", branch.icon(mode), name),
-            oid @ HeadKind::Commit(id) => {
-                format!(
-                    "{} {}",
-                    oid.icon(mode),
-                    &id[..abbrev_commit(&self.root, id)]
-                )
-                // TODO show tag?
-            }
-            other => other.icon(mode).to_string(),
+        let icon = self.icon(mode);
+        Some(match &self {
+            Head::Branch(name) => format!("{icon} {name}"),
+            Head::Commit(id) => format!("{icon} {id}"),
+            Head::Tag(tag) => format!("{icon} {tag}"),
         })
     }
 }
@@ -218,10 +99,10 @@ impl Pretty for Head {
 impl Head {
     // Please WHY
     fn git_value(&self) -> Cow<str> {
-        match &self.kind {
-            HeadKind::Branch(name) => Cow::from(format!("refs/heads/{name}")),
-            HeadKind::Commit(id) => Cow::from(id),
-            HeadKind::Unknown => Cow::from("<head>"),
+        match &self {
+            Head::Branch(name) => Cow::from(format!("refs/heads/{name}")),
+            Head::Commit(id) => Cow::from(id),
+            Head::Tag(name) => Cow::from(format!("refs/tags/{name}")),
         }
     }
 }
@@ -244,7 +125,8 @@ impl State {
 
         let abbrev_head = |head: &Path| {
             fs::read_to_string(head).map(|mut id| {
-                id.truncate(abbrev_commit(root, &id));
+                // TODO id.truncate(abbrev_commit(root, &id));
+                id.truncate(7);
                 id
             })
         };
@@ -322,88 +204,28 @@ impl Pretty for State {
     }
 }
 
-fn get_remote(head: &Head) -> Option<(String, String)> {
-    let HeadKind::Branch(br) = &head.kind else {
-        return None;
-    };
-
-    let root = &head.root;
-    let section = format!("[branch \"{br}\"]");
-    let mut remote_name = None;
-    let mut remote_branch = None;
-    for line in BufReader::new(fs::File::open(root.join("config")).ok()?)
-        .lines()
-        .map_while(Result::ok)
-        .skip_while(|x| x != &section)
-        .skip(1)
-        .take_while(|x| x.starts_with('\t'))
-    {
-        if let Some(x) = line.strip_prefix("\tremote = ") {
-            remote_name = Some(x.to_string());
-        } else if let Some(x) = line.strip_prefix("\tmerge = refs/heads/") {
-            remote_branch = Some(x.to_string());
-        }
-    }
-    remote_name.zip(remote_branch)
-}
-
-fn get_ahead_behind(
-    tree: &Path,
-    head: &HeadKind,
-    remote: &Option<(String, String)>,
-) -> Result<(usize, usize)> {
-    let (HeadKind::Branch(head), Some((name, branch))) = (head, remote) else {
-        bail!("Head is not a branch or remote is missing");
-    };
-    Ok(Command::new("git")
-        .arg("-C")
-        .arg(tree)
-        .arg("rev-list")
-        .arg("--count")
-        .arg("--left-right")
-        .arg(format!("{head}...{name}/{branch}"))
-        .output()?
-        .stdout
-        .trim_ascii_end()
-        .split(|&c| c == b'\t')
-        .map(|x| Result::<usize>::Ok(std::str::from_utf8(x)?.parse::<usize>()?))
-        .filter_map(Result::ok)
-        .next_chunk::<2>()
-        .map_err(|_| anyhow!("Invalid rev-list output"))?
-        .into())
-}
-
-pub struct GitRepo {
-    head: Head,
-    remote: Option<(String, String)>,
-    stashes: usize,
+pub type Repo = Result<RepoInfo>;
+pub struct RepoInfo {
     state: Option<State>,
+    head: Head,
+    remote: Option<String>,
+    stashes: usize,
     behind: usize,
     ahead: usize,
 }
 
-pub type Repo = Result<GitRepo>;
-
-pub struct GitTree {
-    tree: PathBuf,
+pub type Tree = Option<TreeImpl>;
+pub struct TreeImpl(PathBuf);
+pub struct TreeInfo {
     unmerged: usize,
     staged: usize,
     dirty: usize,
     untracked: usize,
 }
 
-pub type Tree = Option<GitTree>;
-
 impl From<&Environment> for Tree {
     fn from(env: &Environment) -> Tree {
-        let tree = env.git_tree.as_ref()?.clone();
-        Some(GitTree {
-            tree,
-            unmerged: 0,
-            staged: 0,
-            dirty: 0,
-            untracked: 0,
-        })
+        Some(TreeImpl(env.git_tree.as_ref()?.clone()))
     }
 }
 impl From<&Environment> for Repo {
@@ -426,45 +248,42 @@ impl From<&Environment> for Repo {
         };
 
         let stash_path = root.join("logs/refs/stash");
-        // eprintln!("try find stashes in {stash_path:?}");
         let stashes = fs::File::open(stash_path)
             .map(|file| BufReader::new(file).lines().count())
             .unwrap_or(0);
 
         let state = State::from_env(&root);
 
-        // eprintln!("ok tree {tree:?} | {root:?}");
-        let head_path = root.join("HEAD");
+        let repo = git2::Repository::open(tree)?;
+        let head = Head::from(repo.head()?);
 
-        let head = if head_path.is_symlink() {
-            parse_ref_by_name(
-                fs::read_link(head_path)?
-                    .to_str()
-                    .ok_or(Error::from(ErrorKind::InvalidFilename))?,
-                root,
-            )
-        } else {
-            let head = fs::read_to_string(head_path)?;
-            if let Some(rest) = head.strip_prefix("ref:") {
-                parse_ref_by_name(rest, root)
+        let (remote, remote_ref) = if let Head::Branch(_) = head {
+            let remote = git2::Branch::wrap(repo.head()?).upstream().ok();
+            if let Some(remote) = remote {
+                (
+                    remote
+                        .name()
+                        .unwrap_or(None)
+                        .and_then(|x| Some(x.split_once('/')?.1))
+                        .map(ToOwned::to_owned),
+                    Some(remote.into_reference()),
+                )
             } else {
-                Head {
-                    kind: HeadKind::Commit(
-                        head.split_whitespace()
-                            .next()
-                            .unwrap_or_default()
-                            .to_owned(),
-                    ),
-                    root,
-                }
+                (None, None)
             }
+        } else {
+            (None, None)
         };
 
-        let remote = get_remote(&head);
+        let get_ahead_behind = |head_ref: git2::Reference<'_>,
+                                remote_ref: Option<git2::Reference<'_>>|
+         -> Option<(usize, usize)> {
+            repo.graph_ahead_behind(head_ref.target_peel()?, remote_ref?.target_peel()?)
+                .ok()
+        };
+        let (ahead, behind) = get_ahead_behind(repo.head()?, remote_ref).unwrap_or((0, 0));
 
-        let (ahead, behind) = get_ahead_behind(&tree, &head.kind, &remote).unwrap_or((0, 0));
-
-        Ok(GitRepo {
+        Ok(RepoInfo {
             head,
             remote,
             stashes,
@@ -483,55 +302,49 @@ impl SimpleBlock for Repo {
 
 impl SimpleBlock for Tree {
     fn extend(self: Box<Self>) -> Box<dyn Pretty> {
-        let self_ref = match *self {
-            Some(x) => x,
+        let tree = match *self {
+            Some(x) => x.0,
             _ => return self,
         };
 
-        let out = Command::new("git")
-            .arg("-C")
-            .arg(&self_ref.tree)
-            .arg("status")
-            .arg("--porcelain=2")
-            .output()
-            .ok();
-        let Some(out) = out else {
-            return Box::new(self_ref);
-        };
-        let lines = out.stdout.split(|&c| c == b'\n').peekable();
+        use git2::Status;
+        let unmerged_status = Status::CONFLICTED;
+        let staged_status = Status::INDEX_NEW
+            | Status::INDEX_DELETED
+            | Status::INDEX_RENAMED
+            | Status::INDEX_MODIFIED
+            | Status::INDEX_TYPECHANGE;
+        let dirty_status = Status::WT_DELETED
+            | Status::WT_RENAMED
+            | Status::WT_MODIFIED
+            | Status::WT_TYPECHANGE;
+        let untracked_status = Status::WT_NEW;
 
         let mut unmerged = 0;
         let mut staged = 0;
         let mut dirty = 0;
         let mut untracked = 0;
 
-        for line in lines {
-            let words: Vec<_> = line.split(|&c| c == b' ').take(2).collect();
-            if words.len() != 2 {
-                continue;
-            }
-            let (id, pat) = (words[0], words[1]);
-            match (id, pat) {
-                (b"?", _) => {
-                    untracked += 1;
-                }
-                (b"u", _) => {
-                    unmerged += 1;
-                }
-                (_, pat) if pat.len() == 2 => {
-                    if pat[0] != b'.' {
-                        staged += 1;
-                    }
-                    if pat[1] != b'.' {
-                        dirty += 1;
-                    }
-                }
+        let Ok(repo) = git2::Repository::open(tree) else {
+            return Box::new(super::separator::Separator("<tree?>"));
+        };
+
+        let Ok(statuses) = repo.statuses(Some(git2::StatusOptions::new().include_untracked(true)))
+        else {
+            return Box::new(super::separator::Separator("<stat?>"));
+        };
+
+        for entry in &statuses {
+            match entry.status() {
+                s if s.intersects(unmerged_status) => unmerged += 1,
+                s if s.intersects(staged_status) => staged += 1,
+                s if s.intersects(dirty_status) => dirty += 1,
+                s if s.intersects(untracked_status) => untracked += 1,
                 _ => {}
             }
         }
 
-        Box::new(GitTree {
-            tree: self_ref.tree,
+        Box::new(TreeInfo {
             unmerged,
             staged,
             dirty,
@@ -546,7 +359,7 @@ impl Pretty for Repo {
     }
 }
 
-impl Pretty for GitRepo {
+impl Pretty for RepoInfo {
     fn pretty(&self, mode: &IconMode) -> Option<String> {
         let mut res = vec![];
 
@@ -557,8 +370,8 @@ impl Pretty for GitRepo {
         let head = self.head.pretty(mode).unwrap_or_default();
         res.push(head);
 
-        match (&self.head.kind, &self.remote) {
-            (HeadKind::Branch(head), Some((_, remote))) if head != remote => {
+        match (&self.head, &self.remote) {
+            (Head::Branch(local), Some(remote)) if local != remote => {
                 res.push(format!(":{}", remote));
             }
             _ => (),
@@ -588,12 +401,12 @@ impl Pretty for GitRepo {
 }
 
 impl Pretty for Tree {
-    fn pretty(&self, mode: &IconMode) -> Option<String> {
-        self.as_ref()?.pretty(mode)
+    fn pretty(&self, _: &IconMode) -> Option<String> {
+        None
     }
 }
 
-impl Pretty for GitTree {
+impl Pretty for TreeInfo {
     fn pretty(&self, mode: &IconMode) -> Option<String> {
         let vec = [
             (GitIcon::Conflict, self.unmerged),
