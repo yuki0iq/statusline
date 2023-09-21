@@ -47,6 +47,7 @@ enum StyleKind {
     CursorPreviousLine(i32),
     CursorSaveRestore,
     ClearLine,
+    NewlineJoin(String),
 }
 
 /// Styled "string"-like object
@@ -80,7 +81,7 @@ pub struct Styled<'a, T: Display + ?Sized> {
 
 impl<T: Display + ?Sized> Display for Styled<'_, T> {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
-        match self.style {
+        match &self.style {
             StyleKind::Title => write!(f, "{ESC}]0;{}{BEL}", self.value),
             StyleKind::Bold => write!(f, "{CSI}1m{}", self.value),
             StyleKind::Color8(index) => write!(f, "{CSI}{}m{}", index + 31, self.value),
@@ -96,6 +97,7 @@ impl<T: Display + ?Sized> Display for Styled<'_, T> {
             StyleKind::CursorPreviousLine(n) => write!(f, "{CSI}{n}A{CSI}G{}", self.value),
             StyleKind::CursorSaveRestore => write!(f, "{CSI}s{}{CSI}u", self.value),
             StyleKind::ClearLine => write!(f, "{CSI}0K{}", self.value),
+            StyleKind::NewlineJoin(s) => write!(f, "{}\n{s}", self.value),
         }
     }
 }
@@ -256,6 +258,14 @@ pub trait Style: Display {
     fn clear_till_end(&self) -> Styled<Self> {
         Styled {
             style: StyleKind::ClearLine,
+            value: self,
+        }
+    }
+
+    /// Join current line with fixed one with newline
+    fn join_lf(&self, s: String) -> Styled<Self> {
+        Styled {
+            style: StyleKind::NewlineJoin(s),
             value: self,
         }
     }

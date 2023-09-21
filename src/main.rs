@@ -46,17 +46,7 @@ fn main() {
             let args = Environment::from_env(&args.collect::<Vec<String>>());
             let bottom = default::bottom(&args);
 
-            let mut line: [Box<_>; 8] = [
-                BlockType::HostUser,
-                BlockType::GitRepo,
-                BlockType::GitTree,
-                BlockType::BuildInfo,
-                BlockType::Venv,
-                BlockType::Workdir, //<===[5]
-                BlockType::Elapsed,
-                BlockType::Time,
-            ]
-            .map(|x| x.create_from_env(&args));
+            let mut line = default::top(&args);
 
             let line_length: usize = line
                 .iter()
@@ -64,13 +54,6 @@ fn main() {
                 .filter_map(|x| x)
                 .map(|x| readline_width(&x))
                 .sum();
-
-            let make_line = |line: String, up: i32| {
-                line.clear_till_end()
-                    .prev_line(up)
-                    .save_restore()
-                    .to_string()
-            };
 
             if line_length + 25 >= term_size::dimensions().map(|s| s.0).unwrap_or(80) {
                 // three lines
@@ -81,9 +64,12 @@ fn main() {
                 let second = [BlockType::Continue.create_from_env(&args), second];
 
                 eprint!(
-                    "{}{}",
-                    make_line(default::pretty(&line, &mode), 2),
-                    make_line(default::pretty(&second, &mode), 1)
+                    "{}",
+                    default::pretty(&line, &mode)
+                        .join_lf(default::pretty(&second, &mode))
+                        .clear_till_end()
+                        .prev_line(2)
+                        .save_restore()
                 );
 
                 print!(
@@ -97,15 +83,24 @@ fn main() {
                 let line = default::extend(line);
                 let second = default::extend(second);
                 eprint!(
-                    "{}{}",
-                    make_line(default::pretty(&line, &mode), 2),
-                    make_line(default::pretty(&second, &mode), 1)
+                    "{}",
+                    default::pretty(&line, &mode)
+                        .join_lf(default::pretty(&second, &mode))
+                        .clear_till_end()
+                        .prev_line(2)
+                        .save_restore()
                 );
             } else {
                 // two lines
                 eprint!("\n\n");
 
-                eprint!("{}", make_line(default::pretty(&line, &mode), 1));
+                eprint!(
+                    "{}",
+                    default::pretty(&line, &mode)
+                        .clear_till_end()
+                        .prev_line(1)
+                        .save_restore()
+                );
 
                 print!(
                     "{}{}",
@@ -116,7 +111,13 @@ fn main() {
                 unistd::close(1).unwrap();
 
                 let line = default::extend(line);
-                eprint!("{}", make_line(default::pretty(&line, &mode), 1));
+                eprint!(
+                    "{}",
+                    default::pretty(&line, &mode)
+                        .clear_till_end()
+                        .prev_line(1)
+                        .save_restore()
+                );
             }
         }
         _ => {
