@@ -4,16 +4,14 @@ use nix::{
 };
 use statusline::{default, Environment, IconMode, Style};
 use std::{env, fs, io, io::Write};
-use unicode_width::UnicodeWidthChar;
+use unicode_width::UnicodeWidthStr;
 
 fn readline_width(s: &str) -> usize {
-    let mut res = 0;
-    let mut skip = false;
-    for c in s.chars() {
+    let mut res = s.width();
+    for (i, c) in s.bytes().enumerate() {
         match c {
-            '\x01' => skip = true,
-            '\x02' => skip = false,
-            c if !skip => res += c.width().unwrap_or(0),
+            b'\x01' => res += i + 1,
+            b'\x02' => res -= i,
             _ => {}
         }
     }
@@ -57,14 +55,12 @@ fn main() {
 
             if line_length + 25 >= term_size::dimensions().map(|s| s.0).unwrap_or(80) {
                 // three lines
-                eprint!("\n\n\n");
-
                 let mut second = BlockType::Empty.create_from_env(&args);
                 std::mem::swap(&mut second, &mut line[5]);
                 let second = [BlockType::Continue.create_from_env(&args), second];
 
                 eprint!(
-                    "{}",
+                    "\n\n\n{}",
                     default::pretty(&line, &mode)
                         .join_lf(default::pretty(&second, &mode))
                         .clear_till_end()
@@ -92,10 +88,8 @@ fn main() {
                 );
             } else {
                 // two lines
-                eprint!("\n\n");
-
                 eprint!(
-                    "{}",
+                    "\n\n{}",
                     default::pretty(&line, &mode)
                         .clear_till_end()
                         .prev_line(1)
