@@ -605,7 +605,7 @@ impl Pretty for GitTree {
         .filter(|(_, val)| val != &0)
         .map(|(s, val)| format!("{}{}", s.icon(mode), val))
         .collect::<Vec<_>>();
-        
+
         if vec.is_empty() {
             None
         } else {

@@ -14,8 +14,6 @@ PROMPT_COMMAND='
         PS1_ELAPSED=0
     fi
     jobs -n
-    ("<exec>" --top 3<&$PS1_FD &)
-    PS1="$("<exec>" --bottom "$?" "$(($(jobs | wc -l) - 1))" "$PS1_ELAPSED")"
 '
-PS1='$USER@$HOSTNAME:$PWD> '
+PS1='$("<exec>" --run "$?" "\j" "$PS1_ELAPSED" 3<&$PS1_FD &)'
 

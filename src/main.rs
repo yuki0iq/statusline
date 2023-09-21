@@ -1,10 +1,9 @@
 use nix::{
     fcntl::{self, FcntlArg, OFlag},
-    libc,
-    unistd,
+    libc, unistd,
 };
 use statusline::{default, Environment, IconMode, Style};
-use std::{env, fs};
+use std::{env, fs, io, io::Write};
 use unicode_width::UnicodeWidthChar;
 
 fn readline_width(s: &str) -> usize {
@@ -35,7 +34,7 @@ fn main() {
         Some("--env") => {
             println!("{}", include_str!("shell.sh").replace("<exec>", &exec));
         }
-        Some("--top") => {
+        Some("--run") => {
             unsafe {
                 libc::fcntl(3, libc::F_SETOWN, unistd::getpid());
             }
@@ -44,7 +43,8 @@ fn main() {
             use statusline::BlockType; //<===
 
             let mode = IconMode::build();
-            let args = Environment::from_env::<&str>(&[]);
+            let args = Environment::from_env(&args.collect::<Vec<String>>());
+            let bottom = default::bottom(&args);
 
             let mut line: [Box<_>; 8] = [
                 BlockType::HostUser,
@@ -74,7 +74,7 @@ fn main() {
 
             if line_length + 25 >= term_size::dimensions().map(|s| s.0).unwrap_or(80) {
                 // three lines
-                print!("\n\n\n");
+                eprint!("\n\n\n");
 
                 let mut second = BlockType::Empty.create_from_env(&args);
                 std::mem::swap(&mut second, &mut line[5]);
@@ -86,6 +86,14 @@ fn main() {
                     make_line(default::pretty(&second, &mode), 1)
                 );
 
+                print!(
+                    "{}{}",
+                    default::title(&args).invisible(),
+                    default::pretty(&bottom, &mode)
+                );
+                io::stdout().flush().unwrap();
+                unistd::close(1).unwrap();
+
                 let line = default::extend(line);
                 let second = default::extend(second);
                 eprint!(
@@ -95,24 +103,21 @@ fn main() {
                 );
             } else {
                 // two lines
-                print!("\n\n");
+                eprint!("\n\n");
 
                 eprint!("{}", make_line(default::pretty(&line, &mode), 1));
+
+                print!(
+                    "{}{}",
+                    default::title(&args).invisible(),
+                    default::pretty(&bottom, &mode)
+                );
+                io::stdout().flush().unwrap();
+                unistd::close(1).unwrap();
 
                 let line = default::extend(line);
                 eprint!("{}", make_line(default::pretty(&line, &mode), 1));
             }
-        }
-        Some("--bottom") => {
-            let mode = IconMode::build();
-            let args = Environment::from_env(&args.collect::<Vec<String>>());
-            let bottom = default::bottom(&args);
-
-            print!(
-                "{}{}",
-                default::title(&args).invisible(),
-                default::pretty(&bottom, &mode)
-            );
         }
         _ => {
             let ver = env!("CARGO_PKG_VERSION");
