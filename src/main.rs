@@ -33,9 +33,7 @@ fn main() {
             println!("{}", include_str!("shell.sh").replace("<exec>", &exec));
         }
         Some("--run") => {
-            unsafe {
-                libc::fcntl(3, libc::F_SETOWN, unistd::getpid());
-            }
+            unsafe { libc::fcntl(3, libc::F_SETOWN, unistd::getpid()) };
             fcntl::fcntl(3, FcntlArg::F_SETFL(OFlag::O_ASYNC)).unwrap();
 
             use statusline::BlockType; //<===
