@@ -8,6 +8,7 @@ pub mod jobs;
 pub mod return_code;
 pub mod root_shell;
 pub mod separator;
+pub mod ssh;
 pub mod time;
 pub mod venv;
 pub mod workdir;
@@ -42,6 +43,8 @@ pub enum BlockType {
     Elapsed,
     /// Date and time
     Time,
+    /// If over ssh, show "from" connection
+    Ssh,
 }
 
 impl BlockType {
@@ -62,6 +65,7 @@ impl BlockType {
             Self::Workdir => Box::new(workdir::Workdir::from(env)),
             Self::Elapsed => Box::new(elapsed::Elapsed::from(env)),
             Self::Time => Box::new(time::Time::from(env)),
+            Self::Ssh => Box::new(ssh::Ssh::from(env)),
         }
     }
 }

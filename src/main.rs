@@ -54,7 +54,7 @@ fn main() {
             if line_length + 25 >= term_size::dimensions().map(|s| s.0).unwrap_or(80) {
                 // three lines
                 let mut second = BlockType::Empty.create_from_env(&args);
-                std::mem::swap(&mut second, &mut line[5]);
+                std::mem::swap(&mut second, &mut line[6]);
                 let second = [BlockType::Continue.create_from_env(&args), second];
 
                 eprint!(
