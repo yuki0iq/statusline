@@ -53,8 +53,7 @@ impl SshChain {
                 true => Err(anyhow!("Empty ssh chain, but decoded")),
                 false => Ok(chain),
             });
-        eprintln!("ssh_chain {:?}", ssh_chain);
-        eprintln!("ssh_conn {:?}", env::var("SSH_CONNECTION"));
+        
         SshChain(match (ssh_chain, env::var("SSH_CONNECTION")) {
             (Err(_), Err(_)) => vec![],
             (Err(_), Ok(conn)) => vec![conn.split_whitespace().next().unwrap_or("?").to_owned()],
@@ -63,15 +62,7 @@ impl SshChain {
     }
 
     fn seal_impl(&self, key: &WorkgroupKey) -> Result<String> {
-        eprintln!("Sealing {:?}", self.0.join(" "));
-        let encoded = base64engine.encode(aead::seal(&key.0, self.0.join(" ").as_bytes())?);
-        eprintln!("Sealed base64 is {:?}", encoded);
-        let decoded = String::from_utf8(aead::open(
-            &key.0,
-            &base64engine.decode(encoded.clone())?,
-        ).unwrap());
-        eprintln!("Decoded {:?}", decoded);
-        Ok(encoded)
+        Ok(base64engine.encode(aead::seal(&key.0, self.0.join(" ").as_bytes())?))
     }
 
     pub fn seal(&self, key: &WorkgroupKey) -> String {

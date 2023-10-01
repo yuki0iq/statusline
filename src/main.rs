@@ -121,7 +121,6 @@ fn main() {
                 WorkgroupKey::load().expect("Workgroup key is needed for ssh chain forwarding");
             let mut ssh_chain = SshChain::open(Some(&key)).0;
             ssh_chain.push(file::get_hostname());
-            eprintln!("To be sealed: {:?}", ssh_chain);
             println!("{}", SshChain(ssh_chain).seal(&key));
         }
         Some("--workgroup-create") => {
