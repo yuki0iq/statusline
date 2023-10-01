@@ -36,13 +36,14 @@
 mod args;
 mod block;
 mod chassis;
-mod file;
 mod icon;
 mod style;
 mod time;
 mod virt;
 
 pub mod default;
+pub mod file;
+pub mod workgroup;
 
 pub use crate::{
     args::Environment,

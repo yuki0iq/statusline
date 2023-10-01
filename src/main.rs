@@ -2,7 +2,11 @@ use nix::{
     fcntl::{self, FcntlArg, OFlag},
     libc, unistd,
 };
-use statusline::{default, Environment, IconMode, Style};
+use statusline::{
+    default, file,
+    workgroup::{SshChain, WorkgroupKey},
+    Environment, IconMode, Style,
+};
 use std::{env, fs, io, io::Write};
 use unicode_width::UnicodeWidthStr;
 
@@ -111,6 +115,17 @@ fn main() {
                         .save_restore()
                 );
             }
+        }
+        Some("--ssh-new-connection") => {
+            let key =
+                WorkgroupKey::load().expect("Workgroup key is needed for ssh chain forwarding");
+            let mut ssh_chain = SshChain::open(Some(&key)).0;
+            ssh_chain.push(file::get_hostname());
+            eprintln!("To be sealed: {:?}", ssh_chain);
+            println!("{}", SshChain(ssh_chain).seal(&key));
+        }
+        Some("--workgroup-create") => {
+            WorkgroupKey::create().expect("Could not create workgroup key")
         }
         _ => {
             let ver = env!("CARGO_PKG_VERSION");

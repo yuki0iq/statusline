@@ -17,3 +17,5 @@ PROMPT_COMMAND='
 '
 PS1='$("<exec>" --run "$?" "\j" "$PS1_ELAPSED" 3<&$PS1_FD &)'
 
+alias wgsh='WORKGROUP_CHAIN="$("<exec>" --ssh-new-connection)" ssh -o "SendEnv=WORKGROUP_CHAIN"'
+

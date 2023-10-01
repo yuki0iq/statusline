@@ -1,13 +1,15 @@
-use crate::{Environment, Icon, IconMode, Pretty, SimpleBlock, Style};
-use std::env;
+use crate::{
+    workgroup::{SshChain, WorkgroupKey},
+    Environment, Icon, IconMode, Pretty, SimpleBlock, Style,
+};
 
-pub struct Ssh(Option<String>);
+pub struct Ssh(String);
 
 impl From<&Environment> for Ssh {
     fn from(_: &Environment) -> Ssh {
-        Ssh(env::var("SSH_CONNECTION")
-            .ok()
-            .and_then(|x| x.split_whitespace().next().map(|x| x.to_string())))
+        Ssh(SshChain::open(WorkgroupKey::load().ok().as_ref())
+            .0
+            .join(" "))
     }
 }
 
@@ -29,10 +31,14 @@ impl Icon for Ssh {
 
 impl Pretty for Ssh {
     fn pretty(&self, mode: &IconMode) -> Option<String> {
-        let ip = self.0.as_ref()?;
+        let chain = &self.0;
+        if chain.is_empty() {
+            return None;
+        }
+
         let icon = self.icon(mode);
         Some(
-            format!("{icon} {ip}")
+            format!("{icon} {chain}")
                 .boxed()
                 .visible()
                 .cyan()
