@@ -3,12 +3,18 @@ use nix::{
     sys::stat,
     unistd::{self, AccessFlags},
 };
-use std::path::{Path, PathBuf};
+use std::{
+    borrow::Cow,
+    fs,
+    path::{Path, PathBuf},
+};
 
 enum State {
     Writeable,
     Readable,
-    Unavailable,
+    Moved,
+    Deleted,
+    NoAccess,
 }
 
 impl Icon for State {
@@ -17,12 +23,20 @@ impl Icon for State {
         match self {
             Self::Writeable => "",
             Self::Readable => match mode {
-                Text => "R/O",
+                Text => "R/O ",
                 Icons | MinimalIcons => " ",
             },
-            Self::Unavailable => match mode {
-                Text => "DEL",
+            Self::Deleted => match mode {
+                Text => "deleted ",
                 Icons | MinimalIcons => "󰇾 ",
+            },
+            Self::Moved => match mode {
+                Text => "moved ",
+                Icons | MinimalIcons => " ",
+            },
+            Self::NoAccess => match mode {
+                Text => "forbidden ",
+                Icons | MinimalIcons => "󰂭 ",
             },
         }
     }
@@ -34,21 +48,55 @@ impl Pretty for State {
     }
 }
 
-fn get_state(work_dir: &Path) -> State {
-    let read_only = unistd::access(work_dir, AccessFlags::W_OK).is_err();
+fn get_state(work_dir: &Path) -> (Cow<Path>, State) {
+    let cwd = Cow::from(work_dir);
+
     let Ok(stat_dot) = stat::stat(".") else {
-        return State::Unavailable;
+        return (cwd, State::NoAccess);
     };
-    let Ok(stat_pwd) = stat::stat(work_dir) else {
-        return State::Unavailable;
-    };
-    if (stat_dot.st_dev, stat_dot.st_ino) != (stat_pwd.st_dev, stat_pwd.st_ino) {
-        State::Unavailable
-    } else if read_only {
-        State::Readable
-    } else {
-        State::Writeable
+    if 0 == stat_dot.st_nlink {
+        let ret_cwd_del = (cwd, State::Deleted);
+
+        // If workdir is deleted, then rust's `env::get_working_dir()` returns error and I fall back
+        // to using $PWD, which, in some cases, is wrong. If there is a _new_ directory with path
+        // same as $PWD, but not same as real cwd is, `cd .` changes workdir to $PWD, but `cd ..`
+        // changes workdir to `(cwd)/..` AND updates $PWD. This seems illogical, and, probably, is.
+        // Real path can be found, at least on Linux, under `/proc/self/cwd`, and it WILL contain
+        // ` (deleted)` suffix in it (regular folders can also have this sequence in their names,
+        // so this suffix can only be used for displaying path, and not for detecting deleted cwd).
+        // What a hell.
+
+        let Ok(cwd_del) = fs::read_link("/proc/self/cwd") else {
+            return ret_cwd_del; // This may be wrong...
+        };
+
+        let cwd_del = cwd_del.into_os_string();
+        let path = cwd_del.to_string_lossy();
+        let deleted = " (deleted)";
+        let len = path.len().saturating_sub(deleted.len());
+        if &path[len..] != deleted {
+            return ret_cwd_del;
+        }
+
+        let cwd_del = PathBuf::from(&path[..len]);
+        return (Cow::from(cwd_del), State::Deleted);
     }
+
+    let Ok(stat_pwd) = stat::stat(work_dir) else {
+        return (cwd, State::Moved);
+    };
+    (
+        cwd,
+        if (stat_dot.st_dev, stat_dot.st_ino) != (stat_pwd.st_dev, stat_pwd.st_ino) {
+            State::Moved
+        } else if work_dir.ne(&PathBuf::from(std::env::var("PWD").unwrap_or_default())) {
+            State::Moved
+        } else if unistd::access(work_dir, AccessFlags::W_OK).is_err() {
+            State::Readable
+        } else {
+            State::Writeable
+        },
+    )
 }
 
 pub struct Workdir {
@@ -69,7 +117,9 @@ impl From<&Environment> for Workdir {
         let work_dir = env.work_dir.clone();
         let git_tree = env.git_tree.clone();
         let current_home = env.current_home.clone();
-        let state = get_state(&work_dir);
+        let (work_dir, state) = get_state(&work_dir);
+
+        let work_dir = work_dir.into_owned();
 
         Workdir {
             work_dir,
