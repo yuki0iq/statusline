@@ -646,11 +646,11 @@ impl Icon for GitIcon {
         match &self {
             Self::Ahead => match mode {
                 Text => "^",
-                Icons | MinimalIcons => "󰞙 ",
+                Icons | MinimalIcons => " ",
             },
             Self::Behind => match mode {
                 Text => "v",
-                Icons | MinimalIcons => "󰞕 ",
+                Icons | MinimalIcons => " ",
             },
             Self::Stashes => match mode {
                 Text => "*",
