@@ -91,71 +91,77 @@ fn packed_objects_len(root: &Path, commit: &str) -> Result<usize> {
             continue;
         }
 
+        // File should at least contain magic, version and a fanout table, which is 102 ints
         let map = Map::load(path, Private, perms::Read)?;
+        if map.size() < 0x408 {
+            continue;
+        }
         // eprintln!("mmaped");
 
         // Git packed objects index file format is easy -- Yuki
         // Statements dreamed up by the utterly deranged -- purplesyringa
         // See https://github.com/purplesyringa/gitcenter -> main/dist/js/git.md
+        //
+        // Actually, I don't think this file format is easy. It's easy to make a great lot of bugs
+        // in code dealing with this file format. Why did I return here? Because of one fucking
+        // small optimization which thought that every i32 is in correct byte order -- the statement
+        // which is wrong, but left unnoticed for a long time. -- Yuki, some months later
+        //
+        // I'd like to never return here again.
 
         let map_size = map.size() / 4;
-        let integers: &[u32] = unsafe { mem::transmute(&map[..4 * map_size]) };
+        let integers: &[[u8; 4]] = unsafe { mem::transmute(&map[..4 * map_size]) };
 
-        // Should contain 0x102 ints (magic, version and fanout)
-        if map_size < 0x102 {
-            continue;
-        }
-
-        let (magic, version) = (integers[0], integers[1]);
-        let fanout_table: &[u32] = &integers[2..0x102];
-
-        // Magic int is 0xFF744F63 ('\377tOc')
-        // probably should be read as "table of contents" which this index is
+        // Magic int is 0xFF744F63 ('\377tOc') which probably should be read as "table of contents"
         // Only version 2 is supported
-        if magic != 0xFF744F63 && version != 2 {
+        let magic_version = &map[..8]; // it's okay promise me
+        if magic_version != [0xff, 0x74, 0x4f, 0x63, 0x00, 0x00, 0x00, 0x02] {
             continue;
         }
 
-        // eprintln!("magic + version ok");
-        // [0x0008 -- 0x0408] is fanout table as [u32, 256]
+        // [0x0008 -- 0x0408] is fanout table as [u32, 256], but in fucking network byte order
         // where `table[i]` is count of objects with `fanout <= i`
         // object range is from `table[i-1]` to `table[i] - 1` including both borders
+        let fanout_table: &[[u8; 4]] = &integers[2..0x102];
         let fanout = *commit.first().unwrap() as usize;
         let begin = if fanout == 0 {
             0
         } else {
-            fanout_table[fanout - 1]
+            u32::from_be_bytes(fanout_table[fanout - 1])
         } as usize;
-        let end = fanout_table[fanout] as usize;
+        let end = u32::from_be_bytes(fanout_table[fanout]) as usize;
+
+        // eprintln!("left and right are {begin:x?} and {end:x?}");
 
         // begin and end are sha1 *indexes* and not positions of their beginning
         if begin == end {
             continue;
         }
 
+        // If only little endian was the network byte order...
         let commit_position = |idx: usize| 0x102 + 5 * idx;
-        if map_size < commit_position(*fanout_table.last().unwrap() as usize) {
+        if map_size < commit_position(u32::from_be_bytes(*fanout_table.last().unwrap()) as usize) {
             continue;
         }
 
+        // holy hell, second memory transmute
         let hashes: &[[u8; 20]] =
             unsafe { mem::transmute(&integers[commit_position(begin)..commit_position(end)]) };
 
-        //eprintln!("left and right are {left:?} and {right:?}");
-
         let index = hashes.partition_point(|hash| hash < &commit);
+        // eprintln!("got index {index}");
         if index > 0 {
-            res = res.max(lcp_bytes(&hashes[begin + index - 1], &commit));
+            res = res.max(lcp_bytes(&hashes[index - 1], &commit));
         }
         if index < end - begin {
             res = res.max(lcp_bytes(
-                &hashes[begin + index + (hashes[begin + index] == commit) as usize],
+                &hashes[index + (hashes[index] == commit) as usize],
                 &commit,
             ));
         }
     }
-    //eprintln!("packed: {res:?}");
-    //eprintln!("");
+    // eprintln!("packed: {res:?}");
+    // eprintln!("");
     Ok(1 + res)
 }
 
