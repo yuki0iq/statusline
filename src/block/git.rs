@@ -1,11 +1,16 @@
 use crate::{file, Environment, Icon, IconMode, Pretty, SimpleBlock, Style};
 use anyhow::{anyhow, bail, Result};
 use mmarinus::{perms, Map, Private};
+use nix::{
+    sys::{prctl, signal::Signal},
+    unistd,
+};
 use std::{
     borrow::Cow,
     fs::{self, File},
     io::{BufRead, BufReader, Error, ErrorKind},
     iter, mem,
+    os::unix::process::CommandExt,
     path::{Path, PathBuf},
     process::Command,
 };
@@ -361,6 +366,8 @@ fn get_ahead_behind(
     let (HeadKind::Branch(head), Some((name, branch))) = (head, remote) else {
         bail!("Head is not a branch or remote is missing");
     };
+
+    // I assume this is fast
     Ok(Command::new("git")
         .arg("-C")
         .arg(tree)
@@ -494,13 +501,23 @@ impl SimpleBlock for Tree {
             _ => return self,
         };
 
-        let out = Command::new("git")
-            .arg("-C")
-            .arg(&self_ref.tree)
-            .arg("status")
-            .arg("--porcelain=2")
-            .output()
-            .ok();
+        let parent_pid = unistd::getpid();
+        let out = unsafe {
+            Command::new("git")
+                .arg("-C")
+                .arg(&self_ref.tree)
+                .arg("status")
+                .arg("--porcelain=2")
+                .pre_exec(move || -> std::io::Result<()> {
+                    prctl::set_pdeathsig(Signal::SIGTERM)?;
+                    if parent_pid != unistd::getppid() {
+                        return Err(std::io::Error::other("Parent already dead"));
+                    }
+                    Ok(())
+                })
+                .output()
+                .ok()
+        };
         let Some(out) = out else {
             return Box::new(self_ref);
         };

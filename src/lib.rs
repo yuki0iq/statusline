@@ -13,7 +13,6 @@
 //! let top = default::extend(default::top(&args));
 //! let bottom = default::bottom(&args);
 //!
-// TODO all blocks should follow .visible().style(...).invisible()
 //! // Top line is not intended to use in readline-like environments
 //! eprintln!("{}", default::pretty(&top, &mode));
 //!
@@ -25,13 +24,16 @@
 //! );
 //! ```
 
-#![feature(byte_slice_trim_ascii)]
-#![feature(io_error_more)]
-#![feature(iter_next_chunk)]
-#![feature(fs_try_exists)]
-#![feature(let_chains)]
-#![feature(slice_first_last_chunk)]
-#![feature(stdsimd)]
+#![feature(
+    byte_slice_trim_ascii,
+    io_error_more,
+    io_error_other,
+    iter_next_chunk,
+    fs_try_exists,
+    let_chains,
+    slice_first_last_chunk,
+    stdsimd
+)]
 
 mod args;
 mod block;

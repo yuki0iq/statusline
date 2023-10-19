@@ -8,7 +8,7 @@ repository = "https://git.yukii.keenetic.pro/yuki0iq/statusline"
 
 [dependencies]
 pwd = "1.4.0"
-nix = { version = "0.26.2", features = ["fs", "user"] }
+nix = { version = "0.27", features = ["fs", "user", "process"] }
 chrono = "0.4.26"
 term_size = "0.3.2"
 anyhow = "1.0.72"
