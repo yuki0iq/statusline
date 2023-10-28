@@ -1,5 +1,5 @@
 use crate::{file, Environment, Icon, IconMode, Pretty, SimpleBlock, Style};
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, Context, bail, Result};
 use mmarinus::{perms, Map, Private};
 use nix::{
     sys::{prctl, signal::Signal},
@@ -424,7 +424,7 @@ impl From<&Environment> for Repo {
         let tree = env
             .git_tree
             .as_ref()
-            .ok_or(anyhow!("No git tree found"))?
+            .context("No git tree found")?
             .clone();
         let dotgit = tree.join(".git");
         let root = if dotgit.is_file() {

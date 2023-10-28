@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Context, Result};
 use pwd::Passwd;
 use std::{
     fs,
@@ -49,7 +49,7 @@ pub fn upfind<P: AsRef<Path>>(start: P, filename: &str) -> Result<PathBuf> {
         .ancestors()
         .map(|path| path.join(filename))
         .find(exists)
-        .ok_or(anyhow!("upfind could not find parent"))
+        .context("upfind could not find parent")
 }
 
 pub fn get_hostname() -> String {
