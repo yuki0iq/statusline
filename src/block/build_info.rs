@@ -47,23 +47,23 @@ impl From<&Environment> for BuildInfo {
         let workdir = &env.work_dir;
         let mut bi = BuildInfo::new();
 
-        if file::exists("CMakeLists.txt") {
+        if file::points_to_file("CMakeLists.txt") {
             bi.push(BuildInfoKind::Cmake);
         }
 
-        if file::exists("configure") {
+        if file::points_to_file("configure") {
             bi.push(BuildInfoKind::Configure);
         }
 
-        if file::exists("Makefile") {
+        if file::points_to_file("Makefile") {
             bi.push(BuildInfoKind::Makefile);
         }
 
-        if file::exists("install") {
+        if file::points_to_file("install") {
             bi.push(BuildInfoKind::Install);
         }
 
-        if file::exists("jr") {
+        if file::points_to_file("jr") {
             bi.push(BuildInfoKind::Jr);
         }
 
