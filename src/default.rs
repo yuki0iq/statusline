@@ -21,7 +21,7 @@ use crate::{BlockType, Environment, IconMode, Pretty, SimpleBlock, Style};
 use std::borrow::Cow;
 
 /// Default top part of statusline
-pub fn top(env: &Environment) -> [Box<dyn SimpleBlock>; 9] {
+pub fn top(env: &Environment) -> [Box<dyn SimpleBlock>; 10] {
     [
         BlockType::HostUser,
         BlockType::Ssh,
@@ -29,6 +29,7 @@ pub fn top(env: &Environment) -> [Box<dyn SimpleBlock>; 9] {
         BlockType::GitTree,
         BlockType::BuildInfo,
         BlockType::Venv,
+        BlockType::Jobs,
         BlockType::Workdir,
         BlockType::Elapsed,
         BlockType::Time,
@@ -44,9 +45,8 @@ pub fn extend<const N: usize>(top: [Box<dyn SimpleBlock>; N]) -> [Box<dyn Pretty
 /// Default bottom part of statusline
 ///
 /// Immutable, intended to use in `readline`-like functions
-pub fn bottom(env: &Environment) -> [Box<dyn SimpleBlock>; 4] {
+pub fn bottom(env: &Environment) -> [Box<dyn SimpleBlock>; 3] {
     [
-        BlockType::Jobs,
         BlockType::ReturnCode,
         BlockType::RootShell,
         BlockType::Separator,

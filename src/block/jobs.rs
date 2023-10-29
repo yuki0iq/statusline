@@ -29,6 +29,7 @@ impl Pretty for Jobs {
                 .green()
                 .bold()
                 .with_reset()
+                .invisible()
                 .to_string(),
         )
     }
