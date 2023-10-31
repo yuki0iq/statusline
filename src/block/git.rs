@@ -197,7 +197,7 @@ impl Icon for HeadKind {
         use IconMode::*;
         match self {
             Self::Branch(_) => match mode {
-                Text => "at",
+                Text => "on",
                 Icons | MinimalIcons => "",
             },
             Self::Commit(_) => match mode {

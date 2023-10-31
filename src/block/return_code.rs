@@ -33,10 +33,7 @@ impl Icon for ReturnCode {
                 Text => "OK",
                 Icons | MinimalIcons => "✓",
             },
-            Self::Failed(..) => match &mode {
-                Text => "",
-                Icons | MinimalIcons => "✗",
-            },
+            Self::Failed(..) => "",
             Self::Signaled(..) => match &mode {
                 Text => "SIG",
                 Icons | MinimalIcons => "󰜃 ",
@@ -57,9 +54,7 @@ impl Pretty for ReturnCode {
             // 126 not exec
             // 127 not found
             Self::Failed(code) => format!("{code}{icon}"),
-            Self::Signaled(ref sig) => {
-                format!("{icon}{}|{}", signal_name((*sig).into()), 128 + sig)
-            }
+            Self::Signaled(sig) => format!("{icon}{}", signal_name(*sig)),
         };
         let text = text.visible();
 
@@ -77,12 +72,13 @@ impl Pretty for ReturnCode {
     }
 }
 
-fn signal_name(sig: i32) -> String {
+fn signal_name(sig: u8) -> String {
+    let sig = sig as i32;
     if let Ok(sig) = Signal::try_from(sig) {
         sig.as_str()[3..].to_string()
     } else if (libc::SIGRTMIN()..=libc::SIGRTMAX()).contains(&sig) {
         format!("RT{}", sig - libc::SIGRTMIN())
     } else {
-        String::new()
+        format!("?? {}", sig + 128)
     }
 }

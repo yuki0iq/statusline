@@ -59,10 +59,10 @@ impl Icon for Chassis {
             Chassis::Laptop => "󰌢 ",
             Chassis::Convertible => "󰊟 ", // TODO: probably this icon is not the best fit, but the best I could come up with at 2 AM
             Chassis::Tablet => " ",
-            Chassis::Handset => "󰏲 ",
+            Chassis::Handset => " ",
             Chassis::Watch => " ",
             Chassis::Embedded => " ",
-            Chassis::Virtual => "🖴 ",
+            Chassis::Virtual => " ",
             Chassis::Container => " ",
             Chassis::Unknown => "??", // TODO: find "unknown" icon
         }
