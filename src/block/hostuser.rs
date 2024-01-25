@@ -44,20 +44,10 @@ impl Icon for User {
     }
 }
 
-impl Host {
-    fn pre_icon(&self, mode: &IconMode) -> &'static str {
-        use IconMode::*;
-        match mode {
-            Text => " at ",
-            Icons | MinimalIcons => "＠",
-        }
-    }
-}
-
 impl Pretty for Host {
     fn pretty(&self, mode: &IconMode) -> Option<String> {
         Some(
-            format!("{}{} {}]", self.pre_icon(mode), self.1, self.icon(mode),)
+            format!("[{} {}]", self.icon(mode), self.1)
                 .visible()
                 .colorize_with(&self.1)
                 .invisible()
@@ -69,7 +59,7 @@ impl Pretty for Host {
 impl Pretty for User {
     fn pretty(&self, mode: &IconMode) -> Option<String> {
         Some(
-            format!("[{} {}", self.icon(mode), self.0)
+            format!("[{} {}]", self.icon(mode), self.0)
                 .visible()
                 .colorize_with(&self.0)
                 .invisible()
@@ -81,7 +71,7 @@ impl Pretty for User {
 impl Pretty for HostUser {
     fn pretty(&self, mode: &IconMode) -> Option<String> {
         Some(
-            format!("{}{}", self.0.pretty(mode)?, self.1.pretty(mode)?)
+            format!("{} {}", self.1.pretty(mode)?, self.0.pretty(mode)?)
                 .visible()
                 .bold()
                 .with_reset()
