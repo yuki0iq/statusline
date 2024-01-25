@@ -198,7 +198,7 @@ impl Icon for HeadKind {
         match self {
             Self::Branch(_) => match mode {
                 Text => "on",
-                Icons | MinimalIcons => "",
+                Icons | MinimalIcons => "󰘬",
             },
             Self::Commit(_) => match mode {
                 Text => "at",
@@ -306,7 +306,7 @@ impl Icon for State {
             },
             Self::Merging { .. } => match mode {
                 Text => "merging",
-                Icons | MinimalIcons => "",
+                Icons | MinimalIcons => "󰃸",
             },
             Self::Rebasing { .. } => match mode {
                 Text => "rebasing",
@@ -680,7 +680,7 @@ impl Icon for GitIcon {
                 Icons | MinimalIcons => " ",
             },
             Self::Conflict => match mode {
-                Text => "~",
+                Text => "=",
                 Icons => "󰞇 ",
                 MinimalIcons => " ",
             },
