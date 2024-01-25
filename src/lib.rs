@@ -27,7 +27,6 @@
 #![feature(
     byte_slice_trim_ascii,
     io_error_more,
-    io_error_other,
     iter_next_chunk,
     fs_try_exists,
     let_chains,
