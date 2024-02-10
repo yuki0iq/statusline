@@ -5,7 +5,6 @@ use std::{
     ffi::OsStr,
     fs::File,
     io::{BufRead, BufReader},
-    ops::Not,
     path::{Path, PathBuf},
 };
 
@@ -63,15 +62,11 @@ fn venv_name(path: &Path) -> &str {
     path.ancestors()
         .filter_map(Path::file_name)
         .filter_map(OsStr::to_str)
-        .find_map(|name| {
-            ["venv", "env", "virtualenv"]
-                .contains(&name)
-                .not()
-                .then_some(
-                    ["venv", "virtualenv", "env", "-", "_"]
-                        .iter()
-                        .fold(name, |s, suf| s.strip_suffix(suf).unwrap_or(s)),
-                )
+        .find(|name| !["venv", "env", "virtualenv"].contains(name))
+        .map(|name| {
+            ["venv", "virtualenv", "env", "-", "_"]
+                .iter()
+                .fold(name, |s, suf| s.strip_suffix(suf).unwrap_or(s))
         })
         .unwrap_or("<venv>")
 }
