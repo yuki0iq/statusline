@@ -1,22 +1,22 @@
 [package]
 name = "statusline"
-version = "0.15.2"
+version = "0.15.3"
 edition = "2021"
 description = "Simple and fast bash PS1 line with useful features"
 license-file = "license.txt"
 repository = "https://git.yukii.keenetic.pro/yuki0iq/statusline"
 
 [dependencies]
-pwd = "1.4.0"
+pwd = "1.4"
 nix = { version = "0.27", features = ["fs", "user", "process", "signal"] }
-chrono = "0.4.26"
-term_size = "0.3.2"
-anyhow = "1.0.72"
-mmarinus = "0.4.0"
-fahtsex = "0.2.0"
-unicode-width = "0.1.11"
-base64 = "0.21.4"
-orion = "0.17.6"
+chrono = "0.4"
+terminal_size = "0.3"
+anyhow = "1.0"
+mmarinus = "0.4"
+fahtsex = "0.2"
+unicode-width = "0.1"
+base64 = "0.21"
+orion = "0.17"
 
 [profile.release]
 codegen-units = 1

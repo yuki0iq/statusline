@@ -50,12 +50,16 @@ fn main() {
 
             let line_length: usize = line
                 .iter()
-                .map(|x| x.pretty(&mode))
-                .filter_map(|x| x)
+                .filter_map(|x| x.pretty(&mode))
                 .map(|x| readline_width(&x))
                 .sum();
 
-            if line_length + 25 >= term_size::dimensions().map(|s| s.0).unwrap_or(80) {
+            if line_length + 25
+                >= terminal_size::terminal_size()
+                    .map(|(w, _h)| w.0)
+                    .unwrap_or(80)
+                    .into()
+            {
                 // three lines
                 let mut second = BlockType::Empty.create_from_env(&args);
                 std::mem::swap(&mut second, &mut line[7]);

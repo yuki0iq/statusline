@@ -18,7 +18,9 @@ impl From<&Environment> for Time {
 impl Pretty for Time {
     fn pretty(&self, _: &IconMode) -> Option<String> {
         let datetime_str = self.format("%a, %Y-%b-%d, %H:%M:%S in %Z").to_string();
-        let term_width = term_size::dimensions().map(|s| s.0).unwrap_or(80) as i32;
+        let term_width = terminal_size::terminal_size()
+            .map(|(w, _h)| w.0)
+            .unwrap_or(80) as i32;
         let datetime = datetime_str
             .visible()
             .gray()
