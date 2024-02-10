@@ -4,7 +4,7 @@ use nix::{libc, sys::signal::Signal};
 pub enum ReturnCode {
     Ok,
     Failed(u8),
-    Signaled(u8),
+    Signaled(String),
     NotAvailable,
 }
 
@@ -18,9 +18,11 @@ impl From<&Environment> for ReturnCode {
     fn from(args: &Environment) -> Self {
         match args.ret_code {
             Some(0) => Self::Ok,
-            Some(code) if code < 128 => Self::Failed(code),
-            Some(code) => Self::Signaled(code - 128),
             None => Self::NotAvailable,
+            Some(code) => match signal_name(code.wrapping_sub(128)) {
+                Some(sig) => Self::Signaled(sig),
+                None => Self::Failed(code),
+            },
         }
     }
 }
@@ -54,7 +56,7 @@ impl Pretty for ReturnCode {
             // 126 not exec
             // 127 not found
             Self::Failed(code) => format!("{code}{icon}"),
-            Self::Signaled(sig) => format!("{icon}{}", signal_name(*sig)),
+            Self::Signaled(sig) => format!("{icon}{sig}"),
         };
         let text = text.visible();
 
@@ -72,13 +74,13 @@ impl Pretty for ReturnCode {
     }
 }
 
-fn signal_name(sig: u8) -> String {
+fn signal_name(sig: u8) -> Option<String> {
     let sig = sig as i32;
     if let Ok(sig) = Signal::try_from(sig) {
-        sig.as_str()[3..].to_string()
+        Some(sig.as_str()[3..].to_string())
     } else if (libc::SIGRTMIN()..=libc::SIGRTMAX()).contains(&sig) {
-        format!("RT{}", sig - libc::SIGRTMIN())
+        Some(format!("RT{}", sig - libc::SIGRTMIN()))
     } else {
-        format!("?? {}", sig + 128)
+        None
     }
 }
