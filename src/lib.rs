@@ -30,7 +30,6 @@
     iter_next_chunk,
     fs_try_exists,
     let_chains,
-    slice_first_last_chunk,
     stdsimd
 )]
 
