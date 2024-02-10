@@ -33,12 +33,14 @@ impl Icon for ReturnCode {
         match &self {
             Self::Ok => match &mode {
                 Text => "OK",
-                Icons | MinimalIcons => "✓",
+                Icons => "✓",
+                MinimalIcons => "",
             },
             Self::Failed(..) => "",
             Self::Signaled(..) => match &mode {
                 Text => "SIG",
-                Icons | MinimalIcons => "󰜃 ",
+                Icons => "󰜃 ",
+                MinimalIcons => "",
             },
             Self::NotAvailable => match &mode {
                 Text => "N/A",
@@ -57,6 +59,9 @@ impl Pretty for ReturnCode {
             // 127 not found
             Self::Failed(code) => format!("{code}{icon}"),
             Self::Signaled(sig) => format!("{icon}{sig}"),
+        };
+        if text.is_empty() {
+            None?
         };
         let text = text.visible();
 
