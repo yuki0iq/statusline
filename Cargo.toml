@@ -1,6 +1,6 @@
 [package]
 name = "statusline"
-version = "0.15.3"
+version = "0.16.0"
 edition = "2021"
 description = "Simple and fast bash PS1 line with useful features"
 license-file = "license.txt"
