@@ -30,7 +30,7 @@
     iter_next_chunk,
     fs_try_exists,
     let_chains,
-    stdsimd
+    stdarch_x86_has_cpuid
 )]
 
 mod args;

@@ -51,20 +51,54 @@ impl From<&str> for Chassis {
 }
 
 impl Icon for Chassis {
-    fn icon(&self, _: &IconMode) -> &'static str {
-        // TODO chassis respecting iconmode?
+    fn icon(&self, mode: &IconMode) -> &'static str {
+        use Chassis::*;
+        use IconMode::*;
         match self {
-            Chassis::Desktop => " ",
-            Chassis::Server => "󰒋 ",
-            Chassis::Laptop => "󰌢 ",
-            Chassis::Convertible => "󰊟 ", // TODO: probably this icon is not the best fit, but the best I could come up with at 2 AM
-            Chassis::Tablet => " ",
-            Chassis::Handset => " ",
-            Chassis::Watch => " ",
-            Chassis::Embedded => " ",
-            Chassis::Virtual => " ",
-            Chassis::Container => " ",
-            Chassis::Unknown => "??", // TODO: find "unknown" icon
+            Desktop => match mode {
+                Text => "Desk",
+                Icons | MinimalIcons => " ",
+            },
+            Server => match mode {
+                Text => "Serv",
+                Icons | MinimalIcons => "󰒋 ",
+            },
+            Laptop => match mode {
+                Text => "Lapt",
+                Icons | MinimalIcons => "󰌢 ",
+            },
+            Convertible => match mode {
+                Text => "Conv",
+                Icons | MinimalIcons => "󰊟 ", // TODO: probably this icon is not the best fit, but the best I could come up with at 2 AM
+            },
+            Tablet => match mode {
+                Text => "Tabl",
+                Icons | MinimalIcons => " ",
+            },
+            Handset => match mode {
+                Text => "Hand",
+                Icons | MinimalIcons => " ",
+            },
+            Watch => match mode {
+                Text => "Watch",
+                Icons | MinimalIcons => " ",
+            },
+            Embedded => match mode {
+                Text => "Emb",
+                Icons | MinimalIcons => " ",
+            },
+            Virtual => match mode {
+                Text => "Virt",
+                Icons | MinimalIcons => " ",
+            },
+            Container => match mode {
+                Text => "Cont",
+                Icons | MinimalIcons => " ",
+            },
+            Unknown => match mode {
+                Text => "Unkn",
+                Icons | MinimalIcons => "??", // TODO: find "unknown" icon
+            },
         }
     }
 }
