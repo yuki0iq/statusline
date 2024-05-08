@@ -6,9 +6,11 @@ pub enum BuildInfoKind {
     Cargo,
     Cmake,
     Configure,
+    Flake,
     Makefile,
     Install,
     Jr,
+    NixShell,
     Qbs,
     Qmake,
     Kks,
@@ -23,9 +25,11 @@ impl Display for BuildInfoKind {
                 Self::Cargo => "cargo",
                 Self::Cmake => "cmake",
                 Self::Configure => "./configure",
+                Self::Flake => "flake",
                 Self::Makefile => "make",
                 Self::Install => "./install",
                 Self::Jr => "./jr",
+                Self::NixShell => "nix-shell",
                 Self::Qbs => "qbs",
                 Self::Qmake => "qmake",
                 Self::Kks => "kks",
@@ -46,6 +50,14 @@ impl From<&Environment> for BuildInfo {
     fn from(env: &Environment) -> Self {
         let workdir = &env.work_dir;
         let mut bi = BuildInfo::new();
+
+        if file::points_to_file("flake.nix") {
+            bi.push(BuildInfoKind::Flake);
+        }
+
+        if file::points_to_file("shell.nix") {
+            bi.push(BuildInfoKind::NixShell);
+        }
 
         if file::points_to_file("CMakeLists.txt") {
             bi.push(BuildInfoKind::Cmake);
