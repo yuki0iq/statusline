@@ -14,6 +14,7 @@ pub enum BuildInfoKind {
     Qbs,
     Qmake,
     Kks,
+    Gradle,
 }
 
 impl Display for BuildInfoKind {
@@ -33,6 +34,7 @@ impl Display for BuildInfoKind {
                 Self::Qbs => "qbs",
                 Self::Qmake => "qmake",
                 Self::Kks => "kks",
+                Self::Gradle => "gradle",
             }
         )
     }
@@ -93,6 +95,10 @@ impl From<&Environment> for BuildInfo {
 
         if file::upfind(workdir, ".kks-workspace").is_ok() {
             bi.push(BuildInfoKind::Kks);
+        }
+
+        if file::points_to_file("gradle.properties") {
+            bi.push(BuildInfoKind::Gradle);
         }
 
         bi
