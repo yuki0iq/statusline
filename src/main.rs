@@ -134,7 +134,7 @@ fn main() {
             let ver = env!("CARGO_PKG_VERSION");
             let apply_me = format!("eval \"$(\"{exec}\" --env)\"");
             println!("[statusline {ver}] --- bash status line, written in Rust");
-            println!(">> https://git.yukii.keenetic.pro/yuki0iq/statusline");
+            println!(">> https://github.com/yuki0iq/statusline");
             println!("Simple install:");
             println!("    echo '{apply_me}' >> ~/.bashrc");
             println!("    source ~/.bashrc");
