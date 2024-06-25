@@ -402,7 +402,8 @@ pub fn detect_container() -> Result<Option<ContainerType>> {
     }
 
     if let Ok(s) = fs::read_to_string("/proc/sys/kernel/osrelease")
-        && (s.contains("Microsoft") || s.contains("WSL")) {
+        && (s.contains("Microsoft") || s.contains("WSL"))
+    {
         return Ok(Some(ContainerType::Wsl));
     }
 
@@ -415,7 +416,8 @@ pub fn detect_container() -> Result<Option<ContainerType>> {
                 .next()?
         }) {
             if let Ok(s) = fs::read_to_string(format!("/proc/{pid}/comm"))
-                && s.starts_with("proot") {
+                && s.starts_with("proot")
+            {
                 return Ok(Some(ContainerType::Proot));
             }
         }

@@ -35,12 +35,16 @@ pub fn exists<P: AsRef<Path> + ?Sized>(path: &P) -> bool {
 }
 
 pub fn points_to_file<P: AsRef<Path> + ?Sized>(path: &P) -> bool {
-    fs::metadata(path).map(|meta| meta.is_file()).unwrap_or(false)
+    fs::metadata(path)
+        .map(|meta| meta.is_file())
+        .unwrap_or(false)
 }
 
 pub fn exists_that<F: Fn(&str) -> bool, P: AsRef<Path>>(path: P, f: F) -> Result<bool> {
     for entry in fs::read_dir(path)? {
-        if let Ok(filename) = entry?.file_name().into_string() && f(&filename) {
+        if let Ok(filename) = entry?.file_name().into_string()
+            && f(&filename)
+        {
             return Ok(true);
         }
     }

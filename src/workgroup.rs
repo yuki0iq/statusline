@@ -48,12 +48,12 @@ impl SshChain {
     pub fn open(key: Option<&WorkgroupKey>) -> SshChain {
         let ssh_chain = key
             .context("No workgroup key passed")
-            .and_then(|key| Self::open_impl(key))
+            .and_then(Self::open_impl)
             .and_then(|chain| match chain.is_empty() {
                 true => Err(anyhow!("Empty ssh chain, but decoded")),
                 false => Ok(chain),
             });
-        
+
         SshChain(match (ssh_chain, env::var("SSH_CONNECTION")) {
             (Err(_), Err(_)) => vec![],
             (Err(_), Ok(conn)) => vec![conn.split_whitespace().next().unwrap_or("?").to_owned()],

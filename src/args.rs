@@ -28,7 +28,7 @@ impl Environment {
     ///
     /// TODO change how arguments are passed here, this is cringe (and the code is too)
     pub fn from_env<T: AsRef<str>>(arg: &[T]) -> Self {
-        let ret_code = arg.get(0).map(|val| val.as_ref().parse().unwrap());
+        let ret_code = arg.first().map(|val| val.as_ref().parse().unwrap());
         let jobs_count = arg
             .get(1)
             .map(|val| val.as_ref().parse().unwrap_or(0))

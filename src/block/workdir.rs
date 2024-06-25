@@ -1,10 +1,11 @@
 use crate::{Environment, Icon, IconMode, Pretty, SimpleBlock, Style};
+use anyhow::{ensure, Context, Result};
 use nix::{
     sys::stat,
     unistd::{self, AccessFlags},
 };
 use std::{
-    borrow::Cow,
+    ffi::OsString,
     fs,
     path::{Path, PathBuf},
 };
@@ -48,15 +49,30 @@ impl Pretty for State {
     }
 }
 
-fn get_state(work_dir: &Path) -> (Cow<Path>, State) {
-    let cwd = Cow::from(work_dir);
+fn get_cwd_if_deleted() -> Option<PathBuf> {
+    let mut cwd = fs::read_link("/proc/self/cwd")
+        .ok()?
+        .into_os_string()
+        .into_encoded_bytes();
+    cwd.truncate(cwd.strip_prefix(b" (deleted)")?.len());
+    Some(PathBuf::from(unsafe {
+        OsString::from_encoded_bytes_unchecked(cwd)
+    }))
+}
 
+fn ensure_work_dir_not_moved(work_dir: &Path, stat_dot: stat::FileStat) -> Result<()> {
+    let stat_pwd = stat::stat(work_dir)?;
+    ensure!((stat_dot.st_dev, stat_dot.st_ino) == (stat_pwd.st_dev, stat_pwd.st_ino));
+    ensure!(*work_dir == std::env::var_os("PWD").context("No PWD")?);
+    Ok(())
+}
+
+fn get_state(work_dir: &mut PathBuf) -> State {
     let Ok(stat_dot) = stat::stat(".") else {
-        return (cwd, State::NoAccess);
+        return State::NoAccess;
     };
-    if 0 == stat_dot.st_nlink {
-        let ret_cwd_del = (cwd, State::Deleted);
 
+    if 0 == stat_dot.st_nlink {
         // If workdir is deleted, then rust's `env::get_working_dir()` returns error and I fall back
         // to using $PWD, which, in some cases, is wrong. If there is a _new_ directory with path
         // same as $PWD, but not same as real cwd is, `cd .` changes workdir to $PWD, but `cd ..`
@@ -65,38 +81,20 @@ fn get_state(work_dir: &Path) -> (Cow<Path>, State) {
         // ` (deleted)` suffix in it (regular folders can also have this sequence in their names,
         // so this suffix can only be used for displaying path, and not for detecting deleted cwd).
         // What a hell.
-
-        let Ok(cwd_del) = fs::read_link("/proc/self/cwd") else {
-            return ret_cwd_del; // This may be wrong...
-        };
-
-        let cwd_del = cwd_del.into_os_string();
-        let path = cwd_del.to_string_lossy();
-        let deleted = " (deleted)";
-        let len = path.len().saturating_sub(deleted.len());
-        if &path[len..] != deleted {
-            return ret_cwd_del;
+        if let Some(cwd) = get_cwd_if_deleted() {
+            *work_dir = cwd;
         }
-
-        let cwd_del = PathBuf::from(&path[..len]);
-        return (Cow::from(cwd_del), State::Deleted);
+        return State::Deleted;
     }
 
-    let Ok(stat_pwd) = stat::stat(work_dir) else {
-        return (cwd, State::Moved);
-    };
-    (
-        cwd,
-        if (stat_dot.st_dev, stat_dot.st_ino) != (stat_pwd.st_dev, stat_pwd.st_ino) {
-            State::Moved
-        } else if work_dir.ne(&PathBuf::from(std::env::var("PWD").unwrap_or_default())) {
-            State::Moved
-        } else if unistd::access(work_dir, AccessFlags::W_OK).is_err() {
-            State::Readable
-        } else {
-            State::Writeable
-        },
-    )
+    if ensure_work_dir_not_moved(work_dir, stat_dot).is_err() {
+        return State::Moved;
+    }
+
+    match unistd::access(work_dir, AccessFlags::W_OK) {
+        Ok(()) => State::Writeable,
+        Err(_) => State::Readable,
+    }
 }
 
 pub struct Workdir {
@@ -114,13 +112,10 @@ impl SimpleBlock for Workdir {
 
 impl From<&Environment> for Workdir {
     fn from(env: &Environment) -> Self {
-        let work_dir = env.work_dir.clone();
+        let mut work_dir = env.work_dir.clone();
         let git_tree = env.git_tree.clone();
         let current_home = env.current_home.clone();
-        let (work_dir, state) = get_state(&work_dir);
-
-        let work_dir = work_dir.into_owned();
-
+        let state = get_state(&mut work_dir);
         Workdir {
             work_dir,
             git_tree,
