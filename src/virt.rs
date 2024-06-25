@@ -89,10 +89,9 @@ fn detect_vm_device_tree() -> Result<Option<VirtualizationType>> {
             Ok(s) if s.contains("vmware") => Some(VirtualizationType::VMware),
             Ok(_) => Some(VirtualizationType::Other),
             Err(e) if e.kind() == ErrorKind::NotFound => {
-                match fs::try_exists("/proc/device-tree/ibm,partition-name").unwrap_or(false)
-                    && fs::try_exists("/proc/device-tree/hmc-managed?").unwrap_or(false)
-                    && !fs::try_exists("/proc/device-tree/chosen/qemu,graphic-width")
-                        .unwrap_or(false)
+                match fs::exists("/proc/device-tree/ibm,partition-name").unwrap_or(false)
+                    && fs::exists("/proc/device-tree/hmc-managed?").unwrap_or(false)
+                    && !fs::exists("/proc/device-tree/chosen/qemu,graphic-width").unwrap_or(false)
                 {
                     true => Some(VirtualizationType::PowerVM),
                     false => {
@@ -209,7 +208,7 @@ fn detect_vm_xen_dom0() -> Result<bool> {
 }
 
 fn detect_vm_xen() -> Result<Option<VirtualizationType>> {
-    Ok(fs::try_exists("/proc/xen")?.then_some(VirtualizationType::Xen))
+    Ok(fs::exists("/proc/xen")?.then_some(VirtualizationType::Xen))
 }
 
 fn detect_vm_hypervisor() -> Result<Option<VirtualizationType>> {
@@ -361,21 +360,21 @@ pub enum ContainerType {
 }
 
 fn running_in_cgroupns() -> Result<bool> {
-    if fs::try_exists("/proc/self/ns/cgroup").is_err() {
+    if fs::exists("/proc/self/ns/cgroup").is_err() {
         return Ok(false);
     }
 
     // Only cgroup v2 is supported right now, so no check if it _is_ v2 is needed
-    Ok(fs::try_exists("/sys/fs/cgroup/cgroup.events")?
-        && (fs::try_exists("/sys/fs/cgroup/cgroup.type")?
-            || !fs::try_exists("/sys/kernel/cgroup/features")?))
+    Ok(fs::exists("/sys/fs/cgroup/cgroup.events")?
+        && (fs::exists("/sys/fs/cgroup/cgroup.type")?
+            || !fs::exists("/sys/kernel/cgroup/features")?))
 }
 
 fn detect_container_files() -> Option<ContainerType> {
-    if let Ok(true) = fs::try_exists("/run/.containerenv") {
+    if let Ok(true) = fs::exists("/run/.containerenv") {
         return Some(ContainerType::Podman);
     }
-    if let Ok(true) = fs::try_exists("/.dockerenv") {
+    if let Ok(true) = fs::exists("/.dockerenv") {
         return Some(ContainerType::Docker);
     }
     None
@@ -398,7 +397,7 @@ fn translate_name(name: &str) -> ContainerType {
 }
 
 pub fn detect_container() -> Result<Option<ContainerType>> {
-    if let (Ok(true), Ok(false)) = (fs::try_exists("/proc/vz"), fs::try_exists("/proc/bz")) {
+    if let (Ok(true), Ok(false)) = (fs::exists("/proc/vz"), fs::exists("/proc/bz")) {
         return Ok(Some(ContainerType::OpenVZ));
     }
 
