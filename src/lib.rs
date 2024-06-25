@@ -25,7 +25,6 @@
 //! ```
 
 #![feature(
-    byte_slice_trim_ascii,
     io_error_more,
     iter_next_chunk,
     let_chains,
