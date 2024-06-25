@@ -31,7 +31,7 @@ pub fn find_current_home(path: &Path, cur_user: &str) -> Option<(PathBuf, String
 }
 
 pub fn exists<P: AsRef<Path> + ?Sized>(path: &P) -> bool {
-    fs::try_exists(path.as_ref()).unwrap_or(false)
+    fs::exists(path.as_ref()).unwrap_or(false)
 }
 
 pub fn points_to_file<P: AsRef<Path> + ?Sized>(path: &P) -> bool {
