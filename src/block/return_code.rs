@@ -1,5 +1,5 @@
 use crate::{Environment, Icon, IconMode, Pretty, SimpleBlock, Style};
-use nix::{libc, sys::signal::Signal};
+use rustix::process::Signal;
 
 pub enum ReturnCode {
     Ok,
@@ -81,8 +81,8 @@ impl Pretty for ReturnCode {
 
 fn signal_name(sig: u8) -> Option<String> {
     let sig = sig as i32;
-    if let Ok(sig) = Signal::try_from(sig) {
-        Some(sig.as_str()[3..].to_string())
+    if let Some(sig) = Signal::from_raw(sig) {
+        Some(format!("{:?}", sig).to_ascii_uppercase())
     } else if (libc::SIGRTMIN()..=libc::SIGRTMAX()).contains(&sig) {
         Some(format!("RT{}", sig - libc::SIGRTMIN()))
     } else {

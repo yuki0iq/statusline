@@ -1,9 +1,6 @@
 use crate::{Environment, Icon, IconMode, Pretty, SimpleBlock, Style};
 use anyhow::{ensure, Context, Result};
-use nix::{
-    sys::stat,
-    unistd::{self, AccessFlags},
-};
+use rustix::fs as rfs;
 use std::{
     ffi::OsString,
     fs,
@@ -60,15 +57,15 @@ fn get_cwd_if_deleted() -> Option<PathBuf> {
     }))
 }
 
-fn ensure_work_dir_not_moved(work_dir: &Path, stat_dot: stat::FileStat) -> Result<()> {
-    let stat_pwd = stat::stat(work_dir)?;
+fn ensure_work_dir_not_moved(work_dir: &Path, stat_dot: rfs::Stat) -> Result<()> {
+    let stat_pwd = rfs::stat(work_dir)?;
     ensure!((stat_dot.st_dev, stat_dot.st_ino) == (stat_pwd.st_dev, stat_pwd.st_ino));
     ensure!(*work_dir == std::env::var_os("PWD").context("No PWD")?);
     Ok(())
 }
 
 fn get_state(work_dir: &mut PathBuf) -> State {
-    let Ok(stat_dot) = stat::stat(".") else {
+    let Ok(stat_dot) = rfs::stat(".") else {
         return State::NoAccess;
     };
 
@@ -91,7 +88,7 @@ fn get_state(work_dir: &mut PathBuf) -> State {
         return State::Moved;
     }
 
-    match unistd::access(work_dir, AccessFlags::W_OK) {
+    match rfs::access(&*work_dir, rfs::Access::WRITE_OK) {
         Ok(()) => State::Writeable,
         Err(_) => State::Readable,
     }

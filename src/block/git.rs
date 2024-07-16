@@ -1,10 +1,7 @@
 use crate::{file, Environment, Icon, IconMode, Pretty, SimpleBlock, Style};
 use anyhow::{anyhow, bail, Context, Result};
 use mmarinus::{perms, Map, Private};
-use nix::{
-    sys::{prctl, signal::Signal},
-    unistd,
-};
+use rustix::process;
 use std::{
     borrow::Cow,
     fs::{self, File},
@@ -497,7 +494,7 @@ impl SimpleBlock for Tree {
             _ => return self,
         };
 
-        let parent_pid = unistd::getpid();
+        let parent_pid = process::getpid();
         let out = unsafe {
             Command::new("git")
                 .arg("-C")
@@ -505,8 +502,8 @@ impl SimpleBlock for Tree {
                 .arg("status")
                 .arg("--porcelain=2")
                 .pre_exec(move || -> std::io::Result<()> {
-                    prctl::set_pdeathsig(Signal::SIGTERM)?;
-                    if parent_pid != unistd::getppid() {
+                    process::set_parent_process_death_signal(Some(process::Signal::Term))?;
+                    if Some(parent_pid) != process::getppid() {
                         return Err(std::io::Error::other("Parent already dead"));
                     }
                     Ok(())

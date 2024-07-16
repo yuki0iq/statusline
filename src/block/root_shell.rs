@@ -1,5 +1,5 @@
 use crate::{Environment, Icon, IconMode, Pretty, SimpleBlock, Style};
-use nix::unistd;
+use rustix::process;
 use std::{borrow::Cow, env};
 
 pub struct RootShell(bool, usize);
@@ -13,7 +13,7 @@ impl SimpleBlock for RootShell {
 impl From<&Environment> for RootShell {
     fn from(_: &Environment) -> Self {
         RootShell(
-            unistd::getuid().is_root(),
+            process::getuid().is_root(),
             env::var("SHLVL")
                 .unwrap_or_default()
                 .parse()

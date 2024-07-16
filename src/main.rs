@@ -1,6 +1,6 @@
-use nix::{
-    fcntl::{self, FcntlArg, OFlag},
-    libc, unistd,
+use rustix::{
+    fd::{self, AsRawFd, FromRawFd},
+    fs as rfs, process, stdio,
 };
 use statusline::{
     default, file,
@@ -37,8 +37,18 @@ fn main() {
             println!("{}", include_str!("shell.sh").replace("<exec>", &exec));
         }
         Some("--run") => {
-            unsafe { libc::fcntl(3, libc::F_SETOWN, unistd::getpid()) };
-            fcntl::fcntl(3, FcntlArg::F_SETFL(OFlag::O_ASYNC)).unwrap();
+            let controlling_fd = unsafe { fd::OwnedFd::from_raw_fd(3) };
+            unsafe {
+                libc::fcntl(
+                    controlling_fd.as_raw_fd(),
+                    libc::F_SETOWN,
+                    process::getpid(),
+                )
+            };
+            let _ = rfs::fcntl_setfl(
+                controlling_fd,
+                rfs::OFlags::from_bits_retain(libc::O_ASYNC as u32),
+            );
 
             use statusline::BlockType; //<===
 
@@ -80,7 +90,10 @@ fn main() {
                     default::pretty(&bottom, &mode)
                 );
                 io::stdout().flush().unwrap();
-                unistd::close(1).unwrap();
+                stdio::dup2_stdout(
+                    rfs::open("/dev/null", rfs::OFlags::RDWR, rfs::Mode::empty()).unwrap(),
+                )
+                .unwrap();
 
                 let line = default::extend(line);
                 let second = default::extend(second);
@@ -108,7 +121,10 @@ fn main() {
                     default::pretty(&bottom, &mode)
                 );
                 io::stdout().flush().unwrap();
-                unistd::close(1).unwrap();
+                stdio::dup2_stdout(
+                    rfs::open("/dev/null", rfs::OFlags::RDWR, rfs::Mode::empty()).unwrap(),
+                )
+                .unwrap();
 
                 let line = default::extend(line);
                 eprint!(
