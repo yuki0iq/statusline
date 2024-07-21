@@ -32,15 +32,13 @@ impl Icon for ReturnCode {
         use IconMode::*;
         match &self {
             Self::Ok => match &mode {
-                Text => "OK",
                 Icons => "✓",
-                MinimalIcons => "",
+                Text | MinimalIcons => "",
             },
             Self::Failed(..) => "",
             Self::Signaled(..) => match &mode {
-                Text => "SIG",
                 Icons => "󰜃 ",
-                MinimalIcons => "",
+                Text | MinimalIcons => "",
             },
             Self::NotAvailable => match &mode {
                 Text => "N/A",
