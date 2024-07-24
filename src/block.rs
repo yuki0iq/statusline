@@ -5,6 +5,7 @@ pub mod elapsed;
 pub mod git;
 pub mod hostuser;
 pub mod jobs;
+pub mod mail;
 pub mod return_code;
 pub mod root_shell;
 pub mod separator;
@@ -45,6 +46,8 @@ pub enum BlockType {
     Time,
     /// If over ssh, show "from" connection
     Ssh,
+    /// Unseen mail count
+    Mail,
 }
 
 impl BlockType {
@@ -66,6 +69,7 @@ impl BlockType {
             Self::Elapsed => Box::new(elapsed::Elapsed::from(env)),
             Self::Time => Box::new(time::Time::from(env)),
             Self::Ssh => Box::new(ssh::Ssh::from(env)),
+            Self::Mail => Box::new(mail::UnseenMail::from(env)),
         }
     }
 }
