@@ -64,7 +64,7 @@ fn main() {
                 .map(|x| readline_width(&x))
                 .sum();
 
-            if line_length + 25
+            if line_length + 16
                 >= terminal_size::terminal_size()
                     .map(|(w, _h)| w.0)
                     .unwrap_or(80)
@@ -72,7 +72,7 @@ fn main() {
             {
                 // three lines
                 let mut second = BlockType::Empty.create_from_env(&args);
-                std::mem::swap(&mut second, &mut line[7]);
+                std::mem::swap(&mut second, &mut line[8]);
                 let second = [BlockType::Continue.create_from_env(&args), second];
 
                 eprint!(
