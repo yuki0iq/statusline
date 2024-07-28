@@ -46,6 +46,7 @@ impl Pretty for State {
             self.icon(mode)
                 .visible()
                 .red()
+                .italic()
                 .with_reset()
                 .invisible()
                 .to_string(),
