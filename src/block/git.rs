@@ -630,7 +630,6 @@ impl Pretty for GitTree {
                     .boxed()
                     .visible()
                     .pink()
-                    .bold()
                     .with_reset()
                     .invisible()
                     .to_string(),

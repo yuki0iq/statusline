@@ -118,7 +118,6 @@ impl Pretty for BuildInfo {
                 .boxed()
                 .visible()
                 .purple()
-                .bold()
                 .with_reset()
                 .invisible()
                 .to_string(),

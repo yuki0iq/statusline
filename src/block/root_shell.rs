@@ -48,7 +48,6 @@ impl Pretty for RootShell {
             } else {
                 formatted.green()
             }
-            .bold()
             .with_reset()
             .invisible()
             .to_string(),

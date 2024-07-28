@@ -40,7 +40,6 @@ impl Pretty for MaybeVenv {
                 .boxed()
                 .visible()
                 .yellow()
-                .bold()
                 .with_reset()
                 .invisible()
                 .to_string()
