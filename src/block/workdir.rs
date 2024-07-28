@@ -21,7 +21,7 @@ impl Icon for State {
         match self {
             Self::Writeable => "",
             Self::Readable => match mode {
-                Text => "R/O ",
+                Text => "readonly ",
                 Icons | MinimalIcons => " ",
             },
             Self::Deleted => match mode {
