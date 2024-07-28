@@ -36,6 +36,7 @@ const HSV_COLOR_TABLE: [(u8, u8, u8); 24] = [
 enum StyleKind {
     Title,
     Bold,
+    Italic,
     Color8(usize),
     TrueColor(u8, u8, u8),
     ResetEnd,
@@ -84,6 +85,7 @@ impl<T: Display + ?Sized> Display for Styled<'_, T> {
         match &self.style {
             StyleKind::Title => write!(f, "{ESC}]0;{}{BEL}", self.value),
             StyleKind::Bold => write!(f, "{CSI}1m{}", self.value),
+            StyleKind::Italic => write!(f, "{CSI}3m{}", self.value),
             StyleKind::Color8(index) => write!(f, "{CSI}{}m{}", index + 31, self.value),
             StyleKind::TrueColor(r, g, b) => {
                 write!(f, "{CSI}38;2;{r};{g};{b}m{}", self.value)
@@ -138,6 +140,19 @@ pub trait Style: Display {
     fn bold(&self) -> Styled<Self> {
         Styled {
             style: StyleKind::Bold,
+            value: self,
+        }
+    }
+
+    /// Prepend italic style
+    ///
+    /// ```
+    /// use statusline::Style;
+    /// assert_eq!("\x1b[3mItalic text", "Italic text".italic().to_string());
+    /// ```
+    fn italic(&self) -> Styled<Self> {
+        Styled {
+            style: StyleKind::Italic,
             value: self,
         }
     }
