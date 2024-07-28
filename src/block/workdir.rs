@@ -42,7 +42,14 @@ impl Icon for State {
 
 impl Pretty for State {
     fn pretty(&self, mode: &IconMode) -> Option<String> {
-        Some(self.icon(mode).red().with_reset().to_string())
+        Some(
+            self.icon(mode)
+                .visible()
+                .red()
+                .with_reset()
+                .invisible()
+                .to_string(),
+        )
     }
 }
 
