@@ -169,12 +169,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a7a70ba024b9dc04c27ea2f0c0548feb474ec5c54bba33a7f72f873a39d07b24"
 
 [[package]]
-name = "mmarinus"
-version = "0.4.0"
+name = "memmapix"
+version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b8098e6e7a3823fa237ef9569010d3af3894a1ae54c92f0c220b9e6357f9473"
+checksum = "f517ab414225d5f1755bd284d9545bd08a72a3958b3c6384d72e95de9cc1a1d3"
 dependencies = [
- "libc",
+ "rustix",
 ]
 
 [[package]]
@@ -255,7 +255,7 @@ dependencies = [
  "chrono",
  "fahtsex",
  "libc",
- "mmarinus",
+ "memmapix",
  "orion",
  "pwd",
  "rustix",

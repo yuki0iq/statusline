@@ -1,12 +1,13 @@
 use crate::{file, Environment, Icon, IconMode, Pretty, SimpleBlock, Style};
 use anyhow::{anyhow, bail, Context, Result};
-use mmarinus::{perms, Map, Private};
+use memmapix::Mmap;
 use rustix::process;
 use std::{
     borrow::Cow,
     fs::{self, File},
     io::{BufRead, BufReader, Error, ErrorKind},
     iter, mem,
+    ops::Deref,
     os::unix::process::CommandExt,
     path::{Path, PathBuf},
     process::Command,
@@ -94,8 +95,10 @@ fn packed_objects_len(root: &Path, commit: &str) -> Result<usize> {
         }
 
         // File should at least contain magic, version and a fanout table, which is 102 ints
-        let map = Map::load(path, Private, perms::Read)?;
-        if map.size() < 0x408 {
+        let file = File::open(path).context("open packed objects")?;
+        let map = unsafe { Mmap::map(&file).context("map packed objects")? };
+        let map = map.deref();
+        if map.len() < 0x408 {
             continue;
         }
         // eprintln!("mmaped");
@@ -111,7 +114,7 @@ fn packed_objects_len(root: &Path, commit: &str) -> Result<usize> {
         //
         // I'd like to never return here again.
 
-        let map_size = map.size() / 4;
+        let map_size = map.len() / 4;
         let integers: &[[u8; 4]] = unsafe { mem::transmute(&map[..4 * map_size]) };
 
         // Magic int is 0xFF744F63 ('\377tOc') which probably should be read as "table of contents"
