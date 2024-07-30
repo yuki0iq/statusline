@@ -21,8 +21,7 @@ impl From<&Environment> for UnseenMail {
             .unwrap_or(0);
         let unread_count = fs::read_dir(maildir.join("cur"))
             .map(|iter| {
-                iter.take_while(Result::is_ok)
-                    .map(Result::unwrap)
+                iter.map_while(Result::ok)
                     .filter_map(|entry| entry.file_name().into_string().ok())
                     .filter(|filename| filename.ends_with(":2,"))
                     .count()
