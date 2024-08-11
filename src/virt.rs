@@ -30,14 +30,9 @@ pub enum VirtualizationType {
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 fn detect_vm_cpuid() -> Option<VirtualizationType> {
     #[cfg(target_arch = "x86")]
-    use core::arch::x86::{__cpuid, __get_cpuid_max, has_cpuid};
+    use core::arch::x86::{__cpuid, __get_cpuid_max};
     #[cfg(target_arch = "x86_64")]
-    use core::arch::x86_64::{__cpuid, __get_cpuid_max, has_cpuid};
-
-    // Check CPUID accessible
-    if !has_cpuid() {
-        return None;
-    }
+    use core::arch::x86_64::{__cpuid, __get_cpuid_max};
 
     // Check leaf 1 accessible
     let maxlevel = unsafe { __get_cpuid_max(0).0 };

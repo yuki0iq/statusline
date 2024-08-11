@@ -24,7 +24,7 @@
 //! );
 //! ```
 
-#![feature(io_error_more, iter_next_chunk, let_chains, stdarch_x86_has_cpuid)]
+#![feature(io_error_more, iter_next_chunk, let_chains)]
 
 mod args;
 mod block;
