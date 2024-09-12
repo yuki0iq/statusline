@@ -181,12 +181,15 @@ fn abbrev_commit(root: &Path, id: &str) -> usize {
     abbrev_len
 }
 
+#[derive(Debug)]
 enum HeadKind {
     Branch(String),
+    NonexistentBranch(String),
     Commit(String),
     Unknown,
 }
 
+#[derive(Debug)]
 struct Head {
     root: PathBuf,
     kind: HeadKind,
@@ -200,6 +203,10 @@ impl Icon for HeadKind {
                 Text => "on",
                 Icons | MinimalIcons => "󰘬",
             },
+            Self::NonexistentBranch(_) => match mode {
+                Text => "to",
+                Icons | MinimalIcons => "󰽤",
+            },
             Self::Commit(_) => match mode {
                 Text => "at",
                 Icons | MinimalIcons => "",
@@ -212,7 +219,9 @@ impl Icon for HeadKind {
 impl Pretty for Head {
     fn pretty(&self, mode: &IconMode) -> Option<String> {
         Some(match &self.kind {
-            branch @ HeadKind::Branch(name) => format!("{} {}", branch.icon(mode), name),
+            branch @ HeadKind::Branch(name) | branch @ HeadKind::NonexistentBranch(name) => {
+                format!("{} {}", branch.icon(mode), name)
+            }
             oid @ HeadKind::Commit(id) => {
                 format!(
                     "{} {}",
@@ -230,10 +239,36 @@ impl Head {
     // Please WHY
     fn git_value(&self) -> Cow<str> {
         match &self.kind {
-            HeadKind::Branch(name) => Cow::from(format!("refs/heads/{name}")),
+            HeadKind::Branch(name) | HeadKind::NonexistentBranch(name) => {
+                Cow::from(format!("refs/heads/{name}"))
+            }
             HeadKind::Commit(id) => Cow::from(id),
             HeadKind::Unknown => Cow::from("<head>"),
         }
+    }
+
+    // WHY WHY WHY send help
+    fn fix_nonexistent(mut self) -> Self {
+        let git_value = self.git_value();
+        let git_value = git_value.as_ref();
+        let root = &self.root;
+        self.kind = match self.kind {
+            HeadKind::Branch(name)
+                if fs::exists(root.join(git_value)).ok() != Some(true)
+                    && fs::File::open(root.join("packed-refs"))
+                        .ok()
+                        .map(BufReader::new)
+                        .map(BufReader::lines)
+                        .map(|lines| lines.map_while(Result::ok))
+                        .and_then(|mut lines| lines.find(|line| line.contains(git_value)))
+                        .is_none() =>
+            {
+                HeadKind::NonexistentBranch(name)
+            }
+
+            _ => self.kind,
+        };
+        self
     }
 }
 
@@ -468,6 +503,7 @@ impl From<&Environment> for Repo {
                 }
             }
         };
+        let head = head.fix_nonexistent();
 
         let remote = get_remote(&head);
 
