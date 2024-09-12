@@ -418,7 +418,7 @@ pub fn detect_container() -> Result<Option<ContainerType>> {
         }
     }
 
-    match fs::read_to_string("/nun/host/container-daemon") {
+    match fs::read_to_string("/run/host/container-daemon") {
         Ok(s) => {
             return Ok(Some(translate_name(&s)));
         }
