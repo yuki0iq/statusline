@@ -294,7 +294,7 @@ impl Icon for State {
         match self {
             Self::Bisecting => match mode {
                 Text => "bisecting",
-                Icons | MinimalIcons => "󰩫 ", //TOOD
+                Icons | MinimalIcons => "󰩫 ", //TODO
             },
             Self::Reverting { .. } => match mode {
                 Text => "reverting",
