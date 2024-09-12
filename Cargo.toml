@@ -4,7 +4,7 @@ version = "0.17.5"
 edition = "2021"
 description = "Simple and fast bash PS1 line with useful features"
 license = "MIT OR Apache-2.0"
-repository = "https://git.yukii.keenetic.pro/yuki0iq/statusline"
+repository = "https://codeberg.org/yuki0iq/statusline"
 
 [dependencies]
 pwd = "1.4"
