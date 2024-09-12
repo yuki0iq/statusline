@@ -428,7 +428,7 @@ impl From<&Environment> for Repo {
                 fs::read_to_string(&dotgit)?
                     .strip_prefix("gitdir: ")
                     .ok_or(Error::from(ErrorKind::InvalidData))?
-                    .trim_end_matches(&['\r', '\n']),
+                    .trim_end_matches(['\r', '\n']),
             )
         } else {
             dotgit
