@@ -1,6 +1,6 @@
 [package]
 name = "statusline"
-version = "0.18.0"
+version = "0.18.1"
 edition = "2021"
 description = "Simple and fast bash PS1 line with useful features"
 license = "MIT OR Apache-2.0"
