@@ -137,8 +137,9 @@ fn main() {
             }
         }
         Some("--ssh-new-connection") => {
-            let key =
-                WorkgroupKey::load().expect("Workgroup key is needed for ssh chain forwarding");
+            let Ok(key) = WorkgroupKey::load() else {
+                return;
+            };
             let mut ssh_chain = SshChain::open(Some(&key)).0;
             ssh_chain.push(file::get_hostname());
             println!("{}", SshChain(ssh_chain).seal(&key));
