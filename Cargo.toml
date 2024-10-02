@@ -9,10 +9,10 @@ repository = "https://codeberg.org/yuki0iq/statusline"
 [dependencies]
 pwd = "1.4"
 chrono = "0.4"
-terminal_size = "0.3"
+terminal_size = "0.4"
 anyhow = "1.0"
 fahtsex = "0.2"
-unicode-width = "0.1"
+unicode-width = "0.2"
 base64 = "0.22"
 orion = "0.17"
 rustix = { version = "0.38", features = ["fs", "process", "stdio", "system"], default-features = false }
