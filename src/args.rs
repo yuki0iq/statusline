@@ -43,7 +43,10 @@ impl Environment {
             .map(|dg| dg.parent().unwrap().to_path_buf());
 
         let user = env::var("USER").unwrap_or_else(|_| String::from("<user>"));
-        let host = file::get_hostname();
+        let host = rustix::system::uname()
+            .nodename()
+            .to_string_lossy()
+            .into_owned();
         let chassis = Chassis::get();
 
         let current_home = file::find_current_home(&work_dir, &user);

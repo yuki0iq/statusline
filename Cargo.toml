@@ -15,7 +15,7 @@ fahtsex = "0.2"
 unicode-width = "0.1"
 base64 = "0.22"
 orion = "0.17"
-rustix = { version = "0.38", features = ["fs", "process", "stdio"] }
+rustix = { version = "0.38", features = ["fs", "process", "stdio", "system"], default-features = false }
 libc = "0.2"
 memmapix = "0.7.6"
 

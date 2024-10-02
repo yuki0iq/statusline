@@ -59,8 +59,3 @@ pub fn upfind<P: AsRef<Path>>(start: P, filename: &str) -> Result<PathBuf> {
         .find(exists)
         .context("upfind could not find parent")
 }
-
-pub fn get_hostname() -> String {
-    let hostname = fs::read_to_string("/etc/hostname").unwrap_or_else(|_| String::from("<host>"));
-    String::from(hostname.trim())
-}

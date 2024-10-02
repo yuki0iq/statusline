@@ -3,7 +3,7 @@ use rustix::{
     fs as rfs, process, stdio,
 };
 use statusline::{
-    default, file,
+    default,
     workgroup::{SshChain, WorkgroupKey},
     Environment, IconMode, Style,
 };
@@ -141,7 +141,12 @@ fn main() {
                 return;
             };
             let mut ssh_chain = SshChain::open(Some(&key)).0;
-            ssh_chain.push(file::get_hostname());
+            ssh_chain.push(
+                rustix::system::uname()
+                    .nodename()
+                    .to_string_lossy()
+                    .into_owned(),
+            );
             println!("{}", SshChain(ssh_chain).seal(&key));
         }
         Some("--workgroup-create") => {
