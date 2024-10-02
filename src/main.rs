@@ -138,11 +138,11 @@ fn main() {
 
     match command {
         Command::Colorize(Colorize { what }) => println!("{}", what.colorize_with(&what).bold()),
-        Command::WorkgroupCreate(WorkgroupCreate {}) => {
+        Command::WorkgroupCreate(_) => {
             WorkgroupKey::create().expect("Could not create workgroup key")
         }
-        Command::Env(Env {}) => println!("{}", include_str!("shell.sh").replace("<exec>", &exec)),
-        Command::Chain(Chain {}) => {
+        Command::Env(_) => println!("{}", include_str!("shell.sh").replace("<exec>", &exec)),
+        Command::Chain(_) => {
             let Ok(key) = WorkgroupKey::load() else {
                 return;
             };
