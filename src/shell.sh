@@ -15,7 +15,7 @@ PROMPT_COMMAND='
     fi
     jobs -n
 '
-PS1='$("<exec>" --run "$?" "\j" "$PS1_ELAPSED" 3<&$PS1_FD &)'
+PS1='$("<exec>" run --return-code "$?" --jobs-count "\j" --elapsed-time "$PS1_ELAPSED" 3<&$PS1_FD &)'
 
-alias ssh='WORKGROUP_CHAIN="$("<exec>" --ssh-new-connection)" ssh -o "SendEnv=WORKGROUP_CHAIN"'
+alias ssh='WORKGROUP_CHAIN="$("<exec>" chain)" ssh -o "SendEnv=WORKGROUP_CHAIN"'
 

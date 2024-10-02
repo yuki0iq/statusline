@@ -1,13 +1,14 @@
+use argh::FromArgs;
 use rustix::{
     fd::{self, AsRawFd, FromRawFd},
     fs as rfs, process, stdio,
 };
 use statusline::{
-    default,
+    default, file,
     workgroup::{SshChain, WorkgroupKey},
-    Environment, IconMode, Style,
+    BlockType, Chassis, Environment, IconMode, Style,
 };
-use std::{env, fs, io, io::Write};
+use std::{env, fs, io, io::Write, path::PathBuf};
 use unicode_width::UnicodeWidthStr;
 
 fn readline_width(s: &str) -> usize {
@@ -22,21 +23,139 @@ fn readline_width(s: &str) -> usize {
     res
 }
 
+#[derive(FromArgs)]
+/// statusline
+struct Arguments {
+    #[argh(subcommand)]
+    /// action
+    command: Option<Command>,
+}
+
+#[derive(FromArgs)]
+#[argh(subcommand)]
+enum Command {
+    Colorize(Colorize),
+    WorkgroupCreate(WorkgroupCreate),
+    Chain(Chain),
+    Run(Run),
+    Env(Env),
+}
+
+#[derive(FromArgs)]
+#[argh(subcommand, name = "env")]
+/// print bash commands
+struct Env {}
+
+#[derive(FromArgs)]
+#[argh(subcommand, name = "chain")]
+/// append this host to chain
+struct Chain {}
+
+#[derive(FromArgs)]
+#[argh(subcommand, name = "create")]
+/// create for this host
+struct WorkgroupCreate {}
+
+#[derive(FromArgs)]
+#[argh(subcommand, name = "colorize")]
+/// colorize as username
+struct Colorize {
+    #[argh(option)]
+    /// what to colorize
+    what: String,
+}
+
+#[derive(FromArgs)]
+#[argh(subcommand, name = "run")]
+/// main statusline
+struct Run {
+    #[argh(option)]
+    /// return code to show
+    return_code: Option<u8>,
+    #[argh(option)]
+    /// current background jobs count
+    jobs_count: usize,
+    #[argh(option)]
+    /// elapsed time to show, in seconds
+    elapsed_time: Option<u64>,
+}
+
+impl From<Run> for Environment {
+    fn from(other: Run) -> Environment {
+        let ret_code = other.return_code;
+        let jobs_count = other.jobs_count;
+        let elapsed_time = other.elapsed_time;
+
+        let work_dir =
+            env::current_dir().unwrap_or_else(|_| PathBuf::from(env::var("PWD").unwrap()));
+
+        let git_tree = file::upfind(&work_dir, ".git")
+            .ok()
+            .map(|dg| dg.parent().unwrap().to_path_buf());
+
+        let user = env::var("USER").unwrap_or_else(|_| String::from("<user>"));
+        let host = rustix::system::uname()
+            .nodename()
+            .to_string_lossy()
+            .into_owned();
+        let chassis = Chassis::get();
+
+        let current_home = file::find_current_home(&work_dir, &user);
+
+        Environment {
+            ret_code,
+            jobs_count,
+            elapsed_time,
+            git_tree,
+            work_dir,
+            user,
+            host,
+            chassis,
+            current_home,
+        }
+    }
+}
+
 fn main() {
     let exec = fs::read_link("/proc/self/exe")
         .map(|pb| String::from(pb.to_string_lossy()))
         .unwrap_or("<executable>".to_owned());
-    let mut args = env::args();
-    args.next();
-    match args.next().as_deref() {
-        Some("--colorize") => match args.next() {
-            Some(text) => println!("{}", text.colorize_with(&text).bold()),
-            None => println!("`statusline --colorize <text>` to colorize string"),
-        },
-        Some("--env") => {
-            println!("{}", include_str!("shell.sh").replace("<exec>", &exec));
+
+    let args: Arguments = argh::from_env();
+    let Some(command) = args.command else {
+        let ver = env!("CARGO_PKG_VERSION");
+        let apply_me = format!("eval \"$(\"{exec}\" env)\"");
+        println!("[statusline {ver}] --- bash status line, written in Rust");
+        println!(">> https://codeberg.org/yuki0iq/statusline");
+        println!("Use `--help` to see advanced usage");
+        println!("Simple install:");
+        println!("    echo '{apply_me}' >> ~/.bashrc");
+        println!("    source ~/.bashrc");
+        println!("Test now:");
+        println!("    {apply_me}");
+        return;
+    };
+
+    match command {
+        Command::Colorize(Colorize { what }) => println!("{}", what.colorize_with(&what).bold()),
+        Command::WorkgroupCreate(WorkgroupCreate {}) => {
+            WorkgroupKey::create().expect("Could not create workgroup key")
         }
-        Some("--run") => {
+        Command::Env(Env {}) => println!("{}", include_str!("shell.sh").replace("<exec>", &exec)),
+        Command::Chain(Chain {}) => {
+            let Ok(key) = WorkgroupKey::load() else {
+                return;
+            };
+            let mut ssh_chain = SshChain::open(Some(&key)).0;
+            ssh_chain.push(
+                rustix::system::uname()
+                    .nodename()
+                    .to_string_lossy()
+                    .into_owned(),
+            );
+            println!("{}", SshChain(ssh_chain).seal(&key));
+        }
+        Command::Run(run) => {
             let controlling_fd = unsafe { fd::OwnedFd::from_raw_fd(3) };
             unsafe {
                 libc::fcntl(
@@ -50,10 +169,8 @@ fn main() {
                 rfs::OFlags::from_bits_retain(libc::O_ASYNC as u32),
             );
 
-            use statusline::BlockType; //<===
-
             let mode = IconMode::build();
-            let args = Environment::from_env(&args.collect::<Vec<String>>());
+            let args = run.into();
             let bottom = default::bottom(&args);
 
             let mut line = default::top(&args);
@@ -135,33 +252,6 @@ fn main() {
                         .save_restore()
                 );
             }
-        }
-        Some("--ssh-new-connection") => {
-            let Ok(key) = WorkgroupKey::load() else {
-                return;
-            };
-            let mut ssh_chain = SshChain::open(Some(&key)).0;
-            ssh_chain.push(
-                rustix::system::uname()
-                    .nodename()
-                    .to_string_lossy()
-                    .into_owned(),
-            );
-            println!("{}", SshChain(ssh_chain).seal(&key));
-        }
-        Some("--workgroup-create") => {
-            WorkgroupKey::create().expect("Could not create workgroup key")
-        }
-        _ => {
-            let ver = env!("CARGO_PKG_VERSION");
-            let apply_me = format!("eval \"$(\"{exec}\" --env)\"");
-            println!("[statusline {ver}] --- bash status line, written in Rust");
-            println!(">> https://codeberg.org/yuki0iq/statusline");
-            println!("Simple install:");
-            println!("    echo '{apply_me}' >> ~/.bashrc");
-            println!("    source ~/.bashrc");
-            println!("Test now:");
-            println!("    {apply_me}");
         }
     }
 }
