@@ -60,7 +60,7 @@ fn get_cwd_if_deleted() -> Option<PathBuf> {
         .ok()?
         .into_os_string()
         .into_encoded_bytes();
-    cwd.truncate(cwd.strip_prefix(b" (deleted)")?.len());
+    cwd.truncate(cwd.strip_suffix(b" (deleted)")?.len());
     Some(PathBuf::from(unsafe {
         OsString::from_encoded_bytes_unchecked(cwd)
     }))
