@@ -1,6 +1,6 @@
 use crate::{
     workgroup::{SshChain, WorkgroupKey},
-    Environment, Icon, IconMode, Pretty, SimpleBlock, Style,
+    Environment, Extend, Icon, IconMode, Pretty, Style as _,
 };
 
 pub struct Ssh(String);
@@ -13,7 +13,7 @@ impl From<&Environment> for Ssh {
     }
 }
 
-impl SimpleBlock for Ssh {
+impl Extend for Ssh {
     fn extend(self: Box<Self>) -> Box<dyn Pretty> {
         self
     }

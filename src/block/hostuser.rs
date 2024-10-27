@@ -1,10 +1,10 @@
-use crate::{Chassis, Environment, Icon, IconMode, Pretty, SimpleBlock, Style};
+use crate::{Chassis, Environment, Extend, Icon, IconMode, Pretty, Style as _};
 
 struct Host(Chassis, String);
 struct User(String);
 pub struct HostUser(User, Host);
 
-impl SimpleBlock for HostUser {
+impl Extend for HostUser {
     fn extend(self: Box<Self>) -> Box<dyn Pretty> {
         self
     }

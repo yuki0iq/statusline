@@ -1,10 +1,11 @@
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use pwd::Passwd;
 use std::{
     fs,
     path::{Path, PathBuf},
 };
 
+#[must_use]
 pub fn find_current_home(path: &Path, cur_user: &str) -> Option<(PathBuf, String)> {
     if let Some(Passwd { name, dir, .. }) = Passwd::iter().find(|Passwd { dir, .. }| {
         dir != "/"
@@ -19,10 +20,10 @@ pub fn find_current_home(path: &Path, cur_user: &str) -> Option<(PathBuf, String
     }) {
         Some((
             PathBuf::from(dir),
-            if name != cur_user {
-                name
-            } else {
+            if name == cur_user {
                 String::new()
+            } else {
+                name
             },
         ))
     } else {

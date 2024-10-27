@@ -15,7 +15,8 @@ pub mod venv;
 pub mod workdir;
 
 /// All available statusline block types
-pub enum BlockType {
+#[non_exhaustive]
+pub enum Kind {
     /// Empty separator
     Separator,
     /// Empty block (does not ever separate),
@@ -50,12 +51,13 @@ pub enum BlockType {
     Mail,
 }
 
-impl BlockType {
+impl Kind {
     /// Creates a block from given environment. These blocks can be pretty-printed and extended
-    pub fn create_from_env(&self, env: &Environment) -> Box<dyn SimpleBlock> {
+    #[must_use]
+    pub fn create_from_env(&self, env: &Environment) -> Box<dyn Extend> {
         match &self {
             Self::Separator => Box::new(separator::Separator("")),
-            Self::Empty => Box::new(separator::Empty()),
+            Self::Empty => Box::new(separator::Empty),
             Self::Continue => Box::new(separator::Separator("\u{f105}")),
             Self::Jobs => Box::new(jobs::Jobs::from(env)),
             Self::ReturnCode => Box::new(return_code::ReturnCode::from(env)),
@@ -74,7 +76,7 @@ impl BlockType {
     }
 }
 /// Simple block which can be extended (only once) and pretty-printed
-pub trait SimpleBlock: Pretty {
+pub trait Extend: Pretty {
     /// Extend block once. Many blocks remain untouched
     fn extend(self: Box<Self>) -> Box<dyn Pretty>;
 }

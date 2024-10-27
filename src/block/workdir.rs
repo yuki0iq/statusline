@@ -1,7 +1,8 @@
-use crate::{Environment, Icon, IconMode, Pretty, SimpleBlock, Style};
-use anyhow::{ensure, Context, Result};
+use crate::{Environment, Extend, Icon, IconMode, Pretty, Style as _};
+use anyhow::{ensure, Context as _, Result};
 use rustix::fs as rfs;
 use std::{
+    env,
     ffi::OsString,
     fs,
     path::{Path, PathBuf},
@@ -68,7 +69,7 @@ fn get_cwd_if_deleted() -> Option<PathBuf> {
 fn ensure_work_dir_not_moved(work_dir: &Path, stat_dot: rfs::Stat) -> Result<()> {
     let stat_pwd = rfs::stat(work_dir)?;
     ensure!((stat_dot.st_dev, stat_dot.st_ino) == (stat_pwd.st_dev, stat_pwd.st_ino));
-    ensure!(*work_dir == std::env::var_os("PWD").context("No PWD")?);
+    ensure!(*work_dir == env::var_os("PWD").context("No PWD")?);
     Ok(())
 }
 
@@ -109,7 +110,7 @@ pub struct Workdir {
     state: State,
 }
 
-impl SimpleBlock for Workdir {
+impl Extend for Workdir {
     fn extend(self: Box<Self>) -> Box<dyn Pretty> {
         self
     }
@@ -152,7 +153,7 @@ impl Pretty for Workdir {
         };
 
         let home_str = self.current_home.as_ref().map(|(_, user)| {
-            format!("~{}", user)
+            format!("~{user}")
                 .visible()
                 .yellow()
                 .bold()
@@ -164,7 +165,7 @@ impl Pretty for Workdir {
         let middle_str = middle.and_then(Path::to_str).map(ToString::to_string);
 
         let highlighted_str = highlighted.and_then(Path::to_str).map(|s| {
-            format!("/{}", s)
+            format!("/{s}")
                 .visible()
                 .cyan()
                 .with_reset()

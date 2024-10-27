@@ -1,4 +1,4 @@
-use crate::{Environment, Icon, IconMode, Pretty, SimpleBlock, Style};
+use crate::{Environment, Extend, Icon, IconMode, Pretty, Style as _};
 use rustix::process::Signal;
 
 pub enum ReturnCode {
@@ -8,7 +8,7 @@ pub enum ReturnCode {
     NotAvailable,
 }
 
-impl SimpleBlock for ReturnCode {
+impl Extend for ReturnCode {
     fn extend(self: Box<Self>) -> Box<dyn Pretty> {
         self
     }
@@ -50,17 +50,17 @@ impl Icon for ReturnCode {
 
 impl Pretty for ReturnCode {
     fn pretty(&self, mode: &IconMode) -> Option<String> {
-        let icon = self.icon(mode).to_string();
+        let icon = self.icon(mode);
         let text = match &self {
-            Self::Ok | Self::NotAvailable => icon,
+            Self::Ok | Self::NotAvailable => icon.into(),
             // 126 not exec
             // 127 not found
             Self::Failed(code) => format!("{code}{icon}"),
             Self::Signaled(sig) => format!("{icon}{sig}"),
         };
         if text.is_empty() {
-            None?
-        };
+            None?;
+        }
         let text = text.visible();
 
         Some(
@@ -78,9 +78,9 @@ impl Pretty for ReturnCode {
 }
 
 fn signal_name(sig: u8) -> Option<String> {
-    let sig = sig as i32;
+    let sig = i32::from(sig);
     if let Some(sig) = Signal::from_raw(sig) {
-        Some(format!("{:?}", sig).to_ascii_uppercase())
+        Some(format!("{sig:?}").to_ascii_uppercase())
     } else if (libc::SIGRTMIN()..=libc::SIGRTMAX()).contains(&sig) {
         Some(format!("RT{}", sig - libc::SIGRTMIN()))
     } else {

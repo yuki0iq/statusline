@@ -1,12 +1,13 @@
 use crate::{virt, Icon, IconMode};
 use std::{
     fs::{read_to_string, File},
-    io::{BufRead, BufReader},
+    io::{BufRead as _, BufReader},
     path::Path,
 };
 
 /// Chassis type, according to hostnamectl
 #[derive(Copy, Clone)]
+#[non_exhaustive]
 pub enum Chassis {
     /// Desktops, nettops, etc
     Desktop,
@@ -52,50 +53,49 @@ impl From<&str> for Chassis {
 
 impl Icon for Chassis {
     fn icon(&self, mode: &IconMode) -> &'static str {
-        use Chassis::*;
         use IconMode::*;
         match self {
-            Desktop => match mode {
+            Self::Desktop => match mode {
                 Text => "Desk",
                 Icons | MinimalIcons => " ",
             },
-            Server => match mode {
+            Self::Server => match mode {
                 Text => "Serv",
                 Icons | MinimalIcons => "󰒋 ",
             },
-            Laptop => match mode {
+            Self::Laptop => match mode {
                 Text => "Lapt",
                 Icons | MinimalIcons => "󰌢 ",
             },
-            Convertible => match mode {
+            Self::Convertible => match mode {
                 Text => "Conv",
                 Icons | MinimalIcons => "󰊟 ", // TODO: probably this icon is not the best fit, but the best I could come up with at 2 AM
             },
-            Tablet => match mode {
+            Self::Tablet => match mode {
                 Text => "Tabl",
                 Icons | MinimalIcons => " ",
             },
-            Handset => match mode {
+            Self::Handset => match mode {
                 Text => "Hand",
                 Icons | MinimalIcons => " ",
             },
-            Watch => match mode {
+            Self::Watch => match mode {
                 Text => "Watch",
                 Icons | MinimalIcons => " ",
             },
-            Embedded => match mode {
+            Self::Embedded => match mode {
                 Text => "Emb",
                 Icons | MinimalIcons => " ",
             },
-            Virtual => match mode {
+            Self::Virtual => match mode {
                 Text => "Virt",
                 Icons | MinimalIcons => " ",
             },
-            Container => match mode {
+            Self::Container => match mode {
                 Text => "Cont",
                 Icons | MinimalIcons => " ",
             },
-            Unknown => match mode {
+            Self::Unknown => match mode {
                 Text => "Unkn",
                 Icons | MinimalIcons => "??", // TODO: find "unknown" icon
             },

@@ -1,10 +1,10 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Context as _, Result};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD as base64engine, Engine as _};
 use orion::aead::{self, SecretKey};
 use std::{
     env,
     fs::{self, File},
-    io::{BufRead, BufReader},
+    io::{BufRead as _, BufReader},
 };
 
 pub struct WorkgroupKey(SecretKey);
@@ -49,9 +49,12 @@ impl SshChain {
         let ssh_chain = key
             .context("No workgroup key passed")
             .and_then(Self::open_impl)
-            .and_then(|chain| match chain.is_empty() {
-                true => Err(anyhow!("Empty ssh chain, but decoded")),
-                false => Ok(chain),
+            .and_then(|chain| {
+                if chain.is_empty() {
+                    Err(anyhow!("Empty ssh chain, but decoded"))
+                } else {
+                    Ok(chain)
+                }
             });
 
         SshChain(match (ssh_chain, env::var("SSH_CONNECTION")) {
@@ -65,6 +68,7 @@ impl SshChain {
         Ok(base64engine.encode(aead::seal(&key.0, self.0.join(" ").as_bytes())?))
     }
 
+    #[must_use]
     pub fn seal(&self, key: &WorkgroupKey) -> String {
         self.seal_impl(key).unwrap_or_default()
     }

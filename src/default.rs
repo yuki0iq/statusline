@@ -17,11 +17,12 @@
 //! );
 //! ```
 
-use crate::{BlockType, Environment, IconMode, Pretty, SimpleBlock, Style};
+use crate::{BlockType, Environment, Extend, IconMode, Pretty, Style as _};
 use std::borrow::Cow;
 
 /// Default top part of statusline
-pub fn top(env: &Environment) -> [Box<dyn SimpleBlock>; 11] {
+#[must_use]
+pub fn top(env: &Environment) -> [Box<dyn Extend>; 11] {
     [
         BlockType::HostUser,
         BlockType::Ssh,
@@ -39,14 +40,15 @@ pub fn top(env: &Environment) -> [Box<dyn SimpleBlock>; 11] {
 }
 
 /// Default top line extender
-pub fn extend<const N: usize>(top: [Box<dyn SimpleBlock>; N]) -> [Box<dyn Pretty>; N] {
-    top.map(SimpleBlock::extend)
+pub fn extend<const N: usize>(top: [Box<dyn Extend>; N]) -> [Box<dyn Pretty>; N] {
+    top.map(Extend::extend)
 }
 
 /// Default bottom part of statusline
 ///
 /// Immutable, intended to use in `readline`-like functions
-pub fn bottom(env: &Environment) -> [Box<dyn SimpleBlock>; 3] {
+#[must_use]
+pub fn bottom(env: &Environment) -> [Box<dyn Extend>; 3] {
     [
         BlockType::ReturnCode,
         BlockType::RootShell,
@@ -58,6 +60,7 @@ pub fn bottom(env: &Environment) -> [Box<dyn SimpleBlock>; 3] {
 /// Default title for statusline
 ///
 /// Shows username, hostname and current working directory
+#[must_use]
 pub fn title(env: &Environment) -> String {
     let pwd = if let Some((home, user)) = &env.current_home {
         let wd = env
@@ -80,6 +83,7 @@ pub fn title(env: &Environment) -> String {
 }
 
 /// Default pretty-printer
+#[must_use]
 pub fn pretty<T: Pretty + ?Sized, const N: usize>(line: &[Box<T>; N], mode: &IconMode) -> String {
     line.iter()
         .filter_map(|x| x.as_ref().pretty(mode))

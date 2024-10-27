@@ -5,6 +5,8 @@ edition = "2021"
 description = "Simple and fast bash PS1 line with useful features"
 license = "MIT OR Apache-2.0"
 repository = "https://codeberg.org/yuki0iq/statusline"
+categories = ["command-line-utilities"]
+keywords = ["bash", "prompt", "shell-prompt"]
 
 [dependencies]
 pwd = "1.4"

@@ -2,7 +2,7 @@ use crate::file;
 use anyhow::Result;
 use std::{
     fs::{self, File},
-    io::{BufRead, BufReader, ErrorKind},
+    io::{BufRead as _, BufReader, Error as IoError, ErrorKind},
 };
 
 #[derive(Debug)]
@@ -42,24 +42,23 @@ fn detect_vm_cpuid() -> Option<VirtualizationType> {
 
     // Get leaf 1, ecx, bit 31 -- Hypervisor bit
     let ecx = unsafe { __cpuid(1) }.ecx;
-    let hv = ecx & 0x80000000;
+    let hv = ecx & 0x8000_0000;
     if hv == 0 {
         return None;
     }
 
     // Hypervisor bit ON ->check leaf 0x40000000 and use (ebx, ecx, edx) as string
-    let cpuid_res = unsafe { __cpuid(0x40000000) };
+    let cpuid_res = unsafe { __cpuid(0x4000_0000) };
     let vendor = [
-        cpuid_res.ebx.to_ne_bytes(),
-        cpuid_res.ecx.to_ne_bytes(),
-        cpuid_res.edx.to_ne_bytes(),
+        cpuid_res.ebx.to_le_bytes(),
+        cpuid_res.ecx.to_le_bytes(),
+        cpuid_res.edx.to_le_bytes(),
     ]
     .concat();
 
     Some(match &vendor[..12] {
         b"XenVMMXenVMM" => VirtualizationType::Xen,
-        b"KVMKVMKVM" => VirtualizationType::Kvm,
-        b"Linux KVM Hv" => VirtualizationType::Kvm,
+        b"KVMKVMKVM" | b"Linux KVM Hv" => VirtualizationType::Kvm,
         b"TCGTCGTCGTCG" => VirtualizationType::Qemu,
         b"VMwareVMware" => VirtualizationType::VMware,
         b"Microsoft Hv" => VirtualizationType::Microsoft,
@@ -76,6 +75,7 @@ fn detect_vm_cpuid() -> Option<VirtualizationType> {
     None
 }
 
+#[expect(clippy::shadow_unrelated)] // send help please
 fn detect_vm_device_tree() -> Result<Option<VirtualizationType>> {
     Ok(
         match fs::read_to_string("/proc/device-tree/hypervisor/compatible") {
@@ -84,34 +84,32 @@ fn detect_vm_device_tree() -> Result<Option<VirtualizationType>> {
             Ok(s) if s.contains("vmware") => Some(VirtualizationType::VMware),
             Ok(_) => Some(VirtualizationType::Other),
             Err(e) if e.kind() == ErrorKind::NotFound => {
-                match fs::exists("/proc/device-tree/ibm,partition-name").unwrap_or(false)
+                if fs::exists("/proc/device-tree/ibm,partition-name").unwrap_or(false)
                     && fs::exists("/proc/device-tree/hmc-managed?").unwrap_or(false)
                     && !fs::exists("/proc/device-tree/chosen/qemu,graphic-width").unwrap_or(false)
                 {
-                    true => Some(VirtualizationType::PowerVM),
-                    false => {
-                        match file::exists_that("/proc/device-tree", |name| name.contains("fw-cfg"))
+                    Some(VirtualizationType::PowerVM)
+                } else {
+                    match file::exists_that("/proc/device-tree", |name| name.contains("fw-cfg")) {
+                        Ok(true) => Some(VirtualizationType::Qemu),
+                        Ok(false) => match fs::read_to_string("/proc/device-tree/compatible") {
+                            Ok(s) if s == "qemu,pseries" => Some(VirtualizationType::Qemu),
+                            Ok(_) => None,
+                            Err(e) if e.kind() == ErrorKind::NotFound => None,
+                            Err(e) => return Err(e.into()),
+                        },
+                        Err(e)
+                            if e.is::<IoError>()
+                                && e.downcast_ref::<IoError>().unwrap().kind()
+                                    == ErrorKind::NotFound =>
                         {
-                            Ok(true) => Some(VirtualizationType::Qemu),
-                            Ok(false) => match fs::read_to_string("/proc/device-tree/compatible") {
-                                Ok(s) if s == "qemu,pseries" => Some(VirtualizationType::Qemu),
-                                Ok(_) => None,
-                                Err(e) if e.kind() == ErrorKind::NotFound => None,
-                                Err(e) => Err(e)?,
-                            },
-                            Err(e)
-                                if e.is::<std::io::Error>()
-                                    && e.downcast_ref::<std::io::Error>().unwrap().kind()
-                                        == ErrorKind::NotFound =>
-                            {
-                                None
-                            }
-                            Err(e) => Err(e)?,
+                            None
                         }
+                        Err(e) => return Err(e),
                     }
                 }
             }
-            Err(e) => Err(e)?,
+            Err(e) => return Err(e.into()),
         },
     )
 }
@@ -149,7 +147,7 @@ fn detect_vm_dmi_vendor() -> Result<Option<VirtualizationType>> {
                 }
             }
             Err(e) if e.kind() == ErrorKind::NotFound => {}
-            Err(e) => Err(e)?,
+            Err(e) => return Err(e.into()),
         }
     }
     Ok(None)
@@ -158,7 +156,7 @@ fn detect_vm_dmi_vendor() -> Result<Option<VirtualizationType>> {
 fn detect_vm_smbios_impl() -> Result<Option<bool>> {
     Ok(fs::read("/sys/firmware/dmi/entries/0-0/raw")?
         .get(19)
-        .map(|x| ((x >> 4) & 1) == 1))
+        .map(|x| ((x >> 4_i32) & 1) == 1))
 }
 
 fn detect_vm_smbios() -> Option<bool> {
@@ -174,6 +172,7 @@ fn detect_vm_dmi() -> Result<Option<VirtualizationType>> {
                 match fs::read_to_string("/sys/class/dmi/id/product_name") {
                     Ok(s) => {
                         let s = s.lines().next().unwrap_or_default();
+                        #[expect(clippy::case_sensitive_file_extension_comparisons)]
                         (s.contains(".metal-") || s.ends_with(".metal")) // TODO
                             .then_some(VirtualizationType::Amazon)
                     }
@@ -186,6 +185,7 @@ fn detect_vm_dmi() -> Result<Option<VirtualizationType>> {
     })
 }
 
+#[expect(clippy::shadow_unrelated)] // send help please
 fn detect_vm_xen_dom0() -> Result<bool> {
     Ok(
         match fs::read_to_string("/sys/hypervisor/properties/features") {
@@ -194,10 +194,10 @@ fn detect_vm_xen_dom0() -> Result<bool> {
                 match fs::read_to_string("/proc/xen/capabilities") {
                     Ok(s) => s.contains("control_d"),
                     Err(e) if e.kind() == ErrorKind::NotFound => false,
-                    Err(e) => Err(e)?,
+                    Err(e) => return Err(e.into()),
                 }
             }
-            Err(e) => Err(e)?,
+            Err(e) => return Err(e.into()),
         },
     )
 }
@@ -211,7 +211,7 @@ fn detect_vm_hypervisor() -> Result<Option<VirtualizationType>> {
         Ok(s) if s == "xen" => Some(VirtualizationType::Xen),
         Ok(_) => Some(VirtualizationType::Other),
         Err(e) if e.kind() == ErrorKind::NotFound => None,
-        Err(e) => Err(e)?,
+        Err(e) => return Err(e.into()),
     })
 }
 
@@ -242,21 +242,21 @@ fn detect_vm_zvm() -> Result<Option<VirtualizationType>> {
             }
         }),
         Err(e) if e.kind() == ErrorKind::NotFound => None,
-        Err(e) => Err(e)?,
+        Err(e) => return Err(e.into()),
     })
 }
 
 pub fn detect_vm() -> Result<Option<VirtualizationType>> {
     let dmi = detect_vm_dmi();
     // eprintln!("dmi: {dmi:?}");
-    match &dmi {
-        Ok(Some(VirtualizationType::Oracle))
-        | Ok(Some(VirtualizationType::Xen))
-        | Ok(Some(VirtualizationType::Amazon))
-        | Ok(Some(VirtualizationType::Parallels)) => {
-            return dmi;
-        }
-        _ => {}
+    if let Ok(Some(
+        VirtualizationType::Oracle
+        | VirtualizationType::Xen
+        | VirtualizationType::Amazon
+        | VirtualizationType::Parallels,
+    )) = &dmi
+    {
+        return dmi;
     }
 
     if let uml @ Some(_) = detect_vm_uml()? {
@@ -423,7 +423,7 @@ pub fn detect_container() -> Result<Option<ContainerType>> {
             return Ok(Some(translate_name(&s)));
         }
         Err(e) if e.kind() == ErrorKind::NotFound => {}
-        Err(e) => Err(e)?,
+        Err(e) => return Err(e.into()),
     }
 
     match fs::read_to_string("/run/systemd/container") {
@@ -431,7 +431,7 @@ pub fn detect_container() -> Result<Option<ContainerType>> {
             return Ok(Some(translate_name(&s)));
         }
         Err(e) if e.kind() == ErrorKind::NotFound => {}
-        Err(e) => Err(e)?,
+        Err(e) => return Err(e.into()),
     }
 
     if let Ok(file) = File::open("/proc/1/environ") {

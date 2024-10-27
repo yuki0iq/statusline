@@ -1,6 +1,8 @@
 use std::env;
 
 /// Icon mode configurer
+#[non_exhaustive]
+#[expect(clippy::module_name_repetitions)]
 pub enum IconMode {
     /// Use text instead of icons
     Text,
@@ -18,6 +20,7 @@ impl IconMode {
     /// | `PS1_MODE=text`    | Text                 |
     /// | `PS1_MODE=minimal` | Alternative nerdfont |
     /// | otherwise          | Default nerdfont     |
+    #[must_use]
     pub fn build() -> Self {
         match env::var("PS1_MODE") {
             Ok(x) if x == "text" => Self::Text,

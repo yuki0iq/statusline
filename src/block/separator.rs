@@ -1,20 +1,20 @@
-use crate::{IconMode, Pretty, SimpleBlock};
+use crate::{Extend, IconMode, Pretty};
 
 pub struct Separator(pub &'static str);
 
 impl Pretty for Separator {
     fn pretty(&self, _: &IconMode) -> Option<String> {
-        Some(self.0.to_string())
+        Some(self.0.into())
     }
 }
 
-impl SimpleBlock for Separator {
+impl Extend for Separator {
     fn extend(self: Box<Self>) -> Box<dyn Pretty> {
         self
     }
 }
 
-pub struct Empty();
+pub struct Empty;
 
 impl Pretty for Empty {
     fn pretty(&self, _: &IconMode) -> Option<String> {
@@ -22,7 +22,7 @@ impl Pretty for Empty {
     }
 }
 
-impl SimpleBlock for Empty {
+impl Extend for Empty {
     fn extend(self: Box<Self>) -> Box<dyn Pretty> {
         self
     }

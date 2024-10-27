@@ -44,7 +44,7 @@ enum StyleKind {
     Visible,
     Boxed,
     Rounded,
-    CursorHorizontalAbsolute(i32),
+    CursorHorizontalAbsolute(usize),
     CursorPreviousLine(i32),
     CursorSaveRestore,
     ClearLine,
@@ -246,7 +246,7 @@ pub trait Style: Display {
 
     /// Set cursor position, the horizontal part, with absolute value. Coordinates are counted
     /// from 1, from line start to line end, which may seem counter-intuitive
-    fn horizontal_absolute(&self, pos: i32) -> Styled<Self> {
+    fn horizontal_absolute(&self, pos: usize) -> Styled<Self> {
         Styled {
             style: StyleKind::CursorHorizontalAbsolute(pos),
             value: self,

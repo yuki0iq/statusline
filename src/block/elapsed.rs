@@ -1,4 +1,4 @@
-use crate::{time, Environment, Icon, IconMode, Pretty, SimpleBlock, Style};
+use crate::{time, Environment, Extend, Icon, IconMode, Pretty, Style as _};
 
 pub struct Elapsed(u64);
 
@@ -8,7 +8,7 @@ impl From<&Environment> for Elapsed {
     }
 }
 
-impl SimpleBlock for Elapsed {
+impl Extend for Elapsed {
     fn extend(self: Box<Self>) -> Box<dyn Pretty> {
         self
     }

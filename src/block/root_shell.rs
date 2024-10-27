@@ -1,10 +1,10 @@
-use crate::{Environment, Icon, IconMode, Pretty, SimpleBlock, Style};
+use crate::{Environment, Extend, Icon, IconMode, Pretty, Style as _};
 use rustix::process;
 use std::{borrow::Cow, env};
 
 pub struct RootShell(bool, usize);
 
-impl SimpleBlock for RootShell {
+impl Extend for RootShell {
     fn extend(self: Box<Self>) -> Box<dyn Pretty> {
         self
     }

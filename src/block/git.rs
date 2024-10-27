@@ -1,16 +1,17 @@
-use crate::{file, Environment, Icon, IconMode, Pretty, SimpleBlock, Style};
-use anyhow::{anyhow, bail, Context, Result};
+use crate::{file, Environment, Extend, Icon, IconMode, Pretty, Style as _};
+use anyhow::{anyhow, bail, Context as _, Result};
 use memmapix::Mmap;
 use rustix::process;
 use std::{
     borrow::Cow,
     fs::{self, File},
-    io::{BufRead, BufReader, Error, ErrorKind},
-    iter, mem,
-    ops::Deref,
-    os::unix::process::CommandExt,
+    io::{BufRead as _, BufReader, Error, ErrorKind, Result as IoResult},
+    iter,
+    os::unix::process::CommandExt as _,
     path::{Path, PathBuf},
     process::Command,
+    ptr,
+    str::from_utf8 as str_from_utf8,
 };
 
 /*
@@ -46,17 +47,17 @@ fn parse_ref_by_name<T: AsRef<str>>(name: T, root: PathBuf) -> Head {
     }
 }
 
-fn lcp<T: AsRef<str>>(a: T, b: T) -> usize {
-    iter::zip(a.as_ref().chars(), b.as_ref().chars())
+fn lcp<T: AsRef<str>>(left: T, right: T) -> usize {
+    iter::zip(left.as_ref().chars(), right.as_ref().chars())
         .position(|(a, b)| a != b)
         .unwrap_or(0) // if equal then LCP should be zero
 }
 
-fn lcp_bytes(a: &[u8], b: &[u8]) -> usize {
-    let pos = iter::zip(a.iter(), b.iter()).position(|(a, b)| a != b);
+fn lcp_bytes(left: &[u8], right: &[u8]) -> usize {
+    let pos = iter::zip(left.iter(), right.iter()).position(|(a, b)| a != b);
     match pos {
         None => 0,
-        Some(i) => i * 2 + ((a[i] >> 4) == (b[i] >> 4)) as usize,
+        Some(i) => i * 2 + usize::from((left[i] >> 4) == (right[i] >> 4)),
     }
 }
 
@@ -96,8 +97,8 @@ fn packed_objects_len(root: &Path, commit: &str) -> Result<usize> {
 
         // File should at least contain magic, version and a fanout table, which is 102 ints
         let file = File::open(path).context("open packed objects")?;
-        let map = unsafe { Mmap::map(&file).context("map packed objects")? };
-        let map = map.deref();
+        let map_object = unsafe { Mmap::map(&file).context("map packed objects")? };
+        let map = &*map_object;
         if map.len() < 0x408 {
             continue;
         }
@@ -113,9 +114,11 @@ fn packed_objects_len(root: &Path, commit: &str) -> Result<usize> {
         // which is wrong, but left unnoticed for a long time. -- Yuki, some months later
         //
         // I'd like to never return here again.
+        //
+        // A year has passed. Holy shit. UB, in Alisa's (probably) code. Lmao
 
         let map_size = map.len() / 4;
-        let integers: &[[u8; 4]] = unsafe { mem::transmute(&map[..4 * map_size]) };
+        let integers: &[[u8; 4]] = unsafe { &*ptr::from_raw_parts(&raw const map, map_size) };
 
         // Magic int is 0xFF744F63 ('\377tOc') which probably should be read as "table of contents"
         // Only version 2 is supported
@@ -150,8 +153,9 @@ fn packed_objects_len(root: &Path, commit: &str) -> Result<usize> {
         }
 
         // holy hell, second memory transmute
-        let hashes: &[[u8; 20]] =
-            unsafe { mem::transmute(&integers[commit_position(begin)..commit_position(end)]) };
+        let hashes_start =
+            unsafe { (&raw const integers).offset(commit_position(begin).cast_signed()) };
+        let hashes: &[[u8; 20]] = unsafe { &*ptr::from_raw_parts(hashes_start, end - begin) };
 
         let index = hashes.partition_point(|hash| hash < &commit);
         // eprintln!("got index {index}");
@@ -160,7 +164,7 @@ fn packed_objects_len(root: &Path, commit: &str) -> Result<usize> {
         }
         if index < end - begin {
             res = res.max(lcp_bytes(
-                &hashes[index + (hashes[index] == commit) as usize],
+                &hashes[index + usize::from(hashes[index] == commit)],
                 &commit,
             ));
         }
@@ -219,7 +223,7 @@ impl Icon for HeadKind {
 impl Pretty for Head {
     fn pretty(&self, mode: &IconMode) -> Option<String> {
         Some(match &self.kind {
-            branch @ HeadKind::Branch(name) | branch @ HeadKind::NonexistentBranch(name) => {
+            branch @ (HeadKind::Branch(name) | HeadKind::NonexistentBranch(name)) => {
                 format!("{} {}", branch.icon(mode), name)
             }
             oid @ HeadKind::Commit(id) => {
@@ -230,7 +234,7 @@ impl Pretty for Head {
                 )
                 // TODO show tag?
             }
-            other => other.icon(mode).to_string(),
+            other => other.icon(mode).into(),
         })
     }
 }
@@ -355,12 +359,10 @@ impl Pretty for State {
     fn pretty(&self, mode: &IconMode) -> Option<String> {
         let icon = self.icon(mode);
         Some(match self {
-            State::Bisecting => icon.to_string(),
-            State::Reverting { head } => format!("{icon} {}", head),
-            State::CherryPicking { head } => {
-                format!("{icon} {}", head)
+            State::Bisecting => icon.into(),
+            State::CherryPicking { head } | State::Reverting { head } | State::Merging { head } => {
+                format!("{icon} {head}")
             }
-            State::Merging { head } => format!("{icon} {}", head),
             State::Rebasing { done, todo } => {
                 format!("{icon} {}/{}", done, done + todo)
             }
@@ -385,9 +387,9 @@ fn get_remote(head: &Head) -> Option<(String, String)> {
         .take_while(|x| x.starts_with('\t'))
     {
         if let Some(x) = line.strip_prefix("\tremote = ") {
-            remote_name = Some(x.to_string());
+            remote_name = Some(x.into());
         } else if let Some(x) = line.strip_prefix("\tmerge = refs/heads/") {
-            remote_branch = Some(x.to_string());
+            remote_branch = Some(x.into());
         }
     }
     remote_name.zip(remote_branch)
@@ -396,7 +398,7 @@ fn get_remote(head: &Head) -> Option<(String, String)> {
 fn get_ahead_behind(
     tree: &Path,
     head: &HeadKind,
-    remote: &Option<(String, String)>,
+    remote: Option<&(String, String)>,
 ) -> Result<(usize, usize)> {
     let (HeadKind::Branch(head), Some((name, branch))) = (head, remote) else {
         bail!("Head is not a branch or remote is missing");
@@ -414,10 +416,10 @@ fn get_ahead_behind(
         .stdout
         .trim_ascii_end()
         .split(|&c| c == b'\t')
-        .map(|x| Result::<usize>::Ok(std::str::from_utf8(x)?.parse::<usize>()?))
-        .filter_map(Result::ok)
+        .flat_map(str_from_utf8)
+        .flat_map(str::parse::<usize>)
         .next_chunk::<2>()
-        .map_err(|_| anyhow!("Invalid rev-list output"))?
+        .map_err(|_rest| anyhow!("Invalid rev-list output"))?
         .into())
 }
 
@@ -507,7 +509,8 @@ impl From<&Environment> for Repo {
 
         let remote = get_remote(&head);
 
-        let (ahead, behind) = get_ahead_behind(&tree, &head.kind, &remote).unwrap_or((0, 0));
+        let (ahead, behind) =
+            get_ahead_behind(&tree, &head.kind, remote.as_ref()).unwrap_or((0, 0));
 
         Ok(GitRepo {
             head,
@@ -520,18 +523,15 @@ impl From<&Environment> for Repo {
     }
 }
 
-impl SimpleBlock for Repo {
+impl Extend for Repo {
     fn extend(self: Box<Self>) -> Box<dyn Pretty> {
         self
     }
 }
 
-impl SimpleBlock for Tree {
+impl Extend for Tree {
     fn extend(self: Box<Self>) -> Box<dyn Pretty> {
-        let self_ref = match *self {
-            Some(x) => x,
-            _ => return self,
-        };
+        let Some(self_ref) = *self else { return self };
 
         let parent_pid = process::getpid();
         let out = unsafe {
@@ -540,10 +540,10 @@ impl SimpleBlock for Tree {
                 .arg(&self_ref.tree)
                 .arg("status")
                 .arg("--porcelain=2")
-                .pre_exec(move || -> std::io::Result<()> {
+                .pre_exec(move || -> IoResult<()> {
                     process::set_parent_process_death_signal(Some(process::Signal::Term))?;
                     if Some(parent_pid) != process::getppid() {
-                        return Err(std::io::Error::other("Parent already dead"));
+                        return Err(Error::other("Parent already dead"));
                     }
                     Ok(())
                 })
@@ -613,8 +613,8 @@ impl Pretty for GitRepo {
         res.push(head);
 
         match (&self.head.kind, &self.remote) {
-            (HeadKind::Branch(head), Some((_, remote))) if head != remote => {
-                res.push(format!(":{}", remote));
+            (HeadKind::Branch(branch), Some((_, remote))) if branch != remote => {
+                res.push(format!(":{remote}"));
             }
             _ => (),
         };

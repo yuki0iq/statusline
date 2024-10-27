@@ -1,11 +1,11 @@
-use crate::{Environment, Icon, IconMode, Pretty, SimpleBlock, Style};
+use crate::{Environment, Extend, Icon, IconMode, Pretty, Style as _};
 use std::{env, fs, path::PathBuf};
 
 pub struct UnseenMail {
     count: usize,
 }
 
-impl SimpleBlock for UnseenMail {
+impl Extend for UnseenMail {
     fn extend(self: Box<Self>) -> Box<dyn Pretty> {
         self
     }
@@ -34,9 +34,9 @@ impl From<&Environment> for UnseenMail {
 }
 
 impl Pretty for UnseenMail {
-    fn pretty(&self, icons: &IconMode) -> Option<String> {
+    fn pretty(&self, mode: &IconMode) -> Option<String> {
         0.ne(&self.count).then(|| {
-            format!("{}{}", self.icon(icons), self.count)
+            format!("{}{}", self.icon(mode), self.count)
                 .boxed()
                 .visible()
                 .yellow()
