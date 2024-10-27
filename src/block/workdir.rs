@@ -5,6 +5,7 @@ use std::{
     env,
     ffi::OsString,
     fs,
+    os::unix::ffi::OsStringExt as _,
     path::{Path, PathBuf},
 };
 
@@ -59,11 +60,9 @@ fn get_cwd_if_deleted() -> Option<PathBuf> {
     let mut cwd = fs::read_link("/proc/self/cwd")
         .ok()?
         .into_os_string()
-        .into_encoded_bytes();
+        .into_vec();
     cwd.truncate(cwd.strip_suffix(b" (deleted)")?.len());
-    Some(PathBuf::from(unsafe {
-        OsString::from_encoded_bytes_unchecked(cwd)
-    }))
+    Some(PathBuf::from(OsString::from_vec(cwd)))
 }
 
 fn ensure_work_dir_not_moved(work_dir: &Path, stat_dot: rfs::Stat) -> Result<()> {

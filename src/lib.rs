@@ -94,7 +94,6 @@
     clippy::missing_errors_doc,
     clippy::module_name_repetitions,
     clippy::multiple_crate_versions,
-    clippy::undocumented_unsafe_blocks,
     clippy::case_sensitive_file_extension_comparisons,
     clippy::enum_glob_use
 )]

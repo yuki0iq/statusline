@@ -97,6 +97,8 @@ fn packed_objects_len(root: &Path, commit: &str) -> Result<usize> {
 
         // File should at least contain magic, version and a fanout table, which is 102 ints
         let file = File::open(path).context("open packed objects")?;
+        // SAFETY: the packed file should not be edited by anyone
+        // XXX: This may not be true, check git sources
         let map_object = unsafe { Mmap::map(&file).context("map packed objects")? };
         let map = &*map_object;
         if map.len() < 0x408 {
@@ -118,6 +120,7 @@ fn packed_objects_len(root: &Path, commit: &str) -> Result<usize> {
         // A year has passed. Holy shit. UB, in Alisa's (probably) code. Lmao
 
         let map_size = map.len() / 4;
+        // SAFETY: 4 * map_size <= map.len()
         let integers: &[[u8; 4]] = unsafe { &*ptr::from_raw_parts(&raw const map, map_size) };
 
         // Magic int is 0xFF744F63 ('\377tOc') which probably should be read as "table of contents"
@@ -154,7 +157,9 @@ fn packed_objects_len(root: &Path, commit: &str) -> Result<usize> {
 
         // holy hell, second memory transmute
         let hashes_start =
+            // SAFETY: begin = fanout_table[..] <= fanout_table.last() <= map_size
             unsafe { (&raw const integers).offset(commit_position(begin).cast_signed()) };
+        // SAFETY: begin <= end <= map_size
         let hashes: &[[u8; 20]] = unsafe { &*ptr::from_raw_parts(hashes_start, end - begin) };
 
         let index = hashes.partition_point(|hash| hash < &commit);
@@ -534,6 +539,7 @@ impl Extend for Tree {
         let Some(self_ref) = *self else { return self };
 
         let parent_pid = process::getpid();
+        // SAFETY: pre_exec only sets parent process death signal and does nothing more
         let out = unsafe {
             Command::new("git")
                 .arg("-C")
