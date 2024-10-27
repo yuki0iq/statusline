@@ -223,7 +223,6 @@ fn detect_vm_zvm() -> Result<Option<VirtualizationType>> {
 
 pub fn detect_vm() -> Result<Option<VirtualizationType>> {
     let dmi = detect_vm_dmi();
-    // eprintln!("dmi: {dmi:?}");
     if let Ok(Some(
         VirtualizationType::Oracle
         | VirtualizationType::Xen
@@ -235,83 +234,47 @@ pub fn detect_vm() -> Result<Option<VirtualizationType>> {
     }
 
     if let uml @ Some(_) = detect_vm_uml()? {
-        // eprintln!("uml: {uml:?}");
         return Ok(uml);
     }
 
     let mut xen_dom0 = false;
     if let xen @ Some(VirtualizationType::Xen) = detect_vm_xen()? {
-        // eprintln!("detected xen");
         xen_dom0 = detect_vm_xen_dom0()?;
-        // eprintln!("xen dom0 is {xen_dom0}");
         if !xen_dom0 {
             return Ok(xen);
         }
     }
 
     let mut other = false;
-    // eprintln!("CPUID");
     match detect_vm_cpuid() {
-        Some(VirtualizationType::Other) => {
-            other = true;
-            // eprintln!("other");
-        }
-        vm @ Some(_) => {
-            // eprintln!("some: {vm:?}");
-            return Ok(vm);
-        }
-        vm @ None if xen_dom0 => {
-            // eprintln!("none with dom0: {vm:?} {xen_dom0:?}");
-            return Ok(vm);
-        }
+        Some(VirtualizationType::Other) => other = true,
+        vm @ Some(_) => return Ok(vm),
+        vm @ None if xen_dom0 => return Ok(vm),
         _ => {}
     }
 
-    // eprintln!("dmi is {dmi:?}");
     match dmi? {
-        Some(VirtualizationType::Other) => {
-            other = true;
-            // eprintln!("other")
-        }
-        dmi @ Some(_) => {
-            // eprintln!("some: {dmi:?}");
-            return Ok(dmi);
-        }
+        Some(VirtualizationType::Other) => other = true,
+        dmi @ Some(_) => return Ok(dmi),
         _ => {}
     }
 
-    // eprintln!("hyper");
     match detect_vm_hypervisor()? {
-        Some(VirtualizationType::Other) => {
-            other = true;
-            // eprintln!("other");
-        }
-        vm @ Some(_) => {
-            // eprintln!("some: {vm:?}");
-            return Ok(vm);
-        }
+        Some(VirtualizationType::Other) => other = true,
+        vm @ Some(_) => return Ok(vm),
         _ => {}
     }
 
-    // eprintln!("devtree");
     match detect_vm_device_tree()? {
-        Some(VirtualizationType::Other) => {
-            other = true;
-            // eprintln!("other");
-        }
-        vm @ Some(_) => {
-            // eprintln!("some: {vm:?}");
-            return Ok(vm);
-        }
+        Some(VirtualizationType::Other) => other = true,
+        vm @ Some(_) => return Ok(vm),
         _ => {}
     }
 
     if let zvm @ Some(_) = detect_vm_zvm()? {
-        // eprintln!("some zvm: {zvm:?}");
         return Ok(zvm);
     }
 
-    // eprintln!("other {other:?} then some VT-Other");
     Ok(other.then_some(VirtualizationType::Other))
 }
 
