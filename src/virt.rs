@@ -245,14 +245,14 @@ pub fn detect_vm() -> Result<Option<VirtualizationType>> {
         }
     }
 
-    let mut other = false;
     match detect_vm_cpuid() {
-        Some(VirtualizationType::Other) => other = true,
+        Some(VirtualizationType::Other) => {}
         vm @ Some(_) => return Ok(vm),
         vm @ None if xen_dom0 => return Ok(vm),
         _ => {}
     }
 
+    let mut other = false;
     match dmi? {
         Some(VirtualizationType::Other) => other = true,
         dmi @ Some(_) => return Ok(dmi),
