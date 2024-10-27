@@ -29,43 +29,18 @@ pub enum VirtualizationType {
 
 #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
 fn detect_vm_cpuid() -> Option<VirtualizationType> {
-    #[cfg(target_arch = "x86")]
-    use core::arch::x86::{__cpuid, __get_cpuid_max};
-    #[cfg(target_arch = "x86_64")]
-    use core::arch::x86_64::{__cpuid, __get_cpuid_max};
-
-    // Check leaf 1 accessible
-    let maxlevel = unsafe { __get_cpuid_max(0).0 };
-    if maxlevel == 0 {
-        return None;
-    }
-
-    // Get leaf 1, ecx, bit 31 -- Hypervisor bit
-    let ecx = unsafe { __cpuid(1) }.ecx;
-    let hv = ecx & 0x8000_0000;
-    if hv == 0 {
-        return None;
-    }
-
-    // Hypervisor bit ON ->check leaf 0x40000000 and use (ebx, ecx, edx) as string
-    let cpuid_res = unsafe { __cpuid(0x4000_0000) };
-    let vendor = [
-        cpuid_res.ebx.to_le_bytes(),
-        cpuid_res.ecx.to_le_bytes(),
-        cpuid_res.edx.to_le_bytes(),
-    ]
-    .concat();
-
-    Some(match &vendor[..12] {
-        b"XenVMMXenVMM" => VirtualizationType::Xen,
-        b"KVMKVMKVM" | b"Linux KVM Hv" => VirtualizationType::Kvm,
-        b"TCGTCGTCGTCG" => VirtualizationType::Qemu,
-        b"VMwareVMware" => VirtualizationType::VMware,
-        b"Microsoft Hv" => VirtualizationType::Microsoft,
-        b"bhyve bhyve " => VirtualizationType::Bhyve,
-        b"QNXQVMBSQG" => VirtualizationType::Qnx,
-        b"ACRNACRNACRN" => VirtualizationType::Acrn,
-        b"SRESRESRESRE" => VirtualizationType::Sre,
+    let cpuid = raw_cpuid::CpuId::new();
+    let vendor_info = cpuid.get_vendor_info()?;
+    Some(match vendor_info.as_str() {
+        "XenVMMXenVMM" => VirtualizationType::Xen,
+        "KVMKVMKVM" | "Linux KVM Hv" => VirtualizationType::Kvm,
+        "TCGTCGTCGTCG" => VirtualizationType::Qemu,
+        "VMwareVMware" => VirtualizationType::VMware,
+        "Microsoft Hv" => VirtualizationType::Microsoft,
+        "bhyve bhyve " => VirtualizationType::Bhyve,
+        "QNXQVMBSQG" => VirtualizationType::Qnx,
+        "ACRNACRNACRN" => VirtualizationType::Acrn,
+        "SRESRESRESRE" => VirtualizationType::Sre,
         _ => VirtualizationType::Other,
     })
 }

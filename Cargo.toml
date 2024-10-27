@@ -28,3 +28,6 @@ lto = true
 panic = "abort"
 strip = true
 
+[target.'cfg(any(target_arch = "x86", target_arch = "x86_64"))'.dependencies]
+raw-cpuid = "11.2.0"
+
