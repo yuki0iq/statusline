@@ -81,6 +81,9 @@ struct Run {
     #[argh(option)]
     /// elapsed time to show, in seconds
     elapsed_time: Option<u64>,
+    #[argh(option)]
+    /// control pid for terminating
+    control_fd: Option<i32>,
 }
 
 impl From<Run> for Environment {
@@ -176,18 +179,20 @@ fn main() {
             println!("{}", SshChain(ssh_chain).seal(&key));
         }
         Command::Run(run) => {
-            let controlling_fd = unsafe { fd::OwnedFd::from_raw_fd(3) };
-            unsafe {
-                libc::fcntl(
-                    controlling_fd.as_raw_fd(),
-                    libc::F_SETOWN,
-                    process::getpid(),
-                )
-            };
-            let _ = rfs::fcntl_setfl(
-                controlling_fd,
-                rfs::OFlags::from_bits_retain(libc::O_ASYNC as u32),
-            );
+            if let Some(fd) = run.control_fd {
+                let controlling_fd = unsafe { fd::OwnedFd::from_raw_fd(fd) };
+                unsafe {
+                    libc::fcntl(
+                        controlling_fd.as_raw_fd(),
+                        libc::F_SETOWN,
+                        process::getpid(),
+                    )
+                };
+                let _ = rfs::fcntl_setfl(
+                    controlling_fd,
+                    rfs::OFlags::from_bits_retain(libc::O_ASYNC as u32),
+                );
+            }
 
             let mode = IconMode::build();
             let args = run.into();
