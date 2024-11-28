@@ -1,4 +1,4 @@
-use crate::{file, Environment, Extend, IconMode, Pretty, Style as _};
+use crate::{Environment, Extend, IconMode, Pretty, Style as _, file};
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
 #[derive(Hash, PartialEq, Eq)]
@@ -19,24 +19,20 @@ enum Kind {
 
 impl Display for Kind {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
-        write!(
-            f,
-            "{}",
-            match *self {
-                Self::Cargo => "cargo",
-                Self::Cmake => "cmake",
-                Self::Configure => "./configure",
-                Self::Flake => "flake",
-                Self::Makefile => "make",
-                Self::Install => "./install",
-                Self::Jr => "./jr",
-                Self::NixShell => "nix-shell",
-                Self::Qbs => "qbs",
-                Self::Qmake => "qmake",
-                Self::Kks => "kks",
-                Self::Gradle => "gradle",
-            }
-        )
+        write!(f, "{}", match *self {
+            Self::Cargo => "cargo",
+            Self::Cmake => "cmake",
+            Self::Configure => "./configure",
+            Self::Flake => "flake",
+            Self::Makefile => "make",
+            Self::Install => "./install",
+            Self::Jr => "./jr",
+            Self::NixShell => "nix-shell",
+            Self::Qbs => "qbs",
+            Self::Qmake => "qmake",
+            Self::Kks => "kks",
+            Self::Gradle => "gradle",
+        })
     }
 }
 

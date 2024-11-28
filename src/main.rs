@@ -4,9 +4,8 @@ use rustix::{
     fs as rfs, process, stdio,
 };
 use statusline::{
-    default, file,
+    BlockType, Chassis, Environment, IconMode, Style, default, file,
     workgroup::{SshChain, WorkgroupKey},
-    BlockType, Chassis, Environment, IconMode, Style,
 };
 use std::{env, fs, io, io::Write, path::PathBuf};
 use unicode_width::UnicodeWidthStr;

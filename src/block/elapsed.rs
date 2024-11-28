@@ -1,4 +1,4 @@
-use crate::{time, Environment, Extend, Icon, IconMode, Pretty, Style as _};
+use crate::{Environment, Extend, Icon, IconMode, Pretty, Style as _, time};
 
 pub struct Elapsed(u64);
 

@@ -1,5 +1,5 @@
-use crate::{file, Environment, Extend, Icon, IconMode, Pretty, Style as _};
-use anyhow::{anyhow, bail, Context as _, Result};
+use crate::{Environment, Extend, Icon, IconMode, Pretty, Style as _, file};
+use anyhow::{Context as _, Result, anyhow, bail};
 use memmapix::Mmap;
 use rustix::process;
 use std::{

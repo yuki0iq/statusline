@@ -1,5 +1,5 @@
 use crate::{Environment, Extend, Icon, IconMode, Pretty, Style as _};
-use anyhow::{ensure, Context as _, Result};
+use anyhow::{Context as _, Result, ensure};
 use rustix::fs as rfs;
 use std::{
     env,

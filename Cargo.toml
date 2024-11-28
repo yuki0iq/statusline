@@ -1,7 +1,7 @@
 [package]
 name = "statusline"
 version = "0.19.1"
-edition = "2021"
+edition = "2024"
 description = "Simple and fast bash PS1 line with useful features"
 license = "MIT OR Apache-2.0"
 repository = "https://codeberg.org/yuki0iq/statusline"

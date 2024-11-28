@@ -24,11 +24,7 @@ impl From<&Environment> for RootShell {
 
 impl Icon for RootShell {
     fn icon(&self, _: &IconMode) -> &'static str {
-        if self.0 {
-            "#"
-        } else {
-            "$"
-        }
+        if self.0 { "#" } else { "$" }
     }
 }
 

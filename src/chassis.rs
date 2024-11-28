@@ -1,6 +1,6 @@
-use crate::{virt, Icon, IconMode};
+use crate::{Icon, IconMode, virt};
 use std::{
-    fs::{read_to_string, File},
+    fs::{File, read_to_string},
     io::{BufRead as _, BufReader},
     path::Path,
 };

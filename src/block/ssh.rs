@@ -1,6 +1,6 @@
 use crate::{
-    workgroup::{SshChain, WorkgroupKey},
     Environment, Extend, Icon, IconMode, Pretty, Style as _,
+    workgroup::{SshChain, WorkgroupKey},
 };
 
 pub struct Ssh(String);
