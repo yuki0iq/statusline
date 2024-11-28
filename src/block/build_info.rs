@@ -8,6 +8,7 @@ enum Kind {
     Configure,
     Flake,
     Makefile,
+    Meson,
     Install,
     Jr,
     NixShell,
@@ -25,6 +26,7 @@ impl Display for Kind {
             Self::Configure => "./configure",
             Self::Flake => "flake",
             Self::Makefile => "make",
+            Self::Meson => "meson",
             Self::Install => "./install",
             Self::Jr => "./jr",
             Self::NixShell => "nix-shell",
@@ -55,6 +57,10 @@ impl From<&Environment> for BuildInfo {
 
         if file::points_to_file("shell.nix") {
             bi.push(Kind::NixShell);
+        }
+
+        if file::points_to_file("meson.build") {
+            bi.push(Kind::Meson);
         }
 
         if file::points_to_file("CMakeLists.txt") {
