@@ -2,7 +2,6 @@ use std::env;
 
 /// Icon mode configurer
 #[non_exhaustive]
-#[expect(clippy::module_name_repetitions)]
 pub enum IconMode {
     /// Use text instead of icons
     Text,
