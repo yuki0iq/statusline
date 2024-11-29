@@ -28,8 +28,7 @@
     integer_sign_cast,
     io_error_more,
     iter_next_chunk,
-    let_chains,
-    ptr_metadata
+    let_chains
 )]
 #![warn(
     clippy::cargo,

@@ -10,7 +10,7 @@ use std::{
     os::unix::process::CommandExt as _,
     path::{Path, PathBuf},
     process::Command,
-    ptr,
+    slice,
     str::from_utf8 as str_from_utf8,
 };
 
@@ -121,7 +121,7 @@ fn packed_objects_len(root: &Path, commit: &str) -> Result<usize> {
 
         let map_size = map.len() / 4;
         // SAFETY: 4 * map_size <= map.len()
-        let integers: &[[u8; 4]] = unsafe { &*ptr::from_raw_parts(&raw const map, map_size) };
+        let integers: &[[u8; 4]] = unsafe { slice::from_raw_parts(map.as_ptr().cast(), map_size) };
 
         // Magic int is 0xFF744F63 ('\377tOc') which probably should be read as "table of contents"
         // Only version 2 is supported
@@ -158,9 +158,9 @@ fn packed_objects_len(root: &Path, commit: &str) -> Result<usize> {
         // holy hell, second memory transmute
         let hashes_start =
             // SAFETY: begin = fanout_table[..] <= fanout_table.last() <= map_size
-            unsafe { (&raw const integers).offset(commit_position(begin).cast_signed()) };
+            unsafe { integers.as_ptr().offset(commit_position(begin).cast_signed()).cast() };
         // SAFETY: begin <= end <= map_size
-        let hashes: &[[u8; 20]] = unsafe { &*ptr::from_raw_parts(hashes_start, end - begin) };
+        let hashes: &[[u8; 20]] = unsafe { slice::from_raw_parts(hashes_start, end - begin) };
 
         let index = hashes.partition_point(|hash| hash < &commit);
         // eprintln!("got index {index}");
