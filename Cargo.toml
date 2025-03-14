@@ -17,10 +17,11 @@ fahtsex = "0.2"
 unicode-width = "0.2"
 base64 = "0.22"
 orion = "0.17"
-rustix = { version = "0.38", features = ["fs", "process", "stdio", "system"], default-features = false }
+rustix = { version = "1.0", features = ["fs", "process", "stdio", "system"], default-features = false }
 libc = "0.2"
 memmapix = "0.7.6"
 argh = "0.1.12"
+linux-raw-sys = "0.9.3"
 
 [profile.release]
 codegen-units = 1

@@ -1,5 +1,6 @@
 use crate::{Environment, Extend, Icon, IconMode, Pretty, Style as _};
 use rustix::process::Signal;
+use linux_raw_sys::general::{SIGRTMIN, _NSIG as SIGRTMAX};
 
 pub enum ReturnCode {
     Ok,
@@ -78,12 +79,15 @@ impl Pretty for ReturnCode {
 }
 
 fn signal_name(sig: u8) -> Option<String> {
-    let sig = i32::from(sig);
-    if let Some(sig) = Signal::from_raw(sig) {
-        Some(format!("{sig:?}").to_ascii_uppercase())
-    } else if (libc::SIGRTMIN()..=libc::SIGRTMAX()).contains(&sig) {
-        Some(format!("RT{}", sig - libc::SIGRTMIN()))
-    } else {
+    let sig = u32::from(sig);
+    if (SIGRTMIN..=SIGRTMAX).contains(&sig) {
+        Some(format!("RT{}", sig - SIGRTMIN))
+    } else if sig == 0 || sig > SIGRTMAX {
         None
+    } else {
+        // SAFETY: No realtime signals are here; result is used only for pretty-printing
+        let sig = unsafe { Signal::from_raw_unchecked(sig.cast_signed()) };
+        let pretty = format!("{sig:?}"); // "Signal::TERM"
+        Some(pretty[9..pretty.len() - 1].to_ascii_uppercase())
     }
 }

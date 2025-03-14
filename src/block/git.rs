@@ -547,7 +547,7 @@ impl Extend for Tree {
                 .arg("status")
                 .arg("--porcelain=2")
                 .pre_exec(move || -> IoResult<()> {
-                    process::set_parent_process_death_signal(Some(process::Signal::Term))?;
+                    process::set_parent_process_death_signal(Some(process::Signal::TERM))?;
                     if Some(parent_pid) != process::getppid() {
                         return Err(Error::other("Parent already dead"));
                     }
@@ -623,7 +623,7 @@ impl Pretty for GitRepo {
                 res.push(format!(":{remote}"));
             }
             _ => (),
-        };
+        }
 
         for (icon, val) in [
             (GitIcon::Stashes, self.stashes),

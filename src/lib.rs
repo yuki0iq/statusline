@@ -25,7 +25,6 @@
 //! ```
 
 #![feature(
-    integer_sign_cast,
     io_error_more,
     iter_next_chunk,
     let_chains
