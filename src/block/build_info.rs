@@ -6,7 +6,6 @@ enum Kind {
     Cargo,
     Cmake,
     Configure,
-    Flake,
     Makefile,
     Meson,
     Install,
@@ -25,7 +24,6 @@ impl Display for Kind {
             Self::Cargo => "cargo",
             Self::Cmake => "cmake",
             Self::Configure => "./configure",
-            Self::Flake => "flake",
             Self::Makefile => "make",
             Self::Meson => "meson",
             Self::Install => "./install",
@@ -52,10 +50,6 @@ impl From<&Environment> for BuildInfo {
     fn from(env: &Environment) -> Self {
         let workdir = &env.work_dir;
         let mut bi = vec![];
-
-        if file::points_to_file("flake.nix") {
-            bi.push(Kind::Flake);
-        }
 
         if file::points_to_file("shell.nix") {
             bi.push(Kind::NixShell);
