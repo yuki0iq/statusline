@@ -16,6 +16,7 @@ enum Kind {
     Qmake,
     Kks,
     Gradle,
+    Pyproject,
 }
 
 impl Display for Kind {
@@ -34,6 +35,7 @@ impl Display for Kind {
             Self::Qmake => "qmake",
             Self::Kks => "kks",
             Self::Gradle => "gradle",
+            Self::Pyproject => "uv",
         })
     }
 }
@@ -93,6 +95,10 @@ impl From<&Environment> for BuildInfo {
 
         if file::upfind(workdir, "Cargo.toml").is_ok() {
             bi.push(Kind::Cargo);
+        }
+        
+        if file::upfind(workdir, "pyproject.toml").is_ok() {
+            bi.push(Kind::Pyproject);
         }
 
         if file::upfind(workdir, ".kks-workspace").is_ok() {
