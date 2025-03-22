@@ -13,15 +13,15 @@ pwd = "1.4"
 chrono = "0.4"
 terminal_size = "0.4"
 anyhow = "1.0"
-fahtsex = "0.2"
+fahtsex = "0.3"
 unicode-width = "0.2"
 base64 = "0.22"
 orion = "0.17"
 rustix = { version = "1.0", features = ["fs", "process", "stdio", "system"], default-features = false }
 libc = "0.2"
-memmapix = "0.7.6"
-argh = "0.1.12"
-linux-raw-sys = "0.9.3"
+memmapix = "0.7"
+argh = "0.1"
+linux-raw-sys = "0.9"
 
 [profile.release]
 codegen-units = 1
@@ -30,5 +30,5 @@ panic = "abort"
 strip = true
 
 [target.'cfg(any(target_arch = "x86", target_arch = "x86_64"))'.dependencies]
-raw-cpuid = "11.2.0"
+raw-cpuid = "11.2"
 
