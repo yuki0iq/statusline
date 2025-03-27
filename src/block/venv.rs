@@ -52,7 +52,7 @@ impl Icon for Venv {
         use IconMode::*;
         match &mode {
             Text => "py",
-            Icons | MinimalIcons => "",
+            Icons | MinimalIcons => "",
         }
     }
 }
