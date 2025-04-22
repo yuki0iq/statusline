@@ -6,10 +6,21 @@
 //!
 //! Default statusline as a readline prompt generator:
 //! ```
-//! use statusline::{default, Environment, IconMode, Style};
+//! use statusline::{default, Chassis, Environment, IconMode, Style};
 //!
 //! let mode = IconMode::build();
-//! let args = Environment::from_env::<&str>(&[]);
+//! // This is only an example, replace hardcoded values with real ones
+//! let args = Environment {
+//!     ret_code: None,
+//!     jobs_count: 0,
+//!     elapsed_time: None,
+//!     work_dir: "/home/meow".into(),
+//!     git_tree: None,
+//!     user: "meow".into(),
+//!     host: "amber".into(),
+//!     chassis: Chassis::Laptop,
+//!     current_home: None,
+//! };
 //! let top = default::extend(default::top(&args));
 //! let bottom = default::bottom(&args);
 //!

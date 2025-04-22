@@ -1,21 +1,4 @@
 //! Default top and bottom statuslines with default title generator
-//!
-//! # Example
-//! ```
-//! use statusline::{default, Environment, IconMode, Style};
-//!
-//! let mode = IconMode::build();
-//! let args = Environment::from_env::<&str>(&[]);
-//! let top = default::extend(default::top(&args));
-//! let bottom = default::bottom(&args);
-//!
-//! print!(
-//!     "{}\n{}{}",
-//!     default::pretty(&top, &mode),
-//!     default::title(&args).invisible(),
-//!     default::pretty(&bottom, &mode)
-//! );
-//! ```
 
 use crate::{BlockType, Environment, Extend, IconMode, Pretty, Style as _};
 use std::borrow::Cow;
