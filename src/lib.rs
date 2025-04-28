@@ -36,7 +36,6 @@
 //! );
 //! ```
 
-#![feature(io_error_more, iter_next_chunk)]
 #![warn(
     clippy::cargo,
     clippy::pedantic,

@@ -1,5 +1,5 @@
 use crate::{Environment, Extend, Icon, IconMode, Pretty, Style as _, file};
-use anyhow::{Context as _, Result, anyhow, bail};
+use anyhow::{Context as _, Result, bail};
 use memmapix::Mmap;
 use rustix::process;
 use std::{
@@ -410,22 +410,23 @@ fn get_ahead_behind(
     };
 
     // I assume this is fast
-    Ok(Command::new("git")
+    let output = Command::new("git")
         .arg("-C")
         .arg(tree)
         .arg("rev-list")
         .arg("--count")
         .arg("--left-right")
         .arg(format!("{head}...{name}/{branch}"))
-        .output()?
+        .output()?;
+    let mut iter = output
         .stdout
         .trim_ascii_end()
         .split(|&c| c == b'\t')
         .flat_map(str_from_utf8)
-        .flat_map(str::parse::<usize>)
-        .next_chunk::<2>()
-        .map_err(|_rest| anyhow!("Invalid rev-list output"))?
-        .into())
+        .flat_map(str::parse::<usize>);
+    let ahead = iter.next().unwrap();
+    let behind = iter.next().unwrap();
+    Ok((ahead, behind))
 }
 
 pub struct GitRepo {

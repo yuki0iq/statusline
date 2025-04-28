@@ -2,6 +2,7 @@ use anyhow::{Context as _, Result};
 use pwd::Passwd;
 use std::{
     fs,
+    io::Result as IoResult,
     path::{Path, PathBuf},
 };
 
@@ -41,7 +42,7 @@ pub fn points_to_file<P: AsRef<Path> + ?Sized>(path: &P) -> bool {
         .unwrap_or(false)
 }
 
-pub fn exists_that<F: Fn(&str) -> bool, P: AsRef<Path>>(path: P, f: F) -> std::io::Result<bool> {
+pub fn exists_that<F: Fn(&str) -> bool, P: AsRef<Path>>(path: P, f: F) -> IoResult<bool> {
     for entry in fs::read_dir(path)? {
         if let Ok(filename) = entry?.file_name().into_string()
             && f(&filename)
