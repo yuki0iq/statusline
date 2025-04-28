@@ -1,6 +1,6 @@
 use crate::{Environment, Extend, Icon, IconMode, Pretty, Style as _};
+use linux_raw_sys::general::{_NSIG as SIGRTMAX, SIGRTMIN};
 use rustix::process::Signal;
-use linux_raw_sys::general::{SIGRTMIN, _NSIG as SIGRTMAX};
 
 pub enum ReturnCode {
     Ok,
