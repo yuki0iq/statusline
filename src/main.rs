@@ -1,7 +1,8 @@
 use argh::FromArgs;
 use rustix::{
-    fd::{self, AsRawFd, FromRawFd},
-    fs as rfs, process, stdio,
+    fd::{AsRawFd, FromRawFd, OwnedFd},
+    fs::{self as rfs, OFlags},
+    process, stdio,
 };
 use statusline::{
     BlockType, Chassis, Environment, IconMode, Style, default, file,
@@ -105,7 +106,8 @@ impl From<Run> for Environment {
             .ok()
             .map(|dg| dg.parent().unwrap().to_path_buf());
 
-        let user = env::var("USER").unwrap_or_else(|_| String::from("<user>"));
+        let user =
+            env::var("USER").unwrap_or_else(|_| format!("<user{}>", process::getuid().as_raw()));
         let host = rustix::system::uname()
             .nodename()
             .to_string_lossy()
@@ -193,7 +195,7 @@ fn main() {
         }
         Command::Run(run) => {
             if let Some(fd) = run.control_fd {
-                let controlling_fd = unsafe { fd::OwnedFd::from_raw_fd(fd) };
+                let controlling_fd = unsafe { OwnedFd::from_raw_fd(fd) };
                 unsafe {
                     libc::fcntl(
                         controlling_fd.as_raw_fd(),
