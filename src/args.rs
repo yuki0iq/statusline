@@ -1,4 +1,4 @@
-use crate::Chassis;
+use crate::{Chassis, IconMode};
 use std::path::PathBuf;
 
 /// Environment variables available to statusline
@@ -19,6 +19,8 @@ pub struct Environment {
     pub host: String,
     /// Chassis
     pub chassis: Chassis,
-    /// Cheernt home: dir and username
+    /// Current home: dir and username
     pub current_home: Option<(PathBuf, String)>,
+    /// Icon mode
+    pub mode: IconMode,
 }

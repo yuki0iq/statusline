@@ -74,15 +74,22 @@ struct Run {
     #[argh(option)]
     /// return code to show
     return_code: Option<u8>,
+
     #[argh(option)]
     /// current background jobs count
     jobs_count: usize,
+
     #[argh(option)]
     /// elapsed time to show, in seconds
     elapsed_time: Option<u64>,
+
     #[argh(option)]
     /// control pid for terminating
     control_fd: Option<i32>,
+
+    #[argh(option)]
+    /// icon mode. `text` and `minimal` have special meaning
+    mode: Option<String>,
 }
 
 impl From<Run> for Environment {
@@ -107,6 +114,12 @@ impl From<Run> for Environment {
 
         let current_home = file::find_current_home(&work_dir, &user);
 
+        let mode = match other.mode.as_deref() {
+            Some("text") => IconMode::Text,
+            Some("minimal") => IconMode::MinimalIcons,
+            _ => IconMode::Icons,
+        };
+
         Environment {
             ret_code,
             jobs_count,
@@ -117,6 +130,7 @@ impl From<Run> for Environment {
             host,
             chassis,
             current_home,
+            mode,
         }
     }
 }
@@ -187,14 +201,11 @@ fn main() {
                         process::getpid(),
                     )
                 };
-                let _ = rfs::fcntl_setfl(
-                    controlling_fd,
-                    rfs::OFlags::from_bits_retain(libc::O_ASYNC as u32),
-                );
+                let _ = rfs::fcntl_setfl(controlling_fd, OFlags::ASYNC);
             }
 
-            let mode = IconMode::build();
-            let args = run.into();
+            let args: Environment = run.into();
+            let mode = args.mode;
             let bottom = default::bottom(&args);
 
             let mut line = default::top(&args);

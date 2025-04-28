@@ -1,7 +1,6 @@
-use std::env;
-
 /// Icon mode configurer
 #[non_exhaustive]
+#[derive(Clone, Copy)]
 pub enum IconMode {
     /// Use text instead of icons
     Text,
@@ -9,24 +8,6 @@ pub enum IconMode {
     Icons,
     /// Use alternative icon set (simpler icons, but sometimes hard to get the meaning)
     MinimalIcons,
-}
-
-impl IconMode {
-    /// Detect prompt mode from `PS1_MODE` environment variable
-    ///
-    /// | Environment        | Resulting IconMode   |
-    /// |--------------------|----------------------|
-    /// | `PS1_MODE=text`    | Text                 |
-    /// | `PS1_MODE=minimal` | Alternative nerdfont |
-    /// | otherwise          | Default nerdfont     |
-    #[must_use]
-    pub fn build() -> Self {
-        match env::var("PS1_MODE") {
-            Ok(x) if x == "text" => Self::Text,
-            Ok(x) if x == "minimal" => Self::MinimalIcons,
-            _ => Self::Icons,
-        }
-    }
 }
 
 /// Associated icon getter, which respects icon mode
