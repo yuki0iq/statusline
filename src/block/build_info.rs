@@ -10,6 +10,7 @@ enum Kind {
     Meson,
     Install,
     Jr,
+    Nix,
     NixShell,
     Qbs,
     Qmake,
@@ -20,21 +21,26 @@ enum Kind {
 
 impl Display for Kind {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
-        write!(f, "{}", match *self {
-            Self::Cargo => "cargo",
-            Self::Cmake => "cmake",
-            Self::Configure => "./configure",
-            Self::Makefile => "make",
-            Self::Meson => "meson",
-            Self::Install => "./install",
-            Self::Jr => "./jr",
-            Self::NixShell => "nix-shell",
-            Self::Qbs => "qbs",
-            Self::Qmake => "qmake",
-            Self::Kks => "kks",
-            Self::Gradle => "gradle",
-            Self::Pyproject => "uv",
-        })
+        write!(
+            f,
+            "{}",
+            match *self {
+                Self::Cargo => "cargo",
+                Self::Cmake => "cmake",
+                Self::Configure => "./configure",
+                Self::Makefile => "make",
+                Self::Meson => "meson",
+                Self::Install => "./install",
+                Self::Jr => "./jr",
+                Self::Nix => "nix",
+                Self::NixShell => "nix-shell",
+                Self::Qbs => "qbs",
+                Self::Qmake => "qmake",
+                Self::Kks => "kks",
+                Self::Gradle => "gradle",
+                Self::Pyproject => "uv",
+            }
+        )
     }
 }
 
@@ -50,6 +56,10 @@ impl From<&Environment> for BuildInfo {
     fn from(env: &Environment) -> Self {
         let workdir = &env.work_dir;
         let mut bi = vec![];
+
+        if file::points_to_file("default.nix") {
+            bi.push(Kind::Nix);
+        }
 
         if file::points_to_file("shell.nix") {
             bi.push(Kind::NixShell);
@@ -90,7 +100,7 @@ impl From<&Environment> for BuildInfo {
         if file::upfind(workdir, "Cargo.toml").is_ok() {
             bi.push(Kind::Cargo);
         }
-        
+
         if file::upfind(workdir, "pyproject.toml").is_ok() {
             bi.push(Kind::Pyproject);
         }
