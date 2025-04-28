@@ -162,7 +162,7 @@ fn main() {
 
     let Some(command) = args.command else {
         let ver = env!("CARGO_PKG_VERSION");
-        let apply_me = format!("eval \"$(\"{exec}\" env)\"");
+        let apply_me = format!("source <(\"{exec}\" env)");
         println!("[statusline {ver}] --- bash status line, written in Rust");
         println!(">> https://codeberg.org/yuki0iq/statusline");
         println!("Use `--help` to see advanced usage");
