@@ -8,7 +8,6 @@
 //! ```
 //! use statusline::{default, Chassis, Environment, IconMode, Style};
 //!
-//! let mode = IconMode::build();
 //! // This is only an example, replace hardcoded values with real ones
 //! let args = Environment {
 //!     ret_code: None,
@@ -20,14 +19,16 @@
 //!     host: "amber".into(),
 //!     chassis: Chassis::Laptop,
 //!     current_home: None,
+//!     mode: IconMode::Text,
 //! };
 //! let top = default::extend(default::top(&args));
 //! let bottom = default::bottom(&args);
+//! let mode = args.mode;
 //!
 //! // Top line is not intended to use in readline-like environments
 //! eprintln!("{}", default::pretty(&top, &mode));
 //!
-//! // But bottom line is --- because it has "invisibility"
+//! // But bottom line is -- because it has "invisibility"
 //! print!(
 //!     "{}{}",
 //!     default::title(&args).invisible(),
