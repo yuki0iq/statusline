@@ -162,13 +162,13 @@ impl Chassis {
     }
 
     fn try_virtualization() -> Option<Chassis> {
-        // No one knows if this works correctly
-        virt::detect_vm().ok()?.map(|_| Chassis::Virtual)
+        virt::detect_vm().unwrap().then_some(Chassis::Virtual)
     }
 
     fn try_container() -> Option<Chassis> {
-        // No one knows if this works correctly
-        virt::detect_container().ok()?.map(|_| Chassis::Container)
+        virt::detect_container()
+            .unwrap()
+            .then_some(Chassis::Container)
     }
 
     fn try_dmi_type() -> Option<Chassis> {
