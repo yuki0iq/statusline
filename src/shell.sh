@@ -3,7 +3,7 @@ case $TERM in
     dumb)
         return
         ;;
-    linux|tmux-*)
+    linux|tmux-*|screen)
         _sl_mode=text
         ;;
     *)
