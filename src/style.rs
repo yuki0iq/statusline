@@ -124,7 +124,7 @@ pub trait Style: Display {
     /// use statusline::Style;
     /// assert_eq!("\x1b]0;yuki@reimu: /home/yuki\x07", "yuki@reimu: /home/yuki".as_title().to_string());
     /// ```
-    fn as_title(&self) -> Styled<Self> {
+    fn as_title(&self) -> Styled<'_, Self> {
         Styled {
             style: StyleKind::Title,
             value: self,
@@ -137,7 +137,7 @@ pub trait Style: Display {
     /// use statusline::Style;
     /// assert_eq!("\x1b[1mBOLD text", "BOLD text".bold().to_string());
     /// ```
-    fn bold(&self) -> Styled<Self> {
+    fn bold(&self) -> Styled<'_, Self> {
         Styled {
             style: StyleKind::Bold,
             value: self,
@@ -150,7 +150,7 @@ pub trait Style: Display {
     /// use statusline::Style;
     /// assert_eq!("\x1b[3mItalic text", "Italic text".italic().to_string());
     /// ```
-    fn italic(&self) -> Styled<Self> {
+    fn italic(&self) -> Styled<'_, Self> {
         Styled {
             style: StyleKind::Italic,
             value: self,
@@ -159,7 +159,7 @@ pub trait Style: Display {
 
     /// Use colors from 16-color palette, dark version (0 for CSI 31 thru 6 for CSI 37, CSI 30 is black which
     /// is useless)
-    fn low_color(&self, index: usize) -> Styled<Self> {
+    fn low_color(&self, index: usize) -> Styled<'_, Self> {
         Styled {
             style: StyleKind::Color8(index),
             value: self,
@@ -171,7 +171,7 @@ pub trait Style: Display {
     ///
     /// However, since most GUI terminal emulators in linux do support true color display no worry
     /// is usually needed. Just use it as-is
-    fn true_color(&self, red: u8, green: u8, blue: u8) -> Styled<Self> {
+    fn true_color(&self, red: u8, green: u8, blue: u8) -> Styled<'_, Self> {
         Styled {
             style: StyleKind::TrueColor(red, green, blue),
             value: self,
@@ -184,7 +184,7 @@ pub trait Style: Display {
     /// use statusline::Style;
     /// assert_eq!("\x01invis\x02", "invis".invisible().to_string());
     /// ```
-    fn invisible(&self) -> Styled<Self> {
+    fn invisible(&self) -> Styled<'_, Self> {
         Styled {
             style: StyleKind::Invisible,
             value: self,
@@ -198,7 +198,7 @@ pub trait Style: Display {
     /// assert_eq!("\x01\x1b[31m\x02Visible\x01\x1b[0m\x02",
     ///     "Visible".visible().red().with_reset().invisible().to_string());
     /// ```
-    fn visible(&self) -> Styled<Self> {
+    fn visible(&self) -> Styled<'_, Self> {
         Styled {
             style: StyleKind::Visible,
             value: self,
@@ -211,7 +211,7 @@ pub trait Style: Display {
     /// use statusline::Style;
     /// assert_eq!("\x1b[31mRED\x1b[0mnormal", "RED".red().with_reset().to_string() + "normal");
     /// ```
-    fn with_reset(&self) -> Styled<Self> {
+    fn with_reset(&self) -> Styled<'_, Self> {
         Styled {
             style: StyleKind::ResetEnd,
             value: self,
@@ -224,7 +224,7 @@ pub trait Style: Display {
     /// use statusline::Style;
     /// assert_eq!("[nya]", "nya".boxed().to_string());
     /// ```
-    fn boxed(&self) -> Styled<Self> {
+    fn boxed(&self) -> Styled<'_, Self> {
         Styled {
             style: StyleKind::Boxed,
             value: self,
@@ -237,7 +237,7 @@ pub trait Style: Display {
     /// use statusline::Style;
     /// assert_eq!("(nyaah~)", "nyaah~".rounded().to_string());
     /// ```
-    fn rounded(&self) -> Styled<Self> {
+    fn rounded(&self) -> Styled<'_, Self> {
         Styled {
             style: StyleKind::Rounded,
             value: self,
@@ -246,7 +246,7 @@ pub trait Style: Display {
 
     /// Set cursor position, the horizontal part, with absolute value. Coordinates are counted
     /// from 1, from line start to line end, which may seem counter-intuitive
-    fn horizontal_absolute(&self, pos: usize) -> Styled<Self> {
+    fn horizontal_absolute(&self, pos: usize) -> Styled<'_, Self> {
         Styled {
             style: StyleKind::CursorHorizontalAbsolute(pos),
             value: self,
@@ -254,7 +254,7 @@ pub trait Style: Display {
     }
 
     /// Move cursor to the beginning of line which is `count` lines above the current one
-    fn prev_line(&self, count: i32) -> Styled<Self> {
+    fn prev_line(&self, count: i32) -> Styled<'_, Self> {
         Styled {
             style: StyleKind::CursorPreviousLine(count),
             value: self,
@@ -262,7 +262,7 @@ pub trait Style: Display {
     }
 
     /// Wrap into cursor saver --- for example for outputting PS1 above the PS1 "line"
-    fn save_restore(&self) -> Styled<Self> {
+    fn save_restore(&self) -> Styled<'_, Self> {
         Styled {
             style: StyleKind::CursorSaveRestore,
             value: self,
@@ -270,7 +270,7 @@ pub trait Style: Display {
     }
 
     /// Prepends line cleaner
-    fn clear_till_end(&self) -> Styled<Self> {
+    fn clear_till_end(&self) -> Styled<'_, Self> {
         Styled {
             style: StyleKind::ClearLine,
             value: self,
@@ -278,7 +278,7 @@ pub trait Style: Display {
     }
 
     /// Join current line with fixed one with newline
-    fn join_lf(&self, s: String) -> Styled<Self> {
+    fn join_lf(&self, s: String) -> Styled<'_, Self> {
         Styled {
             style: StyleKind::NewlineJoin(s),
             value: self,
@@ -286,57 +286,57 @@ pub trait Style: Display {
     }
 
     /// Red color from 16-color palette (CSI 31)
-    fn red(&self) -> Styled<Self> {
+    fn red(&self) -> Styled<'_, Self> {
         self.low_color(0)
     }
 
     /// Green color from 16-color palette (CSI 32)
-    fn green(&self) -> Styled<Self> {
+    fn green(&self) -> Styled<'_, Self> {
         self.low_color(1)
     }
 
     /// Yellow color from 16-color palette (CSI 33)
-    fn yellow(&self) -> Styled<Self> {
+    fn yellow(&self) -> Styled<'_, Self> {
         self.low_color(2)
     }
 
     /// Blue color from 16-color palette (CSI 34)
-    fn blue(&self) -> Styled<Self> {
+    fn blue(&self) -> Styled<'_, Self> {
         self.low_color(3)
     }
 
     /// Purple color from 16-color palette (CSI 35)
-    fn purple(&self) -> Styled<Self> {
+    fn purple(&self) -> Styled<'_, Self> {
         self.low_color(4)
     }
 
     /// Cyan color from 16-color palette (CSI 36)
-    fn cyan(&self) -> Styled<Self> {
+    fn cyan(&self) -> Styled<'_, Self> {
         self.low_color(5)
     }
 
     /// Light gray color from 16-color palette (CSI 37)
-    fn light_gray(&self) -> Styled<Self> {
+    fn light_gray(&self) -> Styled<'_, Self> {
         self.low_color(6)
     }
 
     /// Pink color (true)
-    fn pink(&self) -> Styled<Self> {
+    fn pink(&self) -> Styled<'_, Self> {
         self.true_color(255, 100, 203)
     }
 
     /// Light green color (true)
-    fn light_green(&self) -> Styled<Self> {
+    fn light_green(&self) -> Styled<'_, Self> {
         self.true_color(100, 255, 100)
     }
 
     /// Light red color (true)
-    fn light_red(&self) -> Styled<Self> {
+    fn light_red(&self) -> Styled<'_, Self> {
         self.true_color(255, 80, 100)
     }
 
     /// Gray color (true)
-    fn gray(&self) -> Styled<Self> {
+    fn gray(&self) -> Styled<'_, Self> {
         self.true_color(128, 128, 128)
     }
 
@@ -350,7 +350,7 @@ pub trait Style: Display {
     /// |other       | Some non-red color |
     ///
     /// There are 24 different colors
-    fn colorize_with(&self, with: &str) -> Styled<Self> {
+    fn colorize_with(&self, with: &str) -> Styled<'_, Self> {
         if with == "root" {
             self.red()
         } else {

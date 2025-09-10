@@ -131,12 +131,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fahtsex"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4585c9a2450a2414d6a2e142257109ff0c99081c50c53bca1ed42f9fb2789b89"
-
-[[package]]
 name = "fiat-crypto"
 version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -363,7 +357,6 @@ dependencies = [
  "argh",
  "base64",
  "chrono",
- "fahtsex",
  "libc",
  "linux-raw-sys 0.9.3",
  "memmapix",

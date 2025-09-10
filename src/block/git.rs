@@ -81,8 +81,28 @@ fn objects_dir_len(root: &Path, id: &str) -> Result<usize> {
     })
 }
 
+fn parse_oid_slow(hex: &[u8; 40]) -> [u8; 20] {
+    fn val(mut x: u8) -> u8 {
+        x -= b'0';
+        if x >= 10 {
+            x -= b'a' - (b'9' + 1);
+        }
+        x
+    }
+
+    let mut result = [0; 20];
+    for i in 0..20 {
+        result[i] = val(hex[2 * i]) << 4_i32 | val(hex[2 * i + 1]);
+    }
+    result
+}
+
+fn parse_oid_str(hex: &str) -> Option<[u8; 20]> {
+    Some(parse_oid_slow(hex.as_bytes().try_into().ok()?))
+}
+
 fn packed_objects_len(root: &Path, commit: &str) -> Result<usize> {
-    let commit = fahtsex::parse_oid_str(commit).ok_or(Error::from(ErrorKind::InvalidData))?;
+    let commit = parse_oid_str(commit).ok_or(Error::from(ErrorKind::InvalidData))?;
 
     let mut res = 0;
     for entry in fs::read_dir(root.join("objects/pack"))? {
@@ -246,7 +266,7 @@ impl Pretty for Head {
 
 impl Head {
     // Please WHY
-    fn git_value(&self) -> Cow<str> {
+    fn git_value(&self) -> Cow<'_, str> {
         match &self.kind {
             HeadKind::Branch(name) | HeadKind::NonexistentBranch(name) => {
                 Cow::from(format!("refs/heads/{name}"))
