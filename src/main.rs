@@ -226,7 +226,8 @@ fn main() {
             {
                 // three lines
                 let mut second = BlockType::Empty.create_from_env(&args);
-                std::mem::swap(&mut second, &mut line[8]);
+                // XXX: This position is hard coded and should be adjusted whenever default changes
+                std::mem::swap(&mut second, &mut line[9]);
                 let second = [BlockType::Continue.create_from_env(&args), second];
 
                 eprint!(

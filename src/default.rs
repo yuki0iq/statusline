@@ -4,14 +4,16 @@ use crate::{BlockType, Environment, Extend, IconMode, Pretty, Style as _};
 use std::borrow::Cow;
 
 /// Default top part of statusline
+// XXX: Do not forget to adjust where `path` component is whenever you change the block order
 #[must_use]
-pub fn top(env: &Environment) -> [Box<dyn Extend>; 11] {
+pub fn top(env: &Environment) -> [Box<dyn Extend>; 12] {
     [
         BlockType::HostUser,
         BlockType::Ssh,
         BlockType::GitRepo,
         BlockType::GitTree,
         BlockType::BuildInfo,
+        BlockType::NixShell,
         BlockType::Venv,
         BlockType::Jobs,
         BlockType::Mail,

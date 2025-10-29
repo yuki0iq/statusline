@@ -15,9 +15,10 @@ esac
 exec {_sl_control_fd}<> <(true)
 trap 'echo >&$_sl_control_fd' DEBUG
 
-# Disable features that are already covered by statusline
+# Disable features that are already covered by statusline and apply compatibility fixes
 MAILCHECK=-1
 VIRTUAL_ENV_DISABLE_PROMPT=1
+export NIX_SHELL_PRESERVE_PROMPT=1
 
 _sl_stamp() {
     echo "${EPOCHREALTIME/[.,]/}";

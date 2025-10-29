@@ -6,6 +6,7 @@ pub mod git;
 pub mod hostuser;
 pub mod jobs;
 pub mod mail;
+pub mod nix_shell;
 pub mod return_code;
 pub mod root_shell;
 pub mod separator;
@@ -39,6 +40,8 @@ pub enum Kind {
     BuildInfo,
     /// Python virtual environment name and version
     Venv,
+    /// Nix shell
+    NixShell,
     /// Working directory with username substitution, git repo path and R/O display
     Workdir,
     /// Previous task execution time
@@ -67,6 +70,7 @@ impl Kind {
             Self::GitTree => Box::new(git::Tree::from(env)),
             Self::BuildInfo => Box::new(build_info::BuildInfo::from(env)),
             Self::Venv => Box::new(venv::MaybeVenv::from(env)),
+            Self::NixShell => Box::new(nix_shell::MaybeNixShell::from(env)),
             Self::Workdir => Box::new(workdir::Workdir::from(env)),
             Self::Elapsed => Box::new(elapsed::Elapsed::from(env)),
             Self::Time => Box::new(time::Time::from(env)),

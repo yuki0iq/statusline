@@ -38,6 +38,7 @@ enum StyleKind {
     Bold,
     Italic,
     Color8(usize),
+    Color16(usize),
     TrueColor(u8, u8, u8),
     ResetEnd,
     Invisible,
@@ -87,6 +88,7 @@ impl<T: Display + ?Sized> Display for Styled<'_, T> {
             StyleKind::Bold => write!(f, "{CSI}1m{}", self.value),
             StyleKind::Italic => write!(f, "{CSI}3m{}", self.value),
             StyleKind::Color8(index) => write!(f, "{CSI}{}m{}", index + 31, self.value),
+            StyleKind::Color16(index) => write!(f, "{CSI}{}m{}", index + 90, self.value),
             StyleKind::TrueColor(r, g, b) => {
                 write!(f, "{CSI}38;2;{r};{g};{b}m{}", self.value)
             }
@@ -162,6 +164,15 @@ pub trait Style: Display {
     fn low_color(&self, index: usize) -> Styled<'_, Self> {
         Styled {
             style: StyleKind::Color8(index),
+            value: self,
+        }
+    }
+
+    /// Use colors from 16-color palette, light version (0 for CSI 90 thru 7 for CSI 97, CSI 90 is black which
+    /// is useless)
+    fn high_color(&self, index: usize) -> Styled<'_, Self> {
+        Styled {
+            style: StyleKind::Color16(index),
             value: self,
         }
     }
@@ -318,6 +329,11 @@ pub trait Style: Display {
     /// Light gray color from 16-color palette (CSI 37)
     fn light_gray(&self) -> Styled<'_, Self> {
         self.low_color(6)
+    }
+
+    /// Bright blue color from 16-color palette (CSI 94)
+    fn bright_blue(&self) -> Styled<'_, Self> {
+        self.high_color(4)
     }
 
     /// Pink color (true)
