@@ -8,12 +8,8 @@ enum Kind {
     Configure,
     Makefile,
     Meson,
-    Install,
     Jr,
     Nix,
-    NixShell,
-    Qbs,
-    Qmake,
     Kks,
     Gradle,
     Pyproject,
@@ -30,12 +26,8 @@ impl Display for Kind {
                 Self::Configure => "./configure",
                 Self::Makefile => "make",
                 Self::Meson => "meson",
-                Self::Install => "./install",
                 Self::Jr => "./jr",
                 Self::Nix => "nix",
-                Self::NixShell => "nix-shell",
-                Self::Qbs => "qbs",
-                Self::Qmake => "qmake",
                 Self::Kks => "kks",
                 Self::Gradle => "gradle",
                 Self::Pyproject => "uv",
@@ -61,10 +53,6 @@ impl From<&Environment> for BuildInfo {
             bi.push(Kind::Nix);
         }
 
-        if file::points_to_file("shell.nix") {
-            bi.push(Kind::NixShell);
-        }
-
         if file::points_to_file("meson.build") {
             bi.push(Kind::Meson);
         }
@@ -81,20 +69,8 @@ impl From<&Environment> for BuildInfo {
             bi.push(Kind::Makefile);
         }
 
-        if file::points_to_file("install") {
-            bi.push(Kind::Install);
-        }
-
         if file::points_to_file("jr") {
             bi.push(Kind::Jr);
-        }
-
-        if let Ok(true) = file::exists_that(workdir, |filename| filename.ends_with(".qbs")) {
-            bi.push(Kind::Qbs);
-        }
-
-        if let Ok(true) = file::exists_that(workdir, |filename| filename.ends_with(".pro")) {
-            bi.push(Kind::Qmake);
         }
 
         if file::upfind(workdir, "Cargo.toml").is_ok() {
