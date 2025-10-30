@@ -1,15 +1,94 @@
+#![warn(
+    clippy::cargo,
+    clippy::pedantic,
+    clippy::allow_attributes,
+    clippy::as_underscore,
+    clippy::assertions_on_result_states,
+    clippy::cfg_not_test,
+    clippy::clone_on_ref_ptr,
+    clippy::create_dir,
+    clippy::decimal_literal_representation,
+    clippy::default_numeric_fallback,
+    clippy::default_union_representation,
+    clippy::deref_by_slicing,
+    clippy::empty_drop,
+    clippy::empty_enum_variants_with_brackets,
+    clippy::exhaustive_enums,
+    clippy::fn_to_numeric_cast_any,
+    clippy::format_push_string,
+    clippy::get_unwrap,
+    clippy::host_endian_bytes,
+    clippy::if_then_some_else_none,
+    clippy::infinite_loop,
+    clippy::inline_asm_x86_att_syntax,
+    clippy::let_underscore_must_use,
+    clippy::lossy_float_literal,
+    clippy::map_err_ignore,
+    clippy::mem_forget,
+    clippy::missing_assert_message,
+    clippy::mixed_read_write_in_expression,
+    clippy::multiple_unsafe_ops_per_block,
+    clippy::mutex_atomic,
+    clippy::needless_raw_strings,
+    clippy::partial_pub_fields,
+    clippy::pathbuf_init_then_push,
+    clippy::rc_buffer,
+    clippy::rc_mutex,
+    clippy::redundant_type_annotations,
+    clippy::renamed_function_params,
+    clippy::semicolon_outside_block,
+    clippy::shadow_same,
+    clippy::shadow_unrelated,
+    clippy::str_to_string,
+    clippy::string_lit_chars_any,
+    clippy::suspicious_xor_used_as_pow,
+    clippy::tests_outside_test_module,
+    clippy::try_err,
+    clippy::undocumented_unsafe_blocks,
+    clippy::unnecessary_safety_comment,
+    clippy::unnecessary_safety_doc,
+    clippy::unneeded_field_pattern,
+    clippy::unseparated_literal_suffix,
+    clippy::unused_result_ok,
+    clippy::unused_trait_names,
+    clippy::verbose_file_reads
+)]
+#![allow(
+    clippy::missing_errors_doc,
+    clippy::module_name_repetitions,
+    clippy::multiple_crate_versions,
+    clippy::case_sensitive_file_extension_comparisons,
+    clippy::enum_glob_use
+)]
+
+mod args;
+mod block;
+mod chassis;
+mod default;
+mod file;
+mod icon;
+mod style;
+mod time;
+mod virt;
+mod workgroup;
+
+use crate::{
+    args::Environment,
+    block::{Extend, Kind as BlockType},
+    chassis::Chassis,
+    icon::{Icon, IconMode, Pretty},
+    style::Style,
+};
+
+use crate::workgroup::{SshChain, WorkgroupKey};
 use argh::FromArgs;
 use rustix::{
-    fd::{AsRawFd, FromRawFd, OwnedFd},
+    fd::{AsRawFd as _, FromRawFd as _, OwnedFd},
     fs::{self as rfs, OFlags},
     process, stdio,
 };
-use statusline::{
-    BlockType, Chassis, Environment, IconMode, Style, default, file,
-    workgroup::{SshChain, WorkgroupKey},
-};
-use std::{env, fs, io, io::Write, path::PathBuf};
-use unicode_width::UnicodeWidthStr;
+use std::{env, fs, io, io::Write as _, path::PathBuf};
+use unicode_width::UnicodeWidthStr as _;
 
 fn readline_width(s: &str) -> usize {
     let mut res = s.width();
@@ -85,7 +164,7 @@ struct Run {
     elapsed_time: Option<u64>,
 
     #[argh(option)]
-    /// control pid for terminating
+    /// control fd for terminating
     control_fd: Option<i32>,
 
     #[argh(option)]
@@ -126,8 +205,8 @@ impl From<Run> for Environment {
             ret_code,
             jobs_count,
             elapsed_time,
-            git_tree,
             work_dir,
+            git_tree,
             user,
             host,
             chassis,
@@ -137,6 +216,10 @@ impl From<Run> for Environment {
     }
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "This really should be fixed and not with a band-aid"
+)]
 fn main() {
     let exec = fs::read_link("/proc/self/exe")
         .map(|pb| String::from(pb.to_string_lossy()))
@@ -177,7 +260,7 @@ fn main() {
     match command {
         Command::Colorize(Colorize { what }) => println!("{}", what.colorize_with(&what).bold()),
         Command::WorkgroupCreate(_) => {
-            WorkgroupKey::create().expect("Could not create workgroup key")
+            WorkgroupKey::create().expect("Could not create workgroup key");
         }
         Command::Env(_) => println!("{}", include_str!("shell.sh").replace("<exec>", &exec)),
         Command::Chain(_) => {
@@ -195,7 +278,9 @@ fn main() {
         }
         Command::Run(run) => {
             if let Some(fd) = run.control_fd {
+                // SAFETY: This file descriptor is already open
                 let controlling_fd = unsafe { OwnedFd::from_raw_fd(fd) };
+                // SAFETY: This file descriptor is not reused for concurrently running invocations.
                 unsafe {
                     libc::fcntl(
                         controlling_fd.as_raw_fd(),
@@ -203,14 +288,15 @@ fn main() {
                         process::getpid(),
                     )
                 };
+                #[expect(clippy::let_underscore_must_use)]
                 let _ = rfs::fcntl_setfl(controlling_fd, OFlags::ASYNC);
             }
 
-            let args: Environment = run.into();
-            let mode = args.mode;
-            let bottom = default::bottom(&args);
+            let environ: Environment = run.into();
+            let mode = environ.mode;
+            let bottom = default::bottom(&environ);
 
-            let mut line = default::top(&args);
+            let mut line = default::top(&environ);
 
             let line_length: usize = line
                 .iter()
@@ -220,20 +306,19 @@ fn main() {
 
             if line_length + 16
                 >= terminal_size::terminal_size()
-                    .map(|(w, _h)| w.0)
-                    .unwrap_or(80)
+                    .map_or(80, |(w, _h)| w.0)
                     .into()
             {
                 // three lines
-                let mut second = BlockType::Empty.create_from_env(&args);
+                let mut second = BlockType::Empty.create_from_env(&environ);
                 // XXX: This position is hard coded and should be adjusted whenever default changes
                 std::mem::swap(&mut second, &mut line[9]);
-                let second = [BlockType::Continue.create_from_env(&args), second];
+                let second = [BlockType::Continue.create_from_env(&environ), second];
 
                 eprint!(
                     "\n\n\n{}",
-                    default::pretty(&line, &mode)
-                        .join_lf(default::pretty(&second, &mode))
+                    default::pretty(&line, mode)
+                        .join_lf(default::pretty(&second, mode))
                         .clear_till_end()
                         .prev_line(2)
                         .save_restore()
@@ -241,8 +326,8 @@ fn main() {
 
                 print!(
                     "{}{}",
-                    default::title(&args).invisible(),
-                    default::pretty(&bottom, &mode)
+                    default::title(&environ).invisible(),
+                    default::pretty(&bottom, mode)
                 );
                 io::stdout().flush().unwrap();
                 stdio::dup2_stdout(
@@ -254,8 +339,8 @@ fn main() {
                 let second = default::extend(second);
                 eprint!(
                     "{}",
-                    default::pretty(&line, &mode)
-                        .join_lf(default::pretty(&second, &mode))
+                    default::pretty(&line, mode)
+                        .join_lf(default::pretty(&second, mode))
                         .clear_till_end()
                         .prev_line(2)
                         .save_restore()
@@ -264,7 +349,7 @@ fn main() {
                 // two lines
                 eprint!(
                     "\n\n{}",
-                    default::pretty(&line, &mode)
+                    default::pretty(&line, mode)
                         .clear_till_end()
                         .prev_line(1)
                         .save_restore()
@@ -272,8 +357,8 @@ fn main() {
 
                 print!(
                     "{}{}",
-                    default::title(&args).invisible(),
-                    default::pretty(&bottom, &mode)
+                    default::title(&environ).invisible(),
+                    default::pretty(&bottom, mode)
                 );
                 io::stdout().flush().unwrap();
                 stdio::dup2_stdout(
@@ -284,7 +369,7 @@ fn main() {
                 let line = default::extend(line);
                 eprint!(
                     "{}",
-                    default::pretty(&line, &mode)
+                    default::pretty(&line, mode)
                         .clear_till_end()
                         .prev_line(1)
                         .save_restore()

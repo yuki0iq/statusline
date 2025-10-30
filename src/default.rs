@@ -69,9 +69,9 @@ pub fn title(env: &Environment) -> String {
 
 /// Default pretty-printer
 #[must_use]
-pub fn pretty<T: Pretty + ?Sized, const N: usize>(line: &[Box<T>; N], mode: &IconMode) -> String {
+pub fn pretty<T: Pretty + ?Sized, const N: usize>(line: &[Box<T>; N], mode: IconMode) -> String {
     line.iter()
-        .filter_map(|x| x.as_ref().pretty(mode))
+        .filter_map(|x| x.as_ref().pretty(&mode))
         .collect::<Vec<_>>()
         .join(" ")
 }
