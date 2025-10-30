@@ -84,7 +84,7 @@ use crate::workgroup::{SshChain, WorkgroupKey};
 use argh::FromArgs;
 use rustix::{
     fd::{AsRawFd as _, FromRawFd as _, OwnedFd},
-    fs::{self as rfs, OFlags},
+    fs::{Mode, OFlags},
 };
 use std::{io::Write as _, path::PathBuf};
 use style::horizontal_absolute;
@@ -287,8 +287,7 @@ fn print_statusline(run: Run) {
                 rustix::process::getpid(),
             )
         };
-        #[expect(clippy::let_underscore_must_use)]
-        let _ = rfs::fcntl_setfl(controlling_fd, OFlags::ASYNC);
+        rustix::fs::fcntl_setfl(controlling_fd, OFlags::ASYNC).unwrap();
     }
 
     let environ: Environment = run.into();
@@ -349,10 +348,8 @@ fn print_statusline(run: Run) {
 
     print!("{bottom}");
     std::io::stdout().flush().unwrap();
-    rustix::stdio::dup2_stdout(
-        rfs::open("/dev/null", rfs::OFlags::RDWR, rfs::Mode::empty()).unwrap(),
-    )
-    .unwrap();
+    rustix::stdio::dup2_stdout(rustix::fs::open("/dev/null", OFlags::RDWR, Mode::empty()).unwrap())
+        .unwrap();
 
     let line = default::extend(line);
     eprint_top_part(default::pretty(&line, mode));
