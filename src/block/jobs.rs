@@ -15,7 +15,7 @@ impl From<&Environment> for Jobs {
 }
 
 impl Pretty for Jobs {
-    fn pretty(&self, _: &IconMode) -> Option<String> {
+    fn pretty(&self, _: IconMode) -> Option<String> {
         if self.0 == 0 {
             None?;
         }

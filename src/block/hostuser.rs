@@ -29,13 +29,13 @@ impl From<&Environment> for HostUser {
 }
 
 impl Icon for Host {
-    fn icon(&self, mode: &IconMode) -> &'static str {
+    fn icon(&self, mode: IconMode) -> &'static str {
         self.0.icon(mode)
     }
 }
 
 impl Icon for User {
-    fn icon(&self, mode: &IconMode) -> &'static str {
+    fn icon(&self, mode: IconMode) -> &'static str {
         use IconMode::*;
         match mode {
             Text => "as",
@@ -45,7 +45,7 @@ impl Icon for User {
 }
 
 impl Pretty for Host {
-    fn pretty(&self, mode: &IconMode) -> Option<String> {
+    fn pretty(&self, mode: IconMode) -> Option<String> {
         Some(
             format!("[{} {}]", self.icon(mode), self.1)
                 .visible()
@@ -57,7 +57,7 @@ impl Pretty for Host {
 }
 
 impl Pretty for User {
-    fn pretty(&self, mode: &IconMode) -> Option<String> {
+    fn pretty(&self, mode: IconMode) -> Option<String> {
         Some(
             format!("[{} {}]", self.icon(mode), self.0)
                 .visible()
@@ -69,7 +69,7 @@ impl Pretty for User {
 }
 
 impl Pretty for HostUser {
-    fn pretty(&self, mode: &IconMode) -> Option<String> {
+    fn pretty(&self, mode: IconMode) -> Option<String> {
         Some(
             format!("{} {}", self.1.pretty(mode)?, self.0.pretty(mode)?)
                 .visible()

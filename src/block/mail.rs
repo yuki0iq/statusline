@@ -1,5 +1,5 @@
 use crate::{Environment, Extend, Icon, IconMode, Pretty, Style as _};
-use std::{env, fs, path::PathBuf};
+use std::path::PathBuf;
 
 pub struct UnseenMail {
     count: usize,
@@ -14,12 +14,12 @@ impl Extend for UnseenMail {
 impl From<&Environment> for UnseenMail {
     fn from(environ: &Environment) -> Self {
         let maildir_path =
-            env::var("MAIL").unwrap_or_else(|_| format!("/var/spool/mail/{}", environ.user));
+            std::env::var("MAIL").unwrap_or_else(|_| format!("/var/spool/mail/{}", environ.user));
         let maildir = PathBuf::from(maildir_path);
-        let unseen_count = fs::read_dir(maildir.join("new"))
+        let unseen_count = std::fs::read_dir(maildir.join("new"))
             .map(Iterator::count)
             .unwrap_or(0);
-        let unread_count = fs::read_dir(maildir.join("cur"))
+        let unread_count = std::fs::read_dir(maildir.join("cur"))
             .map(|iter| {
                 iter.map_while(Result::ok)
                     .filter_map(|entry| entry.file_name().into_string().ok())
@@ -34,7 +34,7 @@ impl From<&Environment> for UnseenMail {
 }
 
 impl Pretty for UnseenMail {
-    fn pretty(&self, mode: &IconMode) -> Option<String> {
+    fn pretty(&self, mode: IconMode) -> Option<String> {
         0.ne(&self.count).then(|| {
             format!("[{}{}]", self.icon(mode), self.count)
                 .visible()
@@ -47,7 +47,7 @@ impl Pretty for UnseenMail {
 }
 
 impl Icon for UnseenMail {
-    fn icon(&self, mode: &IconMode) -> &'static str {
+    fn icon(&self, mode: IconMode) -> &'static str {
         use IconMode::*;
         match &mode {
             Text => "eml ",

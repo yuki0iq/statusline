@@ -13,11 +13,11 @@ pub enum IconMode {
 /// Associated icon getter, which respects icon mode
 pub trait Icon {
     /// Returns associated icon with respect to icon mode
-    fn icon(&self, mode: &IconMode) -> &'static str;
+    fn icon(&self, mode: IconMode) -> &'static str;
 }
 
 /// Pretty formatter with respect to selected icon mode
 pub trait Pretty {
     /// Pretty formats the object
-    fn pretty(&self, mode: &IconMode) -> Option<String>;
+    fn pretty(&self, mode: IconMode) -> Option<String>;
 }

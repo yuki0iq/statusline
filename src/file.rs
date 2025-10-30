@@ -1,10 +1,5 @@
-use anyhow::{Context as _, Result};
 use pwd::Passwd;
-use std::{
-    fs,
-    io::Result as IoResult,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 #[must_use]
 pub fn find_current_home(path: &Path, cur_user: &str) -> Option<(PathBuf, String)> {
@@ -33,17 +28,17 @@ pub fn find_current_home(path: &Path, cur_user: &str) -> Option<(PathBuf, String
 }
 
 pub fn exists<P: AsRef<Path> + ?Sized>(path: &P) -> bool {
-    fs::exists(path.as_ref()).unwrap_or(false)
+    std::fs::exists(path.as_ref()).unwrap_or(false)
 }
 
 pub fn points_to_file<P: AsRef<Path> + ?Sized>(path: &P) -> bool {
-    fs::metadata(path)
+    std::fs::metadata(path)
         .map(|meta| meta.is_file())
         .unwrap_or(false)
 }
 
-pub fn exists_that<F: Fn(&str) -> bool, P: AsRef<Path>>(path: P, f: F) -> IoResult<bool> {
-    for entry in fs::read_dir(path)? {
+pub fn exists_that<F: Fn(&str) -> bool, P: AsRef<Path>>(path: P, f: F) -> std::io::Result<bool> {
+    for entry in std::fs::read_dir(path)? {
         if let Ok(filename) = entry?.file_name().into_string()
             && f(&filename)
         {
@@ -53,11 +48,10 @@ pub fn exists_that<F: Fn(&str) -> bool, P: AsRef<Path>>(path: P, f: F) -> IoResu
     Ok(false)
 }
 
-pub fn upfind<P: AsRef<Path>>(start: P, filename: &str) -> Result<PathBuf> {
+pub fn upfind<P: AsRef<Path>>(start: P, filename: &str) -> Option<PathBuf> {
     start
         .as_ref()
         .ancestors()
         .map(|path| path.join(filename))
         .find(exists)
-        .context("upfind could not find parent")
 }

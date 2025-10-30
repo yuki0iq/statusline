@@ -16,7 +16,7 @@ impl From<&Environment> for Time {
 }
 
 impl Pretty for Time {
-    fn pretty(&self, _: &IconMode) -> Option<String> {
+    fn pretty(&self, _: IconMode) -> Option<String> {
         let datetime_str = self.format("%a, %Y-%b-%d, %H:%M:%S in %Z").to_string();
         // XXX: This is definitely NOT the right place to set position
         let term_width = terminal_size::terminal_size().map_or(80, |(w, _h)| w.0) as usize;

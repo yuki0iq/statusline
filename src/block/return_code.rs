@@ -29,7 +29,7 @@ impl From<&Environment> for ReturnCode {
 }
 
 impl Icon for ReturnCode {
-    fn icon(&self, mode: &IconMode) -> &'static str {
+    fn icon(&self, mode: IconMode) -> &'static str {
         use IconMode::*;
         match &self {
             Self::Ok => match &mode {
@@ -50,7 +50,7 @@ impl Icon for ReturnCode {
 }
 
 impl Pretty for ReturnCode {
-    fn pretty(&self, mode: &IconMode) -> Option<String> {
+    fn pretty(&self, mode: IconMode) -> Option<String> {
         let icon = self.icon(mode);
         let text = match &self {
             Self::Ok | Self::NotAvailable => icon.into(),

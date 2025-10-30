@@ -85,9 +85,8 @@ use argh::FromArgs;
 use rustix::{
     fd::{AsRawFd as _, FromRawFd as _, OwnedFd},
     fs::{self as rfs, OFlags},
-    process, stdio,
 };
-use std::{env, fs, io, io::Write as _, path::PathBuf};
+use std::{io::Write as _, path::PathBuf};
 use unicode_width::UnicodeWidthStr as _;
 
 fn readline_width(s: &str) -> usize {
@@ -178,15 +177,14 @@ impl From<Run> for Environment {
         let jobs_count = other.jobs_count;
         let elapsed_time = other.elapsed_time;
 
-        let work_dir =
-            env::current_dir().unwrap_or_else(|_| PathBuf::from(env::var("PWD").unwrap()));
+        let work_dir = std::env::current_dir()
+            .unwrap_or_else(|_| PathBuf::from(std::env::var("PWD").unwrap()));
 
-        let git_tree = file::upfind(&work_dir, ".git")
-            .ok()
-            .map(|dg| dg.parent().unwrap().to_path_buf());
+        let git_tree = file::upfind(&work_dir, ".git").map(|dg| dg.parent().unwrap().to_path_buf());
 
-        let user =
-            env::var("USER").unwrap_or_else(|_| format!("<user{}>", process::getuid().as_raw()));
+        // XXX: This does not work well under Termux
+        let user = std::env::var("USER")
+            .unwrap_or_else(|_| format!("<user{}>", rustix::process::getuid().as_raw()));
         let host = rustix::system::uname()
             .nodename()
             .to_string_lossy()
@@ -221,7 +219,7 @@ impl From<Run> for Environment {
     reason = "This really should be fixed and not with a band-aid"
 )]
 fn main() {
-    let exec = fs::read_link("/proc/self/exe")
+    let exec = std::fs::read_link("/proc/self/exe")
         .map(|pb| String::from(pb.to_string_lossy()))
         .unwrap_or("<executable>".to_owned());
 
@@ -285,7 +283,7 @@ fn main() {
                     libc::fcntl(
                         controlling_fd.as_raw_fd(),
                         libc::F_SETOWN,
-                        process::getpid(),
+                        rustix::process::getpid(),
                     )
                 };
                 #[expect(clippy::let_underscore_must_use)]
@@ -300,7 +298,7 @@ fn main() {
 
             let line_length: usize = line
                 .iter()
-                .filter_map(|x| x.pretty(&mode))
+                .filter_map(|x| x.pretty(mode))
                 .map(|x| readline_width(&x))
                 .sum();
 
@@ -329,8 +327,8 @@ fn main() {
                     default::title(&environ).invisible(),
                     default::pretty(&bottom, mode)
                 );
-                io::stdout().flush().unwrap();
-                stdio::dup2_stdout(
+                std::io::stdout().flush().unwrap();
+                rustix::stdio::dup2_stdout(
                     rfs::open("/dev/null", rfs::OFlags::RDWR, rfs::Mode::empty()).unwrap(),
                 )
                 .unwrap();
@@ -360,8 +358,8 @@ fn main() {
                     default::title(&environ).invisible(),
                     default::pretty(&bottom, mode)
                 );
-                io::stdout().flush().unwrap();
-                stdio::dup2_stdout(
+                std::io::stdout().flush().unwrap();
+                rustix::stdio::dup2_stdout(
                     rfs::open("/dev/null", rfs::OFlags::RDWR, rfs::Mode::empty()).unwrap(),
                 )
                 .unwrap();

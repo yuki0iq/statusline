@@ -1,5 +1,5 @@
 use crate::{Environment, Extend, Icon, IconMode, Pretty, Style as _};
-use std::{env, ffi::OsStr, path::Path};
+use std::{ffi::OsStr, path::Path};
 
 pub struct NixShell {
     // IN_NIX_SHELL=impure
@@ -19,7 +19,7 @@ impl Extend for MaybeNixShell {
 
 impl From<&Environment> for MaybeNixShell {
     fn from(_: &Environment) -> Self {
-        let purity = match env::var("IN_NIX_SHELL").ok()?.as_ref() {
+        let purity = match std::env::var("IN_NIX_SHELL").ok()?.as_ref() {
             "impure" => false,
             "pure" => true,
 
@@ -27,11 +27,12 @@ impl From<&Environment> for MaybeNixShell {
             _ => return None,
         };
 
-        let inputs = env::var("buildInputs")
+        // XXX: Do we also need propagatedXxxInputs?
+        let inputs = std::env::var("buildInputs")
             .unwrap_or_default()
             .split_whitespace()
             .chain(
-                env::var("nativeBuildInputs")
+                std::env::var("nativeBuildInputs")
                     .unwrap_or_default()
                     .split_whitespace(),
             )
@@ -48,7 +49,7 @@ impl From<&Environment> for MaybeNixShell {
 }
 
 impl Pretty for MaybeNixShell {
-    fn pretty(&self, mode: &IconMode) -> Option<String> {
+    fn pretty(&self, mode: IconMode) -> Option<String> {
         // I am not proud of the number of allocations here
         self.as_ref().map(|ns| {
             format!(
@@ -67,7 +68,7 @@ impl Pretty for MaybeNixShell {
 }
 
 impl Icon for NixShell {
-    fn icon(&self, mode: &IconMode) -> &'static str {
+    fn icon(&self, mode: IconMode) -> &'static str {
         use IconMode::*;
         match &mode {
             Text => "nix",

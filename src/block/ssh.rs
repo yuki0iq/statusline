@@ -20,7 +20,7 @@ impl Extend for Ssh {
 }
 
 impl Icon for Ssh {
-    fn icon(&self, mode: &IconMode) -> &'static str {
+    fn icon(&self, mode: IconMode) -> &'static str {
         use IconMode::*;
         match mode {
             Text => "ssh",
@@ -30,7 +30,7 @@ impl Icon for Ssh {
 }
 
 impl Pretty for Ssh {
-    fn pretty(&self, mode: &IconMode) -> Option<String> {
+    fn pretty(&self, mode: IconMode) -> Option<String> {
         let chain = &self.0;
         if chain.is_empty() {
             return None;

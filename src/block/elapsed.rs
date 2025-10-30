@@ -15,7 +15,7 @@ impl Extend for Elapsed {
 }
 
 impl Icon for Elapsed {
-    fn icon(&self, mode: &IconMode) -> &'static str {
+    fn icon(&self, mode: IconMode) -> &'static str {
         use IconMode::*;
         match &mode {
             Text => "took",
@@ -25,7 +25,7 @@ impl Icon for Elapsed {
 }
 
 impl Pretty for Elapsed {
-    fn pretty(&self, mode: &IconMode) -> Option<String> {
+    fn pretty(&self, mode: IconMode) -> Option<String> {
         Some(
             format!(
                 "({} {})",

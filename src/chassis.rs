@@ -1,6 +1,6 @@
 use crate::{Icon, IconMode, virt};
 use std::{
-    fs::{File, read_to_string},
+    fs::File,
     io::{BufRead as _, BufReader},
     path::Path,
 };
@@ -52,7 +52,7 @@ impl From<&str> for Chassis {
 }
 
 impl Icon for Chassis {
-    fn icon(&self, mode: &IconMode) -> &'static str {
+    fn icon(&self, mode: IconMode) -> &'static str {
         use IconMode::*;
         match self {
             Self::Desktop => match mode {
@@ -216,7 +216,7 @@ impl Chassis {
         /proc/device-tree/chassis-type as chassis_str
         */
         Some(Chassis::from(
-            read_to_string("/proc/device-tree/chassis-type")
+            std::fs::read_to_string("/proc/device-tree/chassis-type")
                 .ok()?
                 .as_str(),
         ))
@@ -224,5 +224,9 @@ impl Chassis {
 }
 
 fn read_single_u32<T: AsRef<Path> + ?Sized>(path: &T) -> Option<u32> {
-    read_to_string(path).ok()?.trim().parse::<u32>().ok()
+    std::fs::read_to_string(path)
+        .ok()?
+        .trim()
+        .parse::<u32>()
+        .ok()
 }

@@ -1,10 +1,8 @@
 use crate::{Environment, Extend, Icon, IconMode, Pretty, Style as _};
 use anyhow::{Context as _, Result, ensure};
-use rustix::fs as rfs;
+use rustix::fs::{Access, Stat};
 use std::{
-    env,
     ffi::OsString,
-    fs,
     os::unix::ffi::OsStringExt as _,
     path::{Path, PathBuf},
 };
@@ -18,7 +16,7 @@ enum State {
 }
 
 impl Icon for State {
-    fn icon(&self, mode: &IconMode) -> &'static str {
+    fn icon(&self, mode: IconMode) -> &'static str {
         use IconMode::*;
         match self {
             Self::Writeable => "",
@@ -43,7 +41,7 @@ impl Icon for State {
 }
 
 impl Pretty for State {
-    fn pretty(&self, mode: &IconMode) -> Option<String> {
+    fn pretty(&self, mode: IconMode) -> Option<String> {
         Some(
             self.icon(mode)
                 .visible()
@@ -57,7 +55,7 @@ impl Pretty for State {
 }
 
 fn get_cwd_if_deleted() -> Option<PathBuf> {
-    let mut cwd = fs::read_link("/proc/self/cwd")
+    let mut cwd = std::fs::read_link("/proc/self/cwd")
         .ok()?
         .into_os_string()
         .into_vec();
@@ -65,15 +63,15 @@ fn get_cwd_if_deleted() -> Option<PathBuf> {
     Some(PathBuf::from(OsString::from_vec(cwd)))
 }
 
-fn ensure_work_dir_not_moved(work_dir: &Path, stat_dot: rfs::Stat) -> Result<()> {
-    let stat_pwd = rfs::stat(work_dir)?;
+fn ensure_work_dir_not_moved(work_dir: &Path, stat_dot: Stat) -> Result<()> {
+    let stat_pwd = rustix::fs::stat(work_dir)?;
     ensure!((stat_dot.st_dev, stat_dot.st_ino) == (stat_pwd.st_dev, stat_pwd.st_ino));
-    ensure!(*work_dir == env::var_os("PWD").context("No PWD")?);
+    ensure!(*work_dir == std::env::var_os("PWD").context("No PWD")?);
     Ok(())
 }
 
 fn get_state(work_dir: &mut PathBuf) -> State {
-    let Ok(stat_dot) = rfs::stat(".") else {
+    let Ok(stat_dot) = rustix::fs::stat(".") else {
         return State::NoAccess;
     };
 
@@ -96,7 +94,7 @@ fn get_state(work_dir: &mut PathBuf) -> State {
         return State::Moved;
     }
 
-    match rfs::access(&*work_dir, rfs::Access::WRITE_OK) {
+    match rustix::fs::access(&*work_dir, Access::WRITE_OK) {
         Ok(()) => State::Writeable,
         Err(_) => State::Readable,
     }
@@ -131,7 +129,7 @@ impl From<&Environment> for Workdir {
 }
 
 impl Pretty for Workdir {
-    fn pretty(&self, mode: &IconMode) -> Option<String> {
+    fn pretty(&self, mode: IconMode) -> Option<String> {
         let (middle, highlighted) = match (&self.git_tree, &self.current_home) {
             (Some(git_root), Some((home_root, _))) => {
                 if home_root.starts_with(git_root) {

@@ -73,15 +73,15 @@ impl From<&Environment> for BuildInfo {
             bi.push(Kind::Jr);
         }
 
-        if file::upfind(workdir, "Cargo.toml").is_ok() {
+        if file::upfind(workdir, "Cargo.toml").is_some() {
             bi.push(Kind::Cargo);
         }
 
-        if file::upfind(workdir, "pyproject.toml").is_ok() {
+        if file::upfind(workdir, "pyproject.toml").is_some() {
             bi.push(Kind::Pyproject);
         }
 
-        if file::upfind(workdir, ".kks-workspace").is_ok() {
+        if file::upfind(workdir, ".kks-workspace").is_some() {
             bi.push(Kind::Kks);
         }
 
@@ -94,7 +94,7 @@ impl From<&Environment> for BuildInfo {
 }
 
 impl Pretty for BuildInfo {
-    fn pretty(&self, _: &IconMode) -> Option<String> {
+    fn pretty(&self, _: IconMode) -> Option<String> {
         let Self(buildinfo) = &self;
         if buildinfo.is_empty() {
             None?;

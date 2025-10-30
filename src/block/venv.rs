@@ -1,7 +1,6 @@
 use crate::{Environment, Extend, Icon, IconMode, Pretty, Style as _};
 use anyhow::Result;
 use std::{
-    env,
     ffi::OsStr,
     fs::File,
     io::{BufRead as _, BufReader},
@@ -23,7 +22,7 @@ impl Extend for MaybeVenv {
 
 impl From<&Environment> for MaybeVenv {
     fn from(_: &Environment) -> Self {
-        let path = PathBuf::from(env::var("VIRTUAL_ENV").ok()?);
+        let path = PathBuf::from(std::env::var("VIRTUAL_ENV").ok()?);
         let name = venv_name(&path).to_owned();
         let version = venv_ver(&path)
             .unwrap_or_default()
@@ -34,7 +33,7 @@ impl From<&Environment> for MaybeVenv {
 }
 
 impl Pretty for MaybeVenv {
-    fn pretty(&self, mode: &IconMode) -> Option<String> {
+    fn pretty(&self, mode: IconMode) -> Option<String> {
         self.as_ref().map(|venv| {
             format!("[{} {}|{}]", venv.icon(mode), venv.version, venv.name)
                 .visible()
@@ -47,7 +46,7 @@ impl Pretty for MaybeVenv {
 }
 
 impl Icon for Venv {
-    fn icon(&self, mode: &IconMode) -> &'static str {
+    fn icon(&self, mode: IconMode) -> &'static str {
         use IconMode::*;
         match &mode {
             Text => "py",

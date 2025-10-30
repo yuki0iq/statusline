@@ -1,17 +1,14 @@
 use crate::{Environment, Extend, Icon, IconMode, Pretty, Style as _, file};
 use anyhow::{Context as _, Result, bail};
 use memmapix::Mmap;
-use rustix::process;
+use rustix::process::Signal;
 use std::{
     borrow::Cow,
-    fs::{self, File},
+    fs::File,
     io::{BufRead as _, BufReader, Error, ErrorKind, Result as IoResult},
-    iter,
     os::unix::process::CommandExt as _,
     path::{Path, PathBuf},
     process::Command,
-    slice,
-    str::from_utf8 as str_from_utf8,
 };
 
 /*
@@ -48,13 +45,13 @@ fn parse_ref_by_name<T: AsRef<str>>(name: T, root: PathBuf) -> Head {
 }
 
 fn lcp<T: AsRef<str>>(left: T, right: T) -> usize {
-    iter::zip(left.as_ref().chars(), right.as_ref().chars())
+    std::iter::zip(left.as_ref().chars(), right.as_ref().chars())
         .position(|(a, b)| a != b)
         .unwrap_or(0) // if equal then LCP should be zero
 }
 
 fn lcp_bytes(left: &[u8], right: &[u8]) -> usize {
-    let pos = iter::zip(left.iter(), right.iter()).position(|(a, b)| a != b);
+    let pos = std::iter::zip(left.iter(), right.iter()).position(|(a, b)| a != b);
     match pos {
         None => 0,
         Some(i) => i * 2 + usize::from((left[i] >> 4) == (right[i] >> 4)),
@@ -62,7 +59,7 @@ fn lcp_bytes(left: &[u8], right: &[u8]) -> usize {
 }
 
 fn load_objects(root: &Path, fanout: &str) -> Result<Vec<String>> {
-    Ok(fs::read_dir(root.join("objects").join(fanout))?
+    Ok(std::fs::read_dir(root.join("objects").join(fanout))?
         .map(|res| res.map(|e| String::from(e.file_name().to_string_lossy())))
         .collect::<Result<Vec<_>, _>>()?)
 }
@@ -105,7 +102,7 @@ fn packed_objects_len(root: &Path, commit: &str) -> Result<usize> {
     let commit = parse_oid_str(commit).ok_or(Error::from(ErrorKind::InvalidData))?;
 
     let mut res = 0;
-    for entry in fs::read_dir(root.join("objects/pack"))? {
+    for entry in std::fs::read_dir(root.join("objects/pack"))? {
         let path = entry?.path();
         // eprintln!("entry {path:?}");
         let Some(ext) = path.extension() else {
@@ -141,7 +138,8 @@ fn packed_objects_len(root: &Path, commit: &str) -> Result<usize> {
 
         let map_size = map.len() / 4;
         // SAFETY: 4 * map_size <= map.len()
-        let integers: &[[u8; 4]] = unsafe { slice::from_raw_parts(map.as_ptr().cast(), map_size) };
+        let integers: &[[u8; 4]] =
+            unsafe { std::slice::from_raw_parts(map.as_ptr().cast(), map_size) };
 
         // Magic int is 0xFF744F63 ('\377tOc') which probably should be read as "table of contents"
         // Only version 2 is supported
@@ -180,7 +178,7 @@ fn packed_objects_len(root: &Path, commit: &str) -> Result<usize> {
             // SAFETY: begin = fanout_table[..] <= fanout_table.last() <= map_size
             unsafe { integers.as_ptr().offset(commit_position(begin).cast_signed()).cast() };
         // SAFETY: begin <= end <= map_size
-        let hashes: &[[u8; 20]] = unsafe { slice::from_raw_parts(hashes_start, end - begin) };
+        let hashes: &[[u8; 20]] = unsafe { std::slice::from_raw_parts(hashes_start, end - begin) };
 
         let index = hashes.partition_point(|hash| hash < &commit);
         // eprintln!("got index {index}");
@@ -225,7 +223,7 @@ struct Head {
 }
 
 impl Icon for HeadKind {
-    fn icon(&self, mode: &IconMode) -> &'static str {
+    fn icon(&self, mode: IconMode) -> &'static str {
         use IconMode::*;
         match self {
             Self::Branch(_) => match mode {
@@ -246,7 +244,7 @@ impl Icon for HeadKind {
 }
 
 impl Pretty for Head {
-    fn pretty(&self, mode: &IconMode) -> Option<String> {
+    fn pretty(&self, mode: IconMode) -> Option<String> {
         Some(match &self.kind {
             branch @ (HeadKind::Branch(name) | HeadKind::NonexistentBranch(name)) => {
                 format!("{} {}", branch.icon(mode), name)
@@ -283,8 +281,8 @@ impl Head {
         let root = &self.root;
         self.kind = match self.kind {
             HeadKind::Branch(name)
-                if fs::exists(root.join(git_value)).ok() != Some(true)
-                    && fs::File::open(root.join("packed-refs"))
+                if std::fs::exists(root.join(git_value)).ok() != Some(true)
+                    && File::open(root.join("packed-refs"))
                         .ok()
                         .map(BufReader::new)
                         .map(BufReader::lines)
@@ -318,7 +316,7 @@ impl State {
         let rebase_merge = root.join("rebase-merge");
 
         let abbrev_head = |head: &Path| {
-            fs::read_to_string(head).map(|mut id| {
+            std::fs::read_to_string(head).map(|mut id| {
                 id.truncate(abbrev_commit(root, &id));
                 id
             })
@@ -353,7 +351,7 @@ impl State {
 }
 
 impl Icon for State {
-    fn icon(&self, mode: &IconMode) -> &'static str {
+    fn icon(&self, mode: IconMode) -> &'static str {
         use IconMode::*;
         match self {
             Self::Bisecting => match mode {
@@ -381,7 +379,7 @@ impl Icon for State {
 }
 
 impl Pretty for State {
-    fn pretty(&self, mode: &IconMode) -> Option<String> {
+    fn pretty(&self, mode: IconMode) -> Option<String> {
         let icon = self.icon(mode);
         Some(match self {
             State::Bisecting => icon.into(),
@@ -404,7 +402,7 @@ fn get_remote(head: &Head) -> Option<(String, String)> {
     let section = format!("[branch \"{br}\"]");
     let mut remote_name = None;
     let mut remote_branch = None;
-    for line in BufReader::new(fs::File::open(root.join("config")).ok()?)
+    for line in BufReader::new(File::open(root.join("config")).ok()?)
         .lines()
         .map_while(Result::ok)
         .skip_while(|x| x != &section)
@@ -442,7 +440,7 @@ fn get_ahead_behind(
         .stdout
         .trim_ascii_end()
         .split(|&c| c == b'\t')
-        .flat_map(str_from_utf8)
+        .flat_map(std::str::from_utf8)
         .flat_map(str::parse::<usize>);
     let ahead = iter.next().unwrap();
     let behind = iter.next().unwrap();
@@ -488,7 +486,7 @@ impl From<&Environment> for Repo {
         let dotgit = tree.join(".git");
         let root = if dotgit.is_file() {
             tree.join(
-                fs::read_to_string(&dotgit)?
+                std::fs::read_to_string(&dotgit)?
                     .strip_prefix("gitdir: ")
                     .ok_or(Error::from(ErrorKind::InvalidData))?
                     .trim_end_matches(['\r', '\n']),
@@ -499,7 +497,7 @@ impl From<&Environment> for Repo {
 
         let stash_path = root.join("logs/refs/stash");
         // eprintln!("try find stashes in {stash_path:?}");
-        let stashes = fs::File::open(stash_path)
+        let stashes = File::open(stash_path)
             .map(|file| BufReader::new(file).lines().count())
             .unwrap_or(0);
 
@@ -510,13 +508,13 @@ impl From<&Environment> for Repo {
 
         let head = if head_path.is_symlink() {
             parse_ref_by_name(
-                fs::read_link(head_path)?
+                std::fs::read_link(head_path)?
                     .to_str()
                     .ok_or(Error::from(ErrorKind::InvalidFilename))?,
                 root,
             )
         } else {
-            let head = fs::read_to_string(head_path)?;
+            let head = std::fs::read_to_string(head_path)?;
             if let Some(rest) = head.strip_prefix("ref:") {
                 parse_ref_by_name(rest, root)
             } else {
@@ -559,7 +557,7 @@ impl Extend for Tree {
     fn extend(self: Box<Self>) -> Box<dyn Pretty> {
         let Some(self_ref) = *self else { return self };
 
-        let parent_pid = process::getpid();
+        let parent_pid = rustix::process::getpid();
         // SAFETY: pre_exec only sets parent process death signal and does nothing more
         let out = unsafe {
             Command::new("git")
@@ -568,8 +566,8 @@ impl Extend for Tree {
                 .arg("status")
                 .arg("--porcelain=2")
                 .pre_exec(move || -> IoResult<()> {
-                    process::set_parent_process_death_signal(Some(process::Signal::TERM))?;
-                    if Some(parent_pid) != process::getppid() {
+                    rustix::process::set_parent_process_death_signal(Some(Signal::TERM))?;
+                    if Some(parent_pid) != rustix::process::getppid() {
                         return Err(Error::other("Parent already dead"));
                     }
                     Ok(())
@@ -623,13 +621,13 @@ impl Extend for Tree {
 }
 
 impl Pretty for Repo {
-    fn pretty(&self, mode: &IconMode) -> Option<String> {
+    fn pretty(&self, mode: IconMode) -> Option<String> {
         self.as_ref().ok()?.pretty(mode)
     }
 }
 
 impl Pretty for GitRepo {
-    fn pretty(&self, mode: &IconMode) -> Option<String> {
+    fn pretty(&self, mode: IconMode) -> Option<String> {
         let mut res = vec![];
 
         if let Some(state) = &self.state {
@@ -669,13 +667,13 @@ impl Pretty for GitRepo {
 }
 
 impl Pretty for Tree {
-    fn pretty(&self, mode: &IconMode) -> Option<String> {
+    fn pretty(&self, mode: IconMode) -> Option<String> {
         self.as_ref()?.pretty(mode)
     }
 }
 
 impl Pretty for GitTree {
-    fn pretty(&self, mode: &IconMode) -> Option<String> {
+    fn pretty(&self, mode: IconMode) -> Option<String> {
         let vec = [
             (GitIcon::Conflict, self.unmerged),
             (GitIcon::Staged, self.staged),
@@ -714,7 +712,7 @@ enum GitIcon {
 }
 
 impl Icon for GitIcon {
-    fn icon(&self, mode: &IconMode) -> &'static str {
+    fn icon(&self, mode: IconMode) -> &'static str {
         use IconMode::*;
         match &self {
             Self::Ahead => match mode {
