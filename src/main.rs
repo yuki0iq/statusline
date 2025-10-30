@@ -102,9 +102,6 @@ fn readline_width(s: &str) -> usize {
 #[derive(FromArgs)]
 /// statusline
 struct Arguments {
-    #[argh(switch, hidden_help)]
-    env: bool,
-
     #[argh(subcommand)]
     /// action
     command: Option<Command>,
@@ -241,23 +238,7 @@ fn main() {
         .map(|pb| String::from(pb.to_string_lossy()))
         .unwrap_or("<executable>".to_owned());
 
-    let mut args: Arguments = argh::from_env();
-    if args.env {
-        eprintln!(
-            "{}",
-            "`statusline --env` is deprecated."
-                .visible()
-                .yellow()
-                .with_reset()
-                .invisible()
-        );
-        eprintln!("Please replace it with `statusline env` in your ~/.bashrc");
-        eprintln!("------------");
-        args = Arguments {
-            env: false,
-            command: Some(Command::Env(Env {})),
-        };
-    }
+    let args: Arguments = argh::from_env();
 
     let Some(command) = args.command else {
         let ver = env!("CARGO_PKG_VERSION");
