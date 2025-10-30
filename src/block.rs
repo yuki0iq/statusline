@@ -55,7 +55,7 @@ pub enum Kind {
 impl Kind {
     /// Creates a block from given environment. These blocks can be pretty-printed and extended
     #[must_use]
-    pub fn create_from_env(&self, env: &Environment) -> Box<dyn Extend> {
+    pub fn with(&self, env: &Environment) -> Box<dyn Extend> {
         match &self {
             Self::Separator => Box::new(separator::Separator("")),
             Self::Continue => Box::new(separator::Separator("\u{f105}")),

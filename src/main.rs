@@ -61,19 +61,15 @@
     clippy::enum_glob_use
 )]
 
-mod args;
 mod block;
 mod chassis;
-mod default;
 mod file;
 mod icon;
 mod style;
-mod time;
 mod virt;
 mod workgroup;
 
 use crate::{
-    args::Environment,
     block::{Extend, Kind as BlockType},
     chassis::Chassis,
     icon::{Icon, IconMode, Pretty},
@@ -86,7 +82,7 @@ use rustix::{
     fd::{AsRawFd as _, FromRawFd as _, OwnedFd},
     fs::{Mode, OFlags},
 };
-use std::{io::Write as _, path::PathBuf};
+use std::{borrow::Cow, io::Write as _, path::PathBuf};
 use style::horizontal_absolute;
 use unicode_width::UnicodeWidthStr as _;
 
@@ -170,6 +166,30 @@ struct Run {
     #[argh(option)]
     /// icon mode. `text` and `minimal` have special meaning
     mode: Option<String>,
+}
+
+/// Environment variables available to statusline
+pub struct Environment {
+    /// Last command's return code
+    pub ret_code: Option<u8>,
+    /// Jobs currently running
+    pub jobs_count: usize,
+    /// Last command's elapsed time, in us
+    pub elapsed_time: Option<u64>,
+    /// Working directory
+    pub work_dir: PathBuf,
+    /// Git worktree path if any
+    pub git_tree: Option<PathBuf>,
+    /// Username
+    pub user: String,
+    /// Hostname
+    pub host: String,
+    /// Chassis
+    pub chassis: Chassis,
+    /// Current home: dir and username
+    pub current_home: Option<(PathBuf, String)>,
+    /// Icon mode
+    pub mode: IconMode,
 }
 
 impl From<Run> for Environment {
@@ -293,22 +313,33 @@ fn print_statusline(run: Run) {
     let environ: Environment = run.into();
     let mode = environ.mode;
 
-    let title = default::title(&environ);
+    let title = make_title(&environ);
 
-    let bottom = default::pretty(&default::bottom(&environ), mode);
+    let bottom = pretty(
+        &[BlockType::RootShell, BlockType::Separator].map(|x| x.with(&environ)),
+        mode,
+    );
 
-    let right = default::pretty(&default::right(&environ), mode);
+    let right = pretty(
+        &[BlockType::Elapsed, BlockType::ReturnCode, BlockType::Time].map(|x| x.with(&environ)),
+        mode,
+    );
 
-    let workdir = BlockType::Workdir
-        .create_from_env(&environ)
-        .pretty(mode)
-        .unwrap();
-    let cont = BlockType::Continue
-        .create_from_env(&environ)
-        .pretty(mode)
-        .unwrap();
+    let workdir = BlockType::Workdir.with(&environ).pretty(mode).unwrap();
+    let cont = BlockType::Continue.with(&environ).pretty(mode).unwrap();
 
-    let line = default::top(&environ);
+    let line = [
+        BlockType::HostUser,
+        BlockType::Ssh,
+        BlockType::GitRepo,
+        BlockType::GitTree,
+        BlockType::BuildInfo,
+        BlockType::NixShell,
+        BlockType::Venv,
+        BlockType::Jobs,
+        BlockType::Mail,
+    ]
+    .map(|x| x.with(&environ));
 
     let terminal_width: usize = terminal_size::terminal_size()
         .map_or(80, |(w, _h)| w.0)
@@ -321,7 +352,7 @@ fn print_statusline(run: Run) {
         horizontal_absolute(terminal_width.saturating_sub(right_length))
     );
 
-    let line_formatted = default::pretty(&line, mode);
+    let line_formatted = pretty(&line, mode);
 
     let three_line_mode =
         readline_width(&line_formatted) + readline_width(&workdir) + right_length + 16
@@ -351,6 +382,32 @@ fn print_statusline(run: Run) {
     rustix::stdio::dup2_stdout(rustix::fs::open("/dev/null", OFlags::RDWR, Mode::empty()).unwrap())
         .unwrap();
 
-    let line = default::extend(line);
-    eprint_top_part(default::pretty(&line, mode));
+    let line = line.map(Extend::extend);
+    eprint_top_part(pretty(&line, mode));
+}
+
+fn make_title(env: &Environment) -> String {
+    let pwd = if let Some((home, user)) = &env.current_home {
+        let wd = env
+            .work_dir
+            .strip_prefix(home)
+            .unwrap_or(&env.work_dir)
+            .to_str()
+            .unwrap_or("<path>");
+        Cow::from(if wd.is_empty() {
+            format!("~{user}")
+        } else {
+            format!("~{user}/{wd}")
+        })
+    } else {
+        Cow::from(env.work_dir.to_str().unwrap_or("<path>"))
+    };
+    crate::style::title(&format!("{}@{}: {}", env.user, env.host, pwd))
+}
+
+fn pretty<T: Pretty + ?Sized, const N: usize>(line: &[Box<T>; N], mode: IconMode) -> String {
+    line.iter()
+        .filter_map(|x| x.as_ref().pretty(mode))
+        .collect::<Vec<_>>()
+        .join(" ")
 }
