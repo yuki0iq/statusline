@@ -7,34 +7,33 @@ rewritten in Rust.
 
 * Linux-compatible OS. Other OSes were not tested, but it will probably fail to run
 * Bash, for the shell
-* *(Optional)* Git, for repo information
-* *(Optional for x86)* SSSE3 support or better (prefer AVX2)
-* Cargo, for installing and updating
+* Git, for repo information
+* Cargo, for installing and updating *or* Nix, for building
 
 ## Installation
 
-0. Install rustup and nightly rust.
+0. Install rustup and stable rust.
    ```bash
    pacman -S rustup
-   rustup toolchain add nightly
+   rustup toolchain add stable
    ```
    Visit [rustup.rs](https://rustup.rs/) if not on Arch-based distro to see how to install on other
    distros. You may need to run rustup installation with superuser rights
 
 1. Install statusline from cargo
    ```bash
-   cargo +nightly install statusline
+   cargo install statusline
    ```
 
 2. Check if statusline is in path.
    ```bash
    statusline
    ```
-   If "bash: statusline: command not found" is shown, check your $PATH and ~/.bashrc, a folder
+   If "bash: statusline: command not found" is shown, check your `$PATH` and `~/.bashrc`, a folder
    where cargo install placed statusline binary should be there.
 
-   If you wish to not add the directory to $PATH, you can just use full path instead of short one
-   in `statusline --env` below
+   If you wish to not add the directory to `$PATH`, you can just use full path instead of short one
+   in `statusline env` below
 
 3. Set preferred statusline icons' mode. Do not add this line for defaults!
    Available modes are:
@@ -47,19 +46,32 @@ rewritten in Rust.
 
 4. Install the statusline to shell
    ```bash
-   echo 'eval "$(statusline --env)"' >> ~/.bashrc
+   echo 'source <(statusline env)' >> ~/.bashrc
    ```
 
 5. Apply changes immediately
    ```bash
-   source ~/.bashrc
+   PS1_MODE=minimal source <(statusline env)
    ```
 
-Don't forget to check PATH and update from time to time.
+Don't forget to check `$PATH` and update from time to time.
 
-You may wish to add `RUSTFLAGS="-C target-feature=+avx2"` to `cargo install statusline`
-for packaging and distributing reasons. For simple uses, this may be ignored as statusline compiles
-itself for current machine by default to maximize possible speed without throwing random SIGILL.
+## Nix way
+
+Build and apply immediately:
+```bash
+nix-build --log-format multiline-with-logs && source <(result/bin/statusline env)
+```
+
+Use in NixOS:
+```nix
+programs.bash.promptInit = let
+  statusline = pkgs.callPackage pins.statusline {};
+in ''
+  PS1_MODE=minimal source <(${statusline}/bin/statusline env)
+'';
+programs.bash.vteIntegration = false;
+```
 
 ## Features
 
@@ -67,11 +79,11 @@ itself for current machine by default to maximize possible speed without throwin
   more than one device --- especially if connecting over SSH. Red color is reserved for root user
 * __Git status display__ which immediately display repo's "persistent" info along with current
   state (rebasing, merging, etc.), and almost immediately the status. In addition, part of
-the working directory path inside the most nested git repo is highlighted
-* __Chassis icons__ to display the type of the host device, which are acquired as fast
-  as systemd does
+  the working directory path inside the most nested git repo is highlighted
+* __Chassis icons__ to display the type of the host device and help further differentiate between
+  devices
 * __Build tools display__ to inform which commands can be executed to "make" the project in
-  working directory. Makefile, ./configure, CMake, purplesyringa's ./jr, qbs, qmake and cargo
+  working directory. Makefile, ./configure, CMake, purplesyringa's ./jr, meson, nix and cargo
   are supported
 * __Simplified homes__  to make path more informative. Current user's home becomes `~`,
   others' become `~username`. Some paths are ignored to not make any confusion
@@ -88,7 +100,7 @@ the working directory path inside the most nested git repo is highlighted
 * *Maintained*. Only two people used purplesyringa's shell: me and her. After my disappointment
   with "shell"'s speed, I've started working on this project and she abandoned her one in favor of
   this one
-* *Lesser bugs*. "kill: no process found", "why does pressing <Tab> make newer prompts broken",
+* *Lesser bugs*. "kill: no process found", "why does pressing `<Tab>` make newer prompts broken",
   and some others --- are not present here by design
 * *More icons*. Almost every icon was changed to more appropriate and clean one
 * *Nicer git status*. Proper commit abbreviation, handling of "detached head", icons even here...
@@ -99,12 +111,12 @@ the working directory path inside the most nested git repo is highlighted
 ```
 statusline
     Display simple message "how to use". Useless, but may be used to check if statusline is in path
-statusline --env
+statusline env
     Print commands for `.bashrc`
-statusline --run [return_code:N/A [jobs_count:0 [elapsed_time:N/A]]]
-    Print statusline as PS1 prompt. Is not meant to be invoked directly, however---
-    Expects third fd to exist, will kill itself when something passed to it
-statusline --colorize <str>
+statusline run [--return-code <return-code>] --jobs-count <jobs-count> [--elapsed-time <elapsed-time>] [--control-fd <control-fd>] [--mode <mode>]
+    Print statusline as PS1 prompt. Is not meant to be invoked directly, however--
+    Expects control-fd to exist, will kill itself when something passed to it
+statusline colorize --what <str>
     Colorize <str> like hostname and username. Can be used to choose hostname which has the color
     you want
 ```
