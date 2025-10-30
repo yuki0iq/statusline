@@ -303,13 +303,7 @@ fn print_statusline(run: Run) {
         // SAFETY: This file descriptor is already open
         let controlling_fd = unsafe { OwnedFd::from_raw_fd(fd) };
         // SAFETY: This file descriptor is not reused for concurrently running invocations.
-        unsafe {
-            libc::fcntl(
-                controlling_fd.as_raw_fd(),
-                libc::F_SETOWN,
-                rustix::process::getpid(),
-            )
-        };
+        unsafe { libc::fcntl(fd, libc::F_SETOWN, rustix::process::getpid()) };
         rustix::fs::fcntl_setfl(controlling_fd, OFlags::ASYNC).unwrap();
     }
 
