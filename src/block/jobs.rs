@@ -8,9 +8,9 @@ impl Extend for Jobs {
     }
 }
 
-impl From<&Environment> for Jobs {
-    fn from(args: &Environment) -> Self {
-        Jobs(args.jobs_count)
+impl Jobs {
+    pub fn new(args: &Environment) -> Box<Self> {
+        Box::new(Jobs(args.jobs_count))
     }
 }
 

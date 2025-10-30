@@ -44,8 +44,8 @@ impl Extend for BuildInfo {
     }
 }
 
-impl From<&Environment> for BuildInfo {
-    fn from(env: &Environment) -> Self {
+impl BuildInfo {
+    pub fn new(env: &Environment) -> Box<Self> {
         let workdir = &env.work_dir;
         let mut bi = vec![];
 
@@ -89,7 +89,7 @@ impl From<&Environment> for BuildInfo {
             bi.push(Kind::Gradle);
         }
 
-        Self(bi)
+        Box::new(Self(bi))
     }
 }
 

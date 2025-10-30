@@ -1,15 +1,15 @@
 use crate::{
-    Environment, Extend, Icon, IconMode, Pretty, Style as _,
+    Extend, Icon, IconMode, Pretty, Style as _,
     workgroup::{SshChain, WorkgroupKey},
 };
 
 pub struct Ssh(String);
 
-impl From<&Environment> for Ssh {
-    fn from(_: &Environment) -> Ssh {
-        Ssh(SshChain::open(WorkgroupKey::load().ok().as_ref())
+impl Ssh {
+    pub fn new() -> Box<Ssh> {
+        Box::new(Ssh(SshChain::open(WorkgroupKey::load().ok().as_ref())
             .0
-            .join(" "))
+            .join(" ")))
     }
 }
 

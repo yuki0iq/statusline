@@ -2,9 +2,9 @@ use crate::{Environment, Extend, Icon, IconMode, Pretty, Style as _};
 
 pub struct Elapsed(u64);
 
-impl From<&Environment> for Elapsed {
-    fn from(env: &Environment) -> Self {
-        Elapsed(env.elapsed_time.unwrap_or_default())
+impl Elapsed {
+    pub fn new(env: &Environment) -> Box<Self> {
+        Box::new(Elapsed(env.elapsed_time.unwrap_or_default()))
     }
 }
 

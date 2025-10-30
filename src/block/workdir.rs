@@ -113,18 +113,18 @@ impl Extend for Workdir {
     }
 }
 
-impl From<&Environment> for Workdir {
-    fn from(env: &Environment) -> Self {
+impl Workdir {
+    pub fn new(env: &Environment) -> Box<Self> {
         let mut work_dir = env.work_dir.clone();
         let git_tree = env.git_tree.clone();
         let current_home = env.current_home.clone();
         let state = get_state(&mut work_dir);
-        Workdir {
+        Box::new(Workdir {
             work_dir,
             git_tree,
             current_home,
             state,
-        }
+        })
     }
 }
 

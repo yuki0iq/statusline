@@ -11,8 +11,8 @@ impl Extend for UnseenMail {
     }
 }
 
-impl From<&Environment> for UnseenMail {
-    fn from(environ: &Environment) -> Self {
+impl UnseenMail {
+    pub fn new(environ: &Environment) -> Box<Self> {
         let maildir_path =
             std::env::var("MAIL").unwrap_or_else(|_| format!("/var/spool/mail/{}", environ.user));
         let maildir = PathBuf::from(maildir_path);
@@ -27,9 +27,9 @@ impl From<&Environment> for UnseenMail {
                     .count()
             })
             .unwrap_or(0);
-        UnseenMail {
+        Box::new(UnseenMail {
             count: unseen_count + unread_count,
-        }
+        })
     }
 }
 

@@ -58,7 +58,8 @@
     clippy::module_name_repetitions,
     clippy::multiple_crate_versions,
     clippy::case_sensitive_file_extension_comparisons,
-    clippy::enum_glob_use
+    clippy::enum_glob_use,
+    clippy::unnecessary_box_returns
 )]
 
 mod block;
@@ -70,7 +71,7 @@ mod virt;
 mod workgroup;
 
 use crate::{
-    block::{Extend, Kind as BlockType},
+    block::Extend,
     chassis::Chassis,
     icon::{Icon, IconMode, Pretty},
     style::Style,
@@ -296,6 +297,8 @@ fn main() {
 }
 
 fn print_statusline(run: Run) {
+    use crate::block::*;
+
     if let Some(fd) = run.control_fd {
         // SAFETY: This file descriptor is already open
         let controlling_fd = unsafe { OwnedFd::from_raw_fd(fd) };
@@ -315,31 +318,31 @@ fn print_statusline(run: Run) {
 
     let title = make_title(&environ);
 
-    let bottom = pretty(
-        &[BlockType::RootShell, BlockType::Separator].map(|x| x.with(&environ)),
+    let bottom = pretty::<dyn Extend, _>(&[RootShell::new(), Separator::empty()], mode);
+
+    let right = pretty::<dyn Extend, _>(
+        &[
+            Elapsed::new(&environ),
+            ReturnCode::new(&environ),
+            Time::new(),
+        ],
         mode,
     );
 
-    let right = pretty(
-        &[BlockType::Elapsed, BlockType::ReturnCode, BlockType::Time].map(|x| x.with(&environ)),
-        mode,
-    );
+    let workdir = Workdir::new(&environ).pretty(mode).unwrap();
+    let cont = Separator::continuation().pretty(mode).unwrap();
 
-    let workdir = BlockType::Workdir.with(&environ).pretty(mode).unwrap();
-    let cont = BlockType::Continue.with(&environ).pretty(mode).unwrap();
-
-    let line = [
-        BlockType::HostUser,
-        BlockType::Ssh,
-        BlockType::GitRepo,
-        BlockType::GitTree,
-        BlockType::BuildInfo,
-        BlockType::NixShell,
-        BlockType::Venv,
-        BlockType::Jobs,
-        BlockType::Mail,
-    ]
-    .map(|x| x.with(&environ));
+    let line: [Box<dyn Extend>; _] = [
+        HostUser::new(&environ),
+        Ssh::new(),
+        Box::new(GitRepo::from(&environ)),
+        Box::new(GitTree::from(&environ)),
+        BuildInfo::new(&environ),
+        Box::new(MaybeNixShell::from(&environ)),
+        Box::new(MaybeVenv::from(&environ)),
+        Jobs::new(&environ),
+        UnseenMail::new(&environ),
+    ];
 
     let terminal_width: usize = terminal_size::terminal_size()
         .map_or(80, |(w, _h)| w.0)

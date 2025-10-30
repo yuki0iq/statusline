@@ -10,21 +10,21 @@ impl Extend for HostUser {
     }
 }
 
-impl From<&Environment> for Host {
-    fn from(env: &Environment) -> Self {
+impl Host {
+    fn new(env: &Environment) -> Self {
         Host(env.chassis, env.host.clone())
     }
 }
 
-impl From<&Environment> for User {
-    fn from(env: &Environment) -> Self {
+impl User {
+    fn new(env: &Environment) -> Self {
         User(env.user.clone())
     }
 }
 
-impl From<&Environment> for HostUser {
-    fn from(env: &Environment) -> Self {
-        HostUser(User::from(env), Host::from(env))
+impl HostUser {
+    pub fn new(env: &Environment) -> Box<Self> {
+        Box::new(HostUser(User::new(env), Host::new(env)))
     }
 }
 

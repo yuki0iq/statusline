@@ -1,7 +1,7 @@
-use crate::{Environment, Extend, IconMode, Pretty, Style as _};
+use crate::{Extend, IconMode, Pretty, Style as _};
 use chrono::prelude::*;
 
-pub type Time = DateTime<Local>;
+pub struct Time(DateTime<Local>);
 
 impl Extend for Time {
     fn extend(self: Box<Self>) -> Box<dyn Pretty> {
@@ -9,16 +9,17 @@ impl Extend for Time {
     }
 }
 
-impl From<&Environment> for Time {
-    fn from(_: &Environment) -> Self {
-        Local::now()
+impl Time {
+    pub fn new() -> Box<Self> {
+        Box::new(Self(Local::now()))
     }
 }
 
 impl Pretty for Time {
     fn pretty(&self, _: IconMode) -> Option<String> {
         Some(
-            self.format("%a, %Y-%b-%d, %H:%M:%S in %Z")
+            self.0
+                .format("%a, %Y-%b-%d, %H:%M:%S in %Z")
                 .visible()
                 .gray()
                 .with_reset()

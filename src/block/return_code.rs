@@ -15,16 +15,16 @@ impl Extend for ReturnCode {
     }
 }
 
-impl From<&Environment> for ReturnCode {
-    fn from(args: &Environment) -> Self {
-        match args.ret_code {
+impl ReturnCode {
+    pub fn new(args: &Environment) -> Box<Self> {
+        Box::new(match args.ret_code {
             Some(0) => Self::Ok,
             None => Self::NotAvailable,
             Some(code) => match signal_name(code.wrapping_sub(128)) {
                 Some(sig) => Self::Signaled(sig),
                 None => Self::Failed(code),
             },
-        }
+        })
     }
 }
 

@@ -1,4 +1,4 @@
-use crate::{Environment, Extend, Icon, IconMode, Pretty, Style as _};
+use crate::{Extend, Icon, IconMode, Pretty, Style as _};
 use rustix::process;
 use std::borrow::Cow;
 
@@ -10,15 +10,15 @@ impl Extend for RootShell {
     }
 }
 
-impl From<&Environment> for RootShell {
-    fn from(_: &Environment) -> Self {
-        RootShell(
+impl RootShell {
+    pub fn new() -> Box<Self> {
+        Box::new(RootShell(
             process::getuid().is_root(),
             std::env::var("SHLVL")
                 .unwrap_or_default()
                 .parse()
                 .unwrap_or_default(),
-        )
+        ))
     }
 }
 
