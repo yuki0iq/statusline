@@ -656,10 +656,9 @@ impl Pretty for GitRepo {
             }
         }
 
+        let text = "[".to_owned() + &res.join("") + "]";
         Some(
-            res.join("")
-                .boxed()
-                .visible()
+            text.visible()
                 .colorize_with(self.head.git_value().as_ref()) //.pink()
                 .bold()
                 .with_reset()
@@ -691,15 +690,8 @@ impl Pretty for GitTree {
         if vec.is_empty() {
             None
         } else {
-            Some(
-                vec.join(" ")
-                    .boxed()
-                    .visible()
-                    .pink()
-                    .with_reset()
-                    .invisible()
-                    .to_string(),
-            )
+            let text = "[".to_owned() + &vec.join(" ") + "]";
+            Some(text.visible().pink().with_reset().invisible().to_string())
         }
     }
 }

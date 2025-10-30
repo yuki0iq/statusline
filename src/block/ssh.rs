@@ -38,8 +38,7 @@ impl Pretty for Ssh {
 
         let icon = self.icon(mode);
         Some(
-            format!("{icon} {chain}")
-                .boxed()
+            format!("[{icon} {chain}]")
                 .visible()
                 .cyan()
                 .invisible()

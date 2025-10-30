@@ -28,11 +28,10 @@ impl Pretty for Elapsed {
     fn pretty(&self, mode: &IconMode) -> Option<String> {
         Some(
             format!(
-                "{} {}",
+                "({} {})",
                 self.icon(mode),
                 time::microseconds_to_string(self.0)?
             )
-            .rounded()
             .visible()
             .cyan()
             .with_reset()

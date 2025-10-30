@@ -36,8 +36,7 @@ impl From<&Environment> for MaybeVenv {
 impl Pretty for MaybeVenv {
     fn pretty(&self, mode: &IconMode) -> Option<String> {
         self.as_ref().map(|venv| {
-            format!("{} {}|{}", venv.icon(mode), venv.version, venv.name)
-                .boxed()
+            format!("[{} {}|{}]", venv.icon(mode), venv.version, venv.name)
                 .visible()
                 .yellow()
                 .with_reset()

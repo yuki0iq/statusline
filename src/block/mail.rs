@@ -36,8 +36,7 @@ impl From<&Environment> for UnseenMail {
 impl Pretty for UnseenMail {
     fn pretty(&self, mode: &IconMode) -> Option<String> {
         0.ne(&self.count).then(|| {
-            format!("{}{}", self.icon(mode), self.count)
-                .boxed()
+            format!("[{}{}]", self.icon(mode), self.count)
                 .visible()
                 .yellow()
                 .with_reset()

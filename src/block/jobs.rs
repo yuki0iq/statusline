@@ -23,8 +23,7 @@ impl Pretty for Jobs {
         let text = if self.0 == 1 { "job" } else { "jobs" };
 
         Some(
-            format!("{} {text}", self.0)
-                .boxed()
+            format!("[{} {text}]", self.0)
                 .visible()
                 .green()
                 .bold()

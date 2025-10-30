@@ -52,12 +52,11 @@ impl Pretty for MaybeNixShell {
         // I am not proud of the number of allocations here
         self.as_ref().map(|ns| {
             format!(
-                "{}{} {}",
+                "[{}{} {}]",
                 if ns.purity { "" } else { "!" },
                 ns.icon(mode),
                 ns.inputs.join(" ")
             )
-            .boxed()
             .visible()
             .bright_blue()
             .with_reset()

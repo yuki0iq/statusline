@@ -99,18 +99,13 @@ impl Pretty for BuildInfo {
         if buildinfo.is_empty() {
             None?;
         }
-        Some(
-            buildinfo
+        let text = "[".to_owned()
+            + &buildinfo
                 .iter()
                 .map(ToString::to_string)
                 .collect::<Vec<_>>()
                 .join(" ")
-                .boxed()
-                .visible()
-                .purple()
-                .with_reset()
-                .invisible()
-                .to_string(),
-        )
+            + "]";
+        Some(text.visible().purple().with_reset().invisible().to_string())
     }
 }

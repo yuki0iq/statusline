@@ -43,8 +43,6 @@ enum StyleKind {
     ResetEnd,
     Invisible,
     Visible,
-    Boxed,
-    Rounded,
     CursorHorizontalAbsolute(usize),
     CursorPreviousLine(i32),
     CursorSaveRestore,
@@ -95,8 +93,6 @@ impl<T: Display + ?Sized> Display for Styled<'_, T> {
             StyleKind::ResetEnd => write!(f, "{}{RESET}", self.value),
             StyleKind::Invisible => write!(f, "{INVISIBLE_START}{}{INVISIBLE_END}", self.value),
             StyleKind::Visible => write!(f, "{INVISIBLE_END}{}{INVISIBLE_START}", self.value),
-            StyleKind::Boxed => write!(f, "[{}]", self.value),
-            StyleKind::Rounded => write!(f, "({})", self.value),
             StyleKind::CursorHorizontalAbsolute(n) => write!(f, "{CSI}{n}G{}", self.value),
             StyleKind::CursorPreviousLine(n) => write!(f, "{CSI}{n}A{CSI}G{}", self.value),
             StyleKind::CursorSaveRestore => write!(f, "{CSI}s{}{CSI}u", self.value),
@@ -225,32 +221,6 @@ pub trait Style: Display {
     fn with_reset(&self) -> Styled<'_, Self> {
         Styled {
             style: StyleKind::ResetEnd,
-            value: self,
-        }
-    }
-
-    /// Wrap into square brackets
-    ///
-    /// ```
-    /// use statusline::Style;
-    /// assert_eq!("[nya]", "nya".boxed().to_string());
-    /// ```
-    fn boxed(&self) -> Styled<'_, Self> {
-        Styled {
-            style: StyleKind::Boxed,
-            value: self,
-        }
-    }
-
-    /// Wrap into round brackets
-    ///
-    /// ```
-    /// use statusline::Style;
-    /// assert_eq!("(nyaah~)", "nyaah~".rounded().to_string());
-    /// ```
-    fn rounded(&self) -> Styled<'_, Self> {
-        Styled {
-            style: StyleKind::Rounded,
             value: self,
         }
     }
