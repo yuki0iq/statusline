@@ -1,12 +1,11 @@
 //! Default top and bottom statuslines with default title generator
 
-use crate::{BlockType, Environment, Extend, IconMode, Pretty, Style as _};
+use crate::{BlockType, Environment, Extend, IconMode, Pretty};
 use std::borrow::Cow;
 
-/// Default top part of statusline
-// XXX: Do not forget to adjust where `path` component is whenever you change the block order
+/// Default top part of statusline without Workdir
 #[must_use]
-pub fn top(env: &Environment) -> [Box<dyn Extend>; 12] {
+pub fn top(env: &Environment) -> [Box<dyn Extend>; 9] {
     [
         BlockType::HostUser,
         BlockType::Ssh,
@@ -17,11 +16,16 @@ pub fn top(env: &Environment) -> [Box<dyn Extend>; 12] {
         BlockType::Venv,
         BlockType::Jobs,
         BlockType::Mail,
-        BlockType::Workdir,
-        BlockType::Elapsed,
-        BlockType::Time,
     ]
     .map(|x| x.create_from_env(env))
+}
+
+/// Default top right part of statusline
+///
+/// Immutable, but not for `readline`
+#[must_use]
+pub fn right(env: &Environment) -> [Box<dyn Extend>; 3] {
+    [BlockType::Elapsed, BlockType::ReturnCode, BlockType::Time].map(|x| x.create_from_env(env))
 }
 
 /// Default top line extender
@@ -33,13 +37,8 @@ pub fn extend<const N: usize>(top: [Box<dyn Extend>; N]) -> [Box<dyn Pretty>; N]
 ///
 /// Immutable, intended to use in `readline`-like functions
 #[must_use]
-pub fn bottom(env: &Environment) -> [Box<dyn Extend>; 3] {
-    [
-        BlockType::ReturnCode,
-        BlockType::RootShell,
-        BlockType::Separator,
-    ]
-    .map(|x| x.create_from_env(env))
+pub fn bottom(env: &Environment) -> [Box<dyn Extend>; 2] {
+    [BlockType::RootShell, BlockType::Separator].map(|x| x.create_from_env(env))
 }
 
 /// Default title for statusline
@@ -62,9 +61,7 @@ pub fn title(env: &Environment) -> String {
     } else {
         Cow::from(env.work_dir.to_str().unwrap_or("<path>"))
     };
-    format!("{}@{}: {}", env.user, env.host, pwd)
-        .as_title()
-        .to_string()
+    crate::style::title(&format!("{}@{}: {}", env.user, env.host, pwd))
 }
 
 /// Default pretty-printer

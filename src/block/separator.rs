@@ -13,17 +13,3 @@ impl Extend for Separator {
         self
     }
 }
-
-pub struct Empty;
-
-impl Pretty for Empty {
-    fn pretty(&self, _: IconMode) -> Option<String> {
-        None
-    }
-}
-
-impl Extend for Empty {
-    fn extend(self: Box<Self>) -> Box<dyn Pretty> {
-        self
-    }
-}

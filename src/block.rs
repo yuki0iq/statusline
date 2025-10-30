@@ -20,8 +20,6 @@ pub mod workdir;
 pub enum Kind {
     /// Empty separator
     Separator,
-    /// Empty block (does not ever separate),
-    Empty,
     /// Continuation arrow
     Continue,
     /// Show background jobs count
@@ -60,7 +58,6 @@ impl Kind {
     pub fn create_from_env(&self, env: &Environment) -> Box<dyn Extend> {
         match &self {
             Self::Separator => Box::new(separator::Separator("")),
-            Self::Empty => Box::new(separator::Empty),
             Self::Continue => Box::new(separator::Separator("\u{f105}")),
             Self::Jobs => Box::new(jobs::Jobs::from(env)),
             Self::ReturnCode => Box::new(return_code::ReturnCode::from(env)),

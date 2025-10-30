@@ -21,6 +21,7 @@ libc = "0.2"
 memmapix = "0.7"
 argh = "0.1"
 linux-raw-sys = "0.9"
+const_format = "0.2.35"
 
 [profile.release]
 codegen-units = 1

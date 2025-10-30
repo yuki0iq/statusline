@@ -1,3 +1,4 @@
+use const_format::formatcp;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
 const INVISIBLE_START: &str = "\x01";
@@ -34,7 +35,6 @@ const HSV_COLOR_TABLE: [(u8, u8, u8); 24] = [
 ];
 
 enum StyleKind {
-    Title,
     Bold,
     Italic,
     Color8(usize),
@@ -43,11 +43,6 @@ enum StyleKind {
     ResetEnd,
     Invisible,
     Visible,
-    CursorHorizontalAbsolute(usize),
-    CursorPreviousLine(i32),
-    CursorSaveRestore,
-    ClearLine,
-    NewlineJoin(String),
 }
 
 /// Styled "string"-like object
@@ -59,16 +54,6 @@ enum StyleKind {
 /// it possible to chain styles to apply them from the innermost to the outermost.
 ///
 /// All the magic happens in [Style] trait.
-///
-/// ```
-/// use statusline::Style;
-///
-/// let hello = "Hello world!";
-/// let styled = hello.boxed().red().bold().with_reset().to_string();
-/// //                ^^^^^^^^------=======.............
-/// assert_eq!("\x1b[1m\x1b[31m[Hello world!]\x1b[0m", styled);
-/// //          =======--------^            ^.......
-/// ```
 ///
 /// This wrapper applies styles only when formatted to string. Formatting results are never saved
 /// and every call to `<Styled as ToString>::to_string()` will format the result one more time,
@@ -82,7 +67,6 @@ pub struct Styled<'a, T: Display + ?Sized> {
 impl<T: Display + ?Sized> Display for Styled<'_, T> {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         match &self.style {
-            StyleKind::Title => write!(f, "{ESC}]0;{}{BEL}", self.value),
             StyleKind::Bold => write!(f, "{CSI}1m{}", self.value),
             StyleKind::Italic => write!(f, "{CSI}3m{}", self.value),
             StyleKind::Color8(index) => write!(f, "{CSI}{}m{}", index + 31, self.value),
@@ -93,13 +77,32 @@ impl<T: Display + ?Sized> Display for Styled<'_, T> {
             StyleKind::ResetEnd => write!(f, "{}{RESET}", self.value),
             StyleKind::Invisible => write!(f, "{INVISIBLE_START}{}{INVISIBLE_END}", self.value),
             StyleKind::Visible => write!(f, "{INVISIBLE_END}{}{INVISIBLE_START}", self.value),
-            StyleKind::CursorHorizontalAbsolute(n) => write!(f, "{CSI}{n}G{}", self.value),
-            StyleKind::CursorPreviousLine(n) => write!(f, "{CSI}{n}A{CSI}G{}", self.value),
-            StyleKind::CursorSaveRestore => write!(f, "{CSI}s{}{CSI}u", self.value),
-            StyleKind::ClearLine => write!(f, "{CSI}0K{}", self.value),
-            StyleKind::NewlineJoin(s) => write!(f, "{}\n{s}", self.value),
         }
     }
+}
+
+const CURSOR_SAVE: &str = formatcp!("{CSI}s");
+const CURSOR_RESTORE: &str = formatcp!("{CSI}u");
+const CLEAR_LINE: &str = formatcp!("{CSI}0K");
+
+fn prev_line(n: usize) -> String {
+    format!("{CSI}{n}A{CSI}G")
+}
+
+pub fn prologue(three_line_mode: bool) -> String {
+    format!(
+        "{INVISIBLE_START}{CURSOR_SAVE}{}{CLEAR_LINE}{INVISIBLE_END}",
+        prev_line(if three_line_mode { 2 } else { 1 })
+    )
+}
+pub fn epilogue() -> String {
+    format!("{INVISIBLE_START}{CURSOR_RESTORE}{INVISIBLE_END}")
+}
+pub fn title(title: &str) -> String {
+    format!("{INVISIBLE_START}{ESC}]0;{title}{BEL}{INVISIBLE_END}")
+}
+pub fn horizontal_absolute(n: usize) -> String {
+    format!("{INVISIBLE_START}{CSI}{n}G{INVISIBLE_END}")
 }
 
 /// Styling functions for function chaining
@@ -108,27 +111,14 @@ impl<T: Display + ?Sized> Display for Styled<'_, T> {
 /// use statusline::Style;
 ///
 /// let hello = "Hello world!";
-/// let styled = hello.boxed().red().bold().with_reset().to_string();
-/// //                ^^^^^^^^------=======.............
-/// assert_eq!("\x1b[1m\x1b[31m[Hello world!]\x1b[0m", styled);
-/// //          =======--------^            ^.......
+/// let styled = hello.red().bold().with_reset().to_string();
+/// //                ------=======.............
+/// assert_eq!("\x1b[1m\x1b[31mHello world!\x1b[0m", styled);
+/// //          =======--------            .......
 /// ```
 ///
 /// Every chained function call a new [Styled] object wraps the previous result like a cabbage.
 pub trait Style: Display {
-    /// Format as a title for terminal
-    ///
-    /// ```
-    /// use statusline::Style;
-    /// assert_eq!("\x1b]0;yuki@reimu: /home/yuki\x07", "yuki@reimu: /home/yuki".as_title().to_string());
-    /// ```
-    fn as_title(&self) -> Styled<'_, Self> {
-        Styled {
-            style: StyleKind::Title,
-            value: self,
-        }
-    }
-
     /// Prepend bold style. Colors from 16-color palette may shift a bit
     ///
     /// ```
@@ -221,47 +211,6 @@ pub trait Style: Display {
     fn with_reset(&self) -> Styled<'_, Self> {
         Styled {
             style: StyleKind::ResetEnd,
-            value: self,
-        }
-    }
-
-    /// Set cursor position, the horizontal part, with absolute value. Coordinates are counted
-    /// from 1, from line start to line end, which may seem counter-intuitive
-    fn horizontal_absolute(&self, pos: usize) -> Styled<'_, Self> {
-        Styled {
-            style: StyleKind::CursorHorizontalAbsolute(pos),
-            value: self,
-        }
-    }
-
-    /// Move cursor to the beginning of line which is `count` lines above the current one
-    fn prev_line(&self, count: i32) -> Styled<'_, Self> {
-        Styled {
-            style: StyleKind::CursorPreviousLine(count),
-            value: self,
-        }
-    }
-
-    /// Wrap into cursor saver --- for example for outputting PS1 above the PS1 "line"
-    fn save_restore(&self) -> Styled<'_, Self> {
-        Styled {
-            style: StyleKind::CursorSaveRestore,
-            value: self,
-        }
-    }
-
-    /// Prepends line cleaner
-    fn clear_till_end(&self) -> Styled<'_, Self> {
-        Styled {
-            style: StyleKind::ClearLine,
-            value: self,
-        }
-    }
-
-    /// Join current line with fixed one with newline
-    fn join_lf(&self, s: String) -> Styled<'_, Self> {
-        Styled {
-            style: StyleKind::NewlineJoin(s),
             value: self,
         }
     }

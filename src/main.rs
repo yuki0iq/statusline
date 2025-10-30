@@ -87,14 +87,15 @@ use rustix::{
     fs::{self as rfs, OFlags},
 };
 use std::{io::Write as _, path::PathBuf};
+use style::horizontal_absolute;
 use unicode_width::UnicodeWidthStr as _;
 
 fn readline_width(s: &str) -> usize {
     let mut res = s.width();
     for (i, c) in s.bytes().enumerate() {
         match c {
-            b'\x01' => res += i + 1,
-            b'\x02' => res -= i,
+            b'\x01' => res += i,
+            b'\x02' => res -= i + 1,
             _ => {}
         }
     }
@@ -214,10 +215,6 @@ impl From<Run> for Environment {
     }
 }
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "This really should be fixed and not with a band-aid"
-)]
 fn main() {
     let exec = std::fs::read_link("/proc/self/exe")
         .map(|pb| String::from(pb.to_string_lossy()))
@@ -274,105 +271,89 @@ fn main() {
             );
             println!("{}", SshChain(ssh_chain).seal(&key));
         }
-        Command::Run(run) => {
-            if let Some(fd) = run.control_fd {
-                // SAFETY: This file descriptor is already open
-                let controlling_fd = unsafe { OwnedFd::from_raw_fd(fd) };
-                // SAFETY: This file descriptor is not reused for concurrently running invocations.
-                unsafe {
-                    libc::fcntl(
-                        controlling_fd.as_raw_fd(),
-                        libc::F_SETOWN,
-                        rustix::process::getpid(),
-                    )
-                };
-                #[expect(clippy::let_underscore_must_use)]
-                let _ = rfs::fcntl_setfl(controlling_fd, OFlags::ASYNC);
-            }
-
-            let environ: Environment = run.into();
-            let mode = environ.mode;
-            let bottom = default::bottom(&environ);
-
-            let mut line = default::top(&environ);
-
-            let line_length: usize = line
-                .iter()
-                .filter_map(|x| x.pretty(mode))
-                .map(|x| readline_width(&x))
-                .sum();
-
-            if line_length + 16
-                >= terminal_size::terminal_size()
-                    .map_or(80, |(w, _h)| w.0)
-                    .into()
-            {
-                // three lines
-                let mut second = BlockType::Empty.create_from_env(&environ);
-                // XXX: This position is hard coded and should be adjusted whenever default changes
-                std::mem::swap(&mut second, &mut line[9]);
-                let second = [BlockType::Continue.create_from_env(&environ), second];
-
-                eprint!(
-                    "\n\n\n{}",
-                    default::pretty(&line, mode)
-                        .join_lf(default::pretty(&second, mode))
-                        .clear_till_end()
-                        .prev_line(2)
-                        .save_restore()
-                );
-
-                print!(
-                    "{}{}",
-                    default::title(&environ).invisible(),
-                    default::pretty(&bottom, mode)
-                );
-                std::io::stdout().flush().unwrap();
-                rustix::stdio::dup2_stdout(
-                    rfs::open("/dev/null", rfs::OFlags::RDWR, rfs::Mode::empty()).unwrap(),
-                )
-                .unwrap();
-
-                let line = default::extend(line);
-                let second = default::extend(second);
-                eprint!(
-                    "{}",
-                    default::pretty(&line, mode)
-                        .join_lf(default::pretty(&second, mode))
-                        .clear_till_end()
-                        .prev_line(2)
-                        .save_restore()
-                );
-            } else {
-                // two lines
-                eprint!(
-                    "\n\n{}",
-                    default::pretty(&line, mode)
-                        .clear_till_end()
-                        .prev_line(1)
-                        .save_restore()
-                );
-
-                print!(
-                    "{}{}",
-                    default::title(&environ).invisible(),
-                    default::pretty(&bottom, mode)
-                );
-                std::io::stdout().flush().unwrap();
-                rustix::stdio::dup2_stdout(
-                    rfs::open("/dev/null", rfs::OFlags::RDWR, rfs::Mode::empty()).unwrap(),
-                )
-                .unwrap();
-
-                let line = default::extend(line);
-                eprint!(
-                    "{}",
-                    default::pretty(&line, mode)
-                        .clear_till_end()
-                        .prev_line(1)
-                        .save_restore()
-                );
-            }
-        }
+        Command::Run(run) => print_statusline(run),
     }
+}
+
+fn print_statusline(run: Run) {
+    if let Some(fd) = run.control_fd {
+        // SAFETY: This file descriptor is already open
+        let controlling_fd = unsafe { OwnedFd::from_raw_fd(fd) };
+        // SAFETY: This file descriptor is not reused for concurrently running invocations.
+        unsafe {
+            libc::fcntl(
+                controlling_fd.as_raw_fd(),
+                libc::F_SETOWN,
+                rustix::process::getpid(),
+            )
+        };
+        #[expect(clippy::let_underscore_must_use)]
+        let _ = rfs::fcntl_setfl(controlling_fd, OFlags::ASYNC);
+    }
+
+    let environ: Environment = run.into();
+    let mode = environ.mode;
+
+    let title = default::title(&environ);
+
+    let bottom = default::pretty(&default::bottom(&environ), mode);
+
+    let right = default::pretty(&default::right(&environ), mode);
+
+    let workdir = BlockType::Workdir
+        .create_from_env(&environ)
+        .pretty(mode)
+        .unwrap();
+    let cont = BlockType::Continue
+        .create_from_env(&environ)
+        .pretty(mode)
+        .unwrap();
+
+    let line = default::top(&environ);
+
+    let terminal_width: usize = terminal_size::terminal_size()
+        .map_or(80, |(w, _h)| w.0)
+        .into();
+
+    let right_length = readline_width(&right);
+    let right_formatted = format!(
+        "{}{right}",
+        // XXX: This may not be the right way to set right prompt...
+        horizontal_absolute(terminal_width.saturating_sub(right_length))
+    );
+
+    let line_formatted = default::pretty(&line, mode);
+
+    let three_line_mode =
+        readline_width(&line_formatted) + readline_width(&workdir) + right_length + 16
+            >= terminal_width;
+
+    let prologue = crate::style::prologue(three_line_mode);
+    let epilogue = crate::style::epilogue();
+
+    let eprint_top_part = |top| {
+        if three_line_mode {
+            eprint!("{prologue}{top}{right_formatted}\n{cont} {workdir}{epilogue}");
+        } else {
+            eprint!("{prologue}{top} {workdir}{right_formatted}{epilogue}");
+        }
+    };
+
+    eprint!("{title}");
+    if three_line_mode {
+        eprint!("\n\n\n");
+    } else {
+        eprint!("\n\n");
+    }
+    eprint_top_part(line_formatted);
+
+    print!("{bottom}");
+    std::io::stdout().flush().unwrap();
+    rustix::stdio::dup2_stdout(
+        rfs::open("/dev/null", rfs::OFlags::RDWR, rfs::Mode::empty()).unwrap(),
+    )
+    .unwrap();
+
+    let line = default::extend(line);
+    eprint_top_part(default::pretty(&line, mode));
 }
