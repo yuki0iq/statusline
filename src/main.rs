@@ -77,9 +77,8 @@ use crate::{
     chassis::Chassis,
     icon::{Icon, IconMode, Pretty},
     style::Style,
+    workgroup::{SshChain, WorkgroupKey},
 };
-
-use crate::workgroup::{SshChain, WorkgroupKey};
 use argh::FromArgs;
 use rustix::{
     fd::{FromRawFd as _, OwnedFd},

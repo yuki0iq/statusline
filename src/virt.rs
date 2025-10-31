@@ -1,7 +1,7 @@
 use crate::file;
 use anyhow::Result;
 use std::{
-    fs::{self, File},
+    fs::File,
     io::{BufRead as _, BufReader, ErrorKind},
     path::Path,
 };
@@ -35,13 +35,13 @@ fn detect_vm_cpuid() -> Option<bool> {
 }
 
 fn detect_vm_device_tree() -> Result<Option<bool>> {
-    if fs::exists("/proc/device-tree/hypervisor/compatible")? {
+    if std::fs::exists("/proc/device-tree/hypervisor/compatible")? {
         return Ok(Some(true));
     }
 
-    if fs::exists("/proc/device-tree/ibm,partition-name")?
-        && fs::exists("/proc/device-tree/hmc-managed?")?
-        && !fs::exists("/proc/device-tree/chosen/qemu,graphic-width")?
+    if std::fs::exists("/proc/device-tree/ibm,partition-name")?
+        && std::fs::exists("/proc/device-tree/hmc-managed?")?
+        && !std::fs::exists("/proc/device-tree/chosen/qemu,graphic-width")?
     {
         return Ok(Some(true));
     }
@@ -53,7 +53,7 @@ fn detect_vm_device_tree() -> Result<Option<bool>> {
         Err(e) => return Err(e.into()),
     }
 
-    match fs::read_to_string("/proc/device-tree/compatible") {
+    match std::fs::read_to_string("/proc/device-tree/compatible") {
         Ok(s) if s == "qemu,pseries" => Ok(Some(true)),
         Ok(_) => Ok(Some(false)),
         Err(e) if e.kind() == ErrorKind::NotFound => Ok(None),
@@ -62,7 +62,7 @@ fn detect_vm_device_tree() -> Result<Option<bool>> {
 }
 
 fn detect_vm_dmi_vendor_path(path: &Path) -> Result<bool> {
-    let name = match fs::read_to_string(path) {
+    let name = match std::fs::read_to_string(path) {
         Ok(s) => s,
         Err(e) if e.kind() == ErrorKind::NotFound => return Ok(false),
         Err(e) => return Err(e.into()),
@@ -110,24 +110,24 @@ fn detect_vm_dmi_vendor() -> Result<bool> {
 fn detect_vm_smbios() -> Result<bool> {
     // See 7.1.2.2 "BIOS Characteristics Extension Byte 2" at [SMBIOS spec]
     // [SMBIOS spec]: https://www.dmtf.org/sites/default/files/standards/documents/DSP0134_3.4.0.pdf
-    Ok(fs::read("/sys/firmware/dmi/entries/0-0/raw")?
+    Ok(std::fs::read("/sys/firmware/dmi/entries/0-0/raw")?
         .get(0x13)
         .is_some_and(|x| ((x >> 4_i32) & 1) == 1))
 }
 
 fn detect_vm_dmi_metal() -> Result<bool> {
-    let name = fs::read_to_string("/sys/class/dmi/id/product_name")?;
+    let name = std::fs::read_to_string("/sys/class/dmi/id/product_name")?;
     Ok(name.contains(".metal-") || name.ends_with(".metal"))
 }
 
 fn detect_vm_xen_dom0() -> Result<bool> {
-    match fs::read_to_string("/sys/hypervisor/properties/features") {
+    match std::fs::read_to_string("/sys/hypervisor/properties/features") {
         Ok(s) => return Ok((u64::from_str_radix(&s, 16)? >> 11) & 1 == 1),
         Err(e) if e.kind() == ErrorKind::NotFound => {}
         Err(e) => return Err(e.into()),
     }
 
-    match fs::read_to_string("/proc/xen/capabilities") {
+    match std::fs::read_to_string("/proc/xen/capabilities") {
         Ok(s) => Ok(s.contains("control_d")),
         Err(e) if e.kind() == ErrorKind::NotFound => Ok(false),
         Err(e) => Err(e.into()),
@@ -148,9 +148,9 @@ pub fn detect_vm() -> Result<bool> {
         return Ok(res);
     }
 
-    if fs::exists("/proc/xen")? && !detect_vm_xen_dom0()?
-        || fs::exists("/sys/hypervisor/type")?
-        || fs::exists("/proc/sysinfo")?
+    if std::fs::exists("/proc/xen")? && !detect_vm_xen_dom0()?
+        || std::fs::exists("/sys/hypervisor/type")?
+        || std::fs::exists("/proc/sysinfo")?
         || detect_vm_smbios()?
         || detect_vm_dmi_vendor()?
         || detect_vm_dmi_metal()?
@@ -166,16 +166,16 @@ pub fn detect_vm() -> Result<bool> {
 }
 
 pub fn detect_container() -> Result<bool> {
-    if fs::exists("/proc/vz")? && !fs::exists("/proc/bc")?
-        || fs::exists("/run/host/container-daemon")?
-        || fs::exists("/run/systemd/container")?
-        || fs::exists("/run/.containerenv")?
-        || fs::exists("/.dockerenv")?
+    if std::fs::exists("/proc/vz")? && !std::fs::exists("/proc/bc")?
+        || std::fs::exists("/run/host/container-daemon")?
+        || std::fs::exists("/run/systemd/container")?
+        || std::fs::exists("/run/.containerenv")?
+        || std::fs::exists("/.dockerenv")?
     {
         return Ok(true);
     }
 
-    if let Ok(s) = fs::read_to_string("/proc/sys/kernel/osrelease")
+    if let Ok(s) = std::fs::read_to_string("/proc/sys/kernel/osrelease")
         && (s.contains("Microsoft") || s.contains("WSL"))
     {
         return Ok(true);
@@ -188,7 +188,7 @@ pub fn detect_container() -> Result<bool> {
                 .parse::<usize>()
                 .ok()
         })
-        && let Ok(s) = fs::read_to_string(format!("/proc/{pid}/comm"))
+        && let Ok(s) = std::fs::read_to_string(format!("/proc/{pid}/comm"))
         && s.starts_with("proot")
     {
         return Ok(true);

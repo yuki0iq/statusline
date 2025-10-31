@@ -3,7 +3,7 @@ use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD as base64engi
 use orion::aead::{self, SecretKey};
 use std::{
     env,
-    fs::{self, File},
+    fs::File,
     io::{BufRead as _, BufReader},
 };
 
@@ -25,7 +25,7 @@ impl WorkgroupKey {
     }
 
     pub fn create() -> Result<()> {
-        Ok(fs::write(
+        Ok(std::fs::write(
             format!("{}/.ssh/workgroup", env::var("HOME").unwrap_or_default()),
             base64engine.encode(SecretKey::default().unprotected_as_bytes()),
         )?)
