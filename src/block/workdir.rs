@@ -114,7 +114,7 @@ impl Extend for Workdir {
 }
 
 impl Workdir {
-    pub fn new(env: &Environment) -> Box<Self> {
+    pub fn new(env: &Environment) -> Box<dyn Extend> {
         let mut work_dir = env.work_dir.clone();
         let git_tree = env.git_tree.clone();
         let current_home = env.current_home.clone();

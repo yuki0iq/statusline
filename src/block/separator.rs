@@ -3,11 +3,11 @@ use crate::{Extend, IconMode, Pretty};
 pub struct Separator(pub &'static str);
 
 impl Separator {
-    pub fn empty() -> Box<Self> {
+    pub fn empty() -> Box<dyn Extend> {
         Box::new(Self(""))
     }
 
-    pub fn continuation() -> Box<Self> {
+    pub fn continuation() -> Box<dyn Extend> {
         Box::new(Self("\u{f105}"))
     }
 }

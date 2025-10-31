@@ -16,7 +16,7 @@ impl Extend for ReturnCode {
 }
 
 impl ReturnCode {
-    pub fn new(args: &Environment) -> Box<Self> {
+    pub fn new(args: &Environment) -> Box<dyn Extend> {
         Box::new(match args.ret_code {
             Some(0) => Self::Ok,
             None => Self::NotAvailable,

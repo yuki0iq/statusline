@@ -12,7 +12,7 @@ impl Extend for UnseenMail {
 }
 
 impl UnseenMail {
-    pub fn new(environ: &Environment) -> Box<Self> {
+    pub fn new(environ: &Environment) -> Box<dyn Extend> {
         let maildir_path =
             std::env::var("MAIL").unwrap_or_else(|_| format!("/var/spool/mail/{}", environ.user));
         let maildir = PathBuf::from(maildir_path);

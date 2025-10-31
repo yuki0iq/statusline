@@ -23,7 +23,7 @@ impl User {
 }
 
 impl HostUser {
-    pub fn new(env: &Environment) -> Box<Self> {
+    pub fn new(env: &Environment) -> Box<dyn Extend> {
         Box::new(HostUser(User::new(env), Host::new(env)))
     }
 }

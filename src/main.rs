@@ -59,7 +59,9 @@
     clippy::multiple_crate_versions,
     clippy::case_sensitive_file_extension_comparisons,
     clippy::enum_glob_use,
-    clippy::unnecessary_box_returns
+    clippy::unnecessary_box_returns,
+    clippy::wildcard_imports,
+    clippy::new_ret_no_self
 )]
 
 mod block;
@@ -80,7 +82,7 @@ use crate::{
 use crate::workgroup::{SshChain, WorkgroupKey};
 use argh::FromArgs;
 use rustix::{
-    fd::{AsRawFd as _, FromRawFd as _, OwnedFd},
+    fd::{FromRawFd as _, OwnedFd},
     fs::{Mode, OFlags},
 };
 use std::{borrow::Cow, io::Write as _, path::PathBuf};
@@ -293,9 +295,9 @@ fn print_statusline(run: Run) {
 
     let title = make_title(&environ);
 
-    let bottom = pretty::<dyn Extend, _>(&[RootShell::new(), Separator::empty()], mode);
+    let bottom = pretty(&[RootShell::new(), Separator::empty()], mode);
 
-    let right = pretty::<dyn Extend, _>(
+    let right = pretty(
         &[
             Elapsed::new(&environ),
             ReturnCode::new(&environ),
@@ -307,7 +309,7 @@ fn print_statusline(run: Run) {
     let workdir = Workdir::new(&environ).pretty(mode).unwrap();
     let cont = Separator::continuation().pretty(mode).unwrap();
 
-    let line: [Box<dyn Extend>; _] = [
+    let line = [
         HostUser::new(&environ),
         Ssh::new(),
         Box::new(GitRepo::from(&environ)),

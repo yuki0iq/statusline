@@ -45,7 +45,7 @@ impl Extend for BuildInfo {
 }
 
 impl BuildInfo {
-    pub fn new(env: &Environment) -> Box<Self> {
+    pub fn new(env: &Environment) -> Box<dyn Extend> {
         let workdir = &env.work_dir;
         let mut bi = vec![];
 

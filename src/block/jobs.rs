@@ -9,7 +9,7 @@ impl Extend for Jobs {
 }
 
 impl Jobs {
-    pub fn new(args: &Environment) -> Box<Self> {
+    pub fn new(args: &Environment) -> Box<dyn Extend> {
         Box::new(Jobs(args.jobs_count))
     }
 }

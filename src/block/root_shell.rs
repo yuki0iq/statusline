@@ -11,7 +11,7 @@ impl Extend for RootShell {
 }
 
 impl RootShell {
-    pub fn new() -> Box<Self> {
+    pub fn new() -> Box<dyn Extend> {
         Box::new(RootShell(
             process::getuid().is_root(),
             std::env::var("SHLVL")

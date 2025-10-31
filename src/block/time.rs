@@ -10,7 +10,7 @@ impl Extend for Time {
 }
 
 impl Time {
-    pub fn new() -> Box<Self> {
+    pub fn new() -> Box<dyn Extend> {
         Box::new(Self(Local::now()))
     }
 }
