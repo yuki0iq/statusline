@@ -39,7 +39,7 @@ _sl_prompt_command() {
 }
 
 PS0='${SHELL:0:0$((_sl_start=$(_sl_stamp), 0))}'
-PROMPT_COMMAND='_sl_prompt_command'
+PROMPT_COMMAND+=('_sl_prompt_command')
 PS1='$("<exec>" run --mode "$_sl_mode" --return-code "$?" --jobs-count "\j" --elapsed-time "$_sl_elapsed" --control-fd 3 3<&$_sl_control_fd &)'
 
 # Nice features
