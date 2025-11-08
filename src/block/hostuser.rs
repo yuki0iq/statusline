@@ -12,7 +12,7 @@ impl Extend for HostUser {
 
 impl Host {
     fn new(env: &Environment) -> Self {
-        Host(env.chassis, env.host.clone())
+        Host(Chassis::get(), env.host.clone())
     }
 }
 

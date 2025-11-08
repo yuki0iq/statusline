@@ -183,12 +183,8 @@ pub struct Environment {
     pub user: String,
     /// Hostname
     pub host: String,
-    /// Chassis
-    pub chassis: Chassis,
     /// Current home: dir and username
     pub current_home: Option<(PathBuf, String)>,
-    /// Icon mode
-    pub mode: IconMode,
 }
 
 impl From<Run> for Environment {
@@ -209,15 +205,8 @@ impl From<Run> for Environment {
             .nodename()
             .to_string_lossy()
             .into_owned();
-        let chassis = Chassis::get();
 
         let current_home = file::find_current_home(&work_dir, &user);
-
-        let mode = match other.mode.as_deref() {
-            Some("text") => IconMode::Text,
-            Some("minimal") => IconMode::MinimalIcons,
-            _ => IconMode::Icons,
-        };
 
         Environment {
             ret_code,
@@ -227,9 +216,7 @@ impl From<Run> for Environment {
             git_tree,
             user,
             host,
-            chassis,
             current_home,
-            mode,
         }
     }
 }
@@ -289,8 +276,12 @@ fn print_statusline(run: Run) {
         rustix::fs::fcntl_setfl(controlling_fd, OFlags::ASYNC).unwrap();
     }
 
+    let mode = match run.mode.as_deref() {
+        Some("text") => IconMode::Text,
+        Some("minimal") => IconMode::MinimalIcons,
+        _ => IconMode::Icons,
+    };
     let environ: Environment = run.into();
-    let mode = environ.mode;
 
     let title = make_title(&environ);
 
