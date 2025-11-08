@@ -39,18 +39,13 @@ fn parse_ref_by_name<T: AsRef<str>>(name: T, root: PathBuf) -> Head {
     Head { root, kind }
 }
 
-fn lcp<T: AsRef<str>>(left: T, right: T) -> usize {
-    std::iter::zip(left.as_ref().chars(), right.as_ref().chars())
-        .position(|(a, b)| a != b)
-        .unwrap_or(0) // if equal then LCP should be zero
+fn lcp<T: AsRef<str>>(left: T, right: T) -> Option<usize> {
+    std::iter::zip(left.as_ref().chars(), right.as_ref().chars()).position(|(a, b)| a != b)
 }
 
-fn lcp_bytes(left: &[u8], right: &[u8]) -> usize {
-    let pos = std::iter::zip(left.iter(), right.iter()).position(|(a, b)| a != b);
-    match pos {
-        None => 0,
-        Some(i) => i * 2 + usize::from((left[i] >> 4) == (right[i] >> 4)),
-    }
+fn lcp_bytes(left: &[u8], right: &[u8]) -> Option<usize> {
+    let i = std::iter::zip(left.iter(), right.iter()).position(|(a, b)| a != b)?;
+    Some(i * 2 + usize::from((left[i] >> 4) == (right[i] >> 4)))
 }
 
 fn load_objects(root: &Path, fanout: &str) -> Result<Vec<String>> {
@@ -65,7 +60,7 @@ fn objects_dir_len(root: &Path, id: &str) -> Result<usize> {
     // Find len from ".git/objects/xx/..."
     let best_lcp = load_objects(root, fanout)?
         .iter()
-        .map(|val| lcp(val.as_str(), rest))
+        .filter_map(|val| lcp(val.as_str(), rest))
         .max();
     Ok(match best_lcp {
         None => 2,
@@ -162,7 +157,6 @@ fn packed_objects_len(root: &Path, commit: &str) -> Result<usize> {
             continue;
         }
 
-        // If only little endian was the network byte order...
         let commit_position = |idx: usize| 0x102 + 5 * idx;
         if map_size < commit_position(u32::from_be_bytes(*fanout_table.last().unwrap()) as usize) {
             continue;
@@ -178,13 +172,12 @@ fn packed_objects_len(root: &Path, commit: &str) -> Result<usize> {
         let index = hashes.partition_point(|hash| hash < &commit);
         // eprintln!("got index {index}");
         if index > 0 {
-            res = res.max(lcp_bytes(&hashes[index - 1], &commit));
+            res = res.max(lcp_bytes(&hashes[index - 1], &commit).unwrap());
         }
+        // Skip hashes[index] if it is an exact match
+        let index = index + usize::from(hashes[index] == commit);
         if index < end - begin {
-            res = res.max(lcp_bytes(
-                &hashes[index + usize::from(hashes[index] == commit)],
-                &commit,
-            ));
+            res = res.max(lcp_bytes(&hashes[index], &commit).unwrap());
         }
     }
     // eprintln!("packed: {res:?}");
