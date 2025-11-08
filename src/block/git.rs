@@ -1,5 +1,5 @@
 use crate::{Environment, Extend, Icon, IconMode, Pretty, Style as _, file};
-use anyhow::{Context as _, Result, bail};
+use anyhow::{Context as _, Result};
 use memmap2::Mmap;
 use rustix::process::Signal;
 use std::{
@@ -31,17 +31,12 @@ thanks to
 */
 
 fn parse_ref_by_name<T: AsRef<str>>(name: T, root: PathBuf) -> Head {
-    if let Some(name) = name.as_ref().trim().strip_prefix("refs/heads/") {
-        Head {
-            kind: HeadKind::Branch(name.to_owned()),
-            root,
-        }
+    let kind = if let Some(name) = name.as_ref().trim().strip_prefix("refs/heads/") {
+        HeadKind::Branch(name.to_owned())
     } else {
-        Head {
-            kind: HeadKind::Unknown,
-            root,
-        }
-    }
+        HeadKind::Unknown
+    };
+    Head { root, kind }
 }
 
 fn lcp<T: AsRef<str>>(left: T, right: T) -> usize {
@@ -211,7 +206,7 @@ fn abbrev_commit(root: &Path, id: &str) -> usize {
 #[derive(Debug)]
 enum HeadKind {
     Branch(String),
-    NonexistentBranch(String),
+    Unborn(String),
     Commit(String),
     Unknown,
 }
@@ -230,7 +225,7 @@ impl Icon for HeadKind {
                 Text => "on",
                 Icons | MinimalIcons => "󰘬",
             },
-            Self::NonexistentBranch(_) => match mode {
+            Self::Unborn(_) => match mode {
                 Text => "to",
                 Icons | MinimalIcons => "󰽤",
             },
@@ -246,7 +241,7 @@ impl Icon for HeadKind {
 impl Pretty for Head {
     fn pretty(&self, mode: IconMode) -> Option<String> {
         Some(match &self.kind {
-            branch @ (HeadKind::Branch(name) | HeadKind::NonexistentBranch(name)) => {
+            branch @ (HeadKind::Branch(name) | HeadKind::Unborn(name)) => {
                 format!("{} {}", branch.icon(mode), name)
             }
             oid @ HeadKind::Commit(id) => {
@@ -262,11 +257,22 @@ impl Pretty for Head {
     }
 }
 
+fn is_ref_existing(root: &Path, ref_name: &str) -> bool {
+    file::exists(&root.join(ref_name))
+        || File::open(root.join("packed-refs"))
+            .ok()
+            .map(BufReader::new)
+            .map(BufReader::lines)
+            .map(|lines| lines.map_while(Result::ok))
+            .and_then(|mut lines| lines.find(|line| line.contains(ref_name)))
+            .is_some()
+}
+
 impl Head {
     // Please WHY
-    fn git_value(&self) -> Cow<'_, str> {
+    fn ref_name(&self) -> Cow<'_, str> {
         match &self.kind {
-            HeadKind::Branch(name) | HeadKind::NonexistentBranch(name) => {
+            HeadKind::Branch(name) | HeadKind::Unborn(name) => {
                 Cow::from(format!("refs/heads/{name}"))
             }
             HeadKind::Commit(id) => Cow::from(id),
@@ -275,22 +281,11 @@ impl Head {
     }
 
     // WHY WHY WHY send help
-    fn fix_nonexistent(mut self) -> Self {
-        let git_value = self.git_value();
-        let git_value = git_value.as_ref();
+    fn refine_unborn(mut self) -> Self {
         let root = &self.root;
         self.kind = match self.kind {
-            HeadKind::Branch(name)
-                if std::fs::exists(root.join(git_value)).ok() != Some(true)
-                    && File::open(root.join("packed-refs"))
-                        .ok()
-                        .map(BufReader::new)
-                        .map(BufReader::lines)
-                        .map(|lines| lines.map_while(Result::ok))
-                        .and_then(|mut lines| lines.find(|line| line.contains(git_value)))
-                        .is_none() =>
-            {
-                HeadKind::NonexistentBranch(name)
+            HeadKind::Branch(name) if !is_ref_existing(root, &self.ref_name()) => {
+                HeadKind::Unborn(name)
             }
 
             _ => self.kind,
@@ -309,7 +304,7 @@ enum State {
 }
 
 impl State {
-    fn from_env(root: &Path) -> Option<State> {
+    fn discover(root: &Path) -> Option<State> {
         let revert_head = root.join("REVERT_HEAD");
         let cherry_pick_head = root.join("CHERRY_PICK_HEAD");
         let merge_head = root.join("MERGE_HEAD");
@@ -355,23 +350,23 @@ impl Icon for State {
         use IconMode::*;
         match self {
             Self::Bisecting => match mode {
-                Text => "bisecting",
+                Text => "bi",
                 Icons | MinimalIcons => "󰩫 ", //TODO
             },
             Self::Reverting { .. } => match mode {
-                Text => "reverting",
+                Text => "rv",
                 Icons | MinimalIcons => "",
             },
             Self::CherryPicking { .. } => match mode {
-                Text => "cherry-picking",
+                Text => "cp",
                 Icons | MinimalIcons => "",
             },
             Self::Merging { .. } => match mode {
-                Text => "merging",
+                Text => "me",
                 Icons | MinimalIcons => "󰃸",
             },
             Self::Rebasing { .. } => match mode {
-                Text => "rebasing",
+                Text => "rb",
                 Icons | MinimalIcons => "󰝖",
             },
         }
@@ -393,15 +388,21 @@ impl Pretty for State {
     }
 }
 
-fn get_remote(head: &Head) -> Option<(String, String)> {
+struct Remote {
+    name: String,
+    branch: String,
+    exists: bool,
+}
+
+fn get_remote(head: &Head) -> Option<Remote> {
     let HeadKind::Branch(br) = &head.kind else {
         return None;
     };
 
     let root = &head.root;
     let section = format!("[branch \"{br}\"]");
-    let mut remote_name = None;
-    let mut remote_branch = None;
+    let mut name = None;
+    let mut branch = None;
     for line in BufReader::new(File::open(root.join("config")).ok()?)
         .lines()
         .map_while(Result::ok)
@@ -410,24 +411,39 @@ fn get_remote(head: &Head) -> Option<(String, String)> {
         .take_while(|x| x.starts_with('\t'))
     {
         if let Some(x) = line.strip_prefix("\tremote = ") {
-            remote_name = Some(x.into());
+            name = Some(x.into());
         } else if let Some(x) = line.strip_prefix("\tmerge = refs/heads/") {
-            remote_branch = Some(x.into());
+            branch = Some(x.into());
         }
     }
-    remote_name.zip(remote_branch)
+    let (name, branch) = (name?, branch?);
+    let exists = is_ref_existing(root, &format!("refs/remotes/{name}/{branch}"));
+
+    Some(Remote {
+        name,
+        branch,
+        exists,
+    })
 }
 
 fn get_ahead_behind(
     tree: &Path,
     head: &HeadKind,
-    remote: Option<&(String, String)>,
-) -> Result<(usize, usize)> {
-    let (HeadKind::Branch(head), Some((name, branch))) = (head, remote) else {
-        bail!("Head is not a branch or remote is missing");
+    remote: Option<&Remote>,
+) -> Option<(usize, usize)> {
+    let (
+        HeadKind::Branch(head),
+        Some(Remote {
+            name,
+            branch,
+            exists: true,
+        }),
+    ) = (head, remote)
+    else {
+        return None;
     };
 
-    // I assume this is fast
+    // This should not be that slow
     let output = Command::new("git")
         .arg("-C")
         .arg(tree)
@@ -435,28 +451,29 @@ fn get_ahead_behind(
         .arg("--count")
         .arg("--left-right")
         .arg(format!("{head}...{name}/{branch}"))
-        .output()?;
+        .output()
+        .ok()?;
     let mut iter = output
         .stdout
         .trim_ascii_end()
         .split(|&c| c == b'\t')
         .flat_map(std::str::from_utf8)
         .flat_map(str::parse::<usize>);
-    let ahead = iter.next().unwrap();
-    let behind = iter.next().unwrap();
-    Ok((ahead, behind))
+    let ahead = iter.next();
+    let behind = iter.next();
+    ahead.zip(behind)
 }
 
 pub struct GitRepo {
     head: Head,
-    remote: Option<(String, String)>,
+    remote: Option<Remote>,
     stashes: usize,
     state: Option<State>,
     behind: usize,
     ahead: usize,
 }
 
-pub type Repo = Result<GitRepo>;
+pub type Repo = Option<GitRepo>;
 
 pub struct GitTree {
     tree: PathBuf,
@@ -482,13 +499,13 @@ impl From<&Environment> for Tree {
 }
 impl From<&Environment> for Repo {
     fn from(env: &Environment) -> Repo {
-        let tree = env.git_tree.as_ref().context("No git tree found")?.clone();
+        let tree = env.git_tree.as_ref()?.clone();
         let dotgit = tree.join(".git");
         let root = if dotgit.is_file() {
             tree.join(
-                std::fs::read_to_string(&dotgit)?
-                    .strip_prefix("gitdir: ")
-                    .ok_or(Error::from(ErrorKind::InvalidData))?
+                std::fs::read_to_string(&dotgit)
+                    .ok()?
+                    .strip_prefix("gitdir: ")?
                     .trim_end_matches(['\r', '\n']),
             )
         } else {
@@ -501,42 +518,30 @@ impl From<&Environment> for Repo {
             .map(|file| BufReader::new(file).lines().count())
             .unwrap_or(0);
 
-        let state = State::from_env(&root);
+        let state = State::discover(&root);
 
         // eprintln!("ok tree {tree:?} | {root:?}");
         let head_path = root.join("HEAD");
 
         let head = if head_path.is_symlink() {
-            parse_ref_by_name(
-                std::fs::read_link(head_path)?
-                    .to_str()
-                    .ok_or(Error::from(ErrorKind::InvalidFilename))?,
-                root,
-            )
+            parse_ref_by_name(std::fs::read_link(head_path).ok()?.to_str()?, root)
         } else {
-            let head = std::fs::read_to_string(head_path)?;
+            let head = std::fs::read_to_string(head_path).ok()?;
             if let Some(rest) = head.strip_prefix("ref:") {
                 parse_ref_by_name(rest, root)
             } else {
-                Head {
-                    kind: HeadKind::Commit(
-                        head.split_whitespace()
-                            .next()
-                            .unwrap_or_default()
-                            .to_owned(),
-                    ),
-                    root,
-                }
+                let kind = HeadKind::Commit(head.split_whitespace().next()?.to_owned());
+                Head { root, kind }
             }
         };
-        let head = head.fix_nonexistent();
+        let head = head.refine_unborn();
 
         let remote = get_remote(&head);
 
         let (ahead, behind) =
             get_ahead_behind(&tree, &head.kind, remote.as_ref()).unwrap_or((0, 0));
 
-        Ok(GitRepo {
+        Some(GitRepo {
             head,
             remote,
             stashes,
@@ -578,7 +583,7 @@ impl Extend for Tree {
         let Some(out) = out else {
             return Box::new(self_ref);
         };
-        let lines = out.stdout.split(|&c| c == b'\n').peekable();
+        let lines = out.stdout.split(|&c| c == b'\n');
 
         let mut unmerged = 0;
         let mut staged = 0;
@@ -622,7 +627,7 @@ impl Extend for Tree {
 
 impl Pretty for Repo {
     fn pretty(&self, mode: IconMode) -> Option<String> {
-        self.as_ref().ok()?.pretty(mode)
+        self.as_ref()?.pretty(mode)
     }
 }
 
@@ -637,11 +642,15 @@ impl Pretty for GitRepo {
         let head = self.head.pretty(mode).unwrap_or_default();
         res.push(head);
 
-        match (&self.head.kind, &self.remote) {
-            (HeadKind::Branch(branch), Some((_, remote))) if branch != remote => {
-                res.push(format!(":{remote}"));
-            }
-            _ => (),
+        if let HeadKind::Branch(local) = &self.head.kind
+            && let Some(Remote { branch: remote, .. }) = &self.remote
+            && local != remote
+        {
+            res.push(format!(":{remote}"));
+        }
+
+        if let Some(Remote { exists: false, .. }) = &self.remote {
+            res.push("?".into());
         }
 
         for (icon, val) in [
@@ -657,7 +666,7 @@ impl Pretty for GitRepo {
         let text = "[".to_owned() + &res.join("") + "]";
         Some(
             text.visible()
-                .colorize_with(self.head.git_value().as_ref()) //.pink()
+                .colorize_with(self.head.ref_name().as_ref()) //.pink()
                 .bold()
                 .with_reset()
                 .invisible()
@@ -681,7 +690,7 @@ impl Pretty for GitTree {
             (GitIcon::Untracked, self.untracked),
         ]
         .into_iter()
-        .filter(|(_, val)| val != &0)
+        .filter(|(_, val)| *val != 0)
         .map(|(s, val)| format!("{}{}", s.icon(mode), val))
         .collect::<Vec<_>>();
 
