@@ -1,6 +1,6 @@
 use crate::{Environment, Extend, Icon, IconMode, Pretty, Style as _, file};
 use anyhow::{Context as _, Result, bail};
-use memmapix::Mmap;
+use memmap2::Mmap;
 use rustix::process::Signal;
 use std::{
     borrow::Cow,
