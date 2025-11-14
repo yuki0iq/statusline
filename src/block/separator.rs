@@ -1,13 +1,13 @@
-use crate::{Extend, IconMode, Pretty};
+use crate::{Block, IconMode, Pretty};
 
 pub struct Separator(pub &'static str);
 
 impl Separator {
-    pub fn empty() -> Box<dyn Extend> {
+    pub fn empty() -> Box<dyn Block> {
         Box::new(Self(""))
     }
 
-    pub fn continuation() -> Box<dyn Extend> {
+    pub fn continuation() -> Box<dyn Block> {
         Box::new(Self("\u{f105}"))
     }
 }
@@ -18,8 +18,4 @@ impl Pretty for Separator {
     }
 }
 
-impl Extend for Separator {
-    fn extend(self: Box<Self>) -> Box<dyn Pretty> {
-        self
-    }
-}
+impl Block for Separator {}

@@ -1,4 +1,4 @@
-use crate::{Environment, Extend, IconMode, Pretty, Style as _, file};
+use crate::{Environment, Block, IconMode, Pretty, Style as _, file};
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
 #[derive(Hash, PartialEq, Eq)]
@@ -38,14 +38,10 @@ impl Display for Kind {
 
 pub struct BuildInfo(Vec<Kind>);
 
-impl Extend for BuildInfo {
-    fn extend(self: Box<Self>) -> Box<dyn Pretty> {
-        self
-    }
-}
+impl Block for BuildInfo {}
 
 impl BuildInfo {
-    pub fn new(env: &Environment) -> Box<dyn Extend> {
+    pub fn new(env: &Environment) -> Box<dyn Block> {
         let workdir = &env.work_dir;
         let mut bi = vec![];
 

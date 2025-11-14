@@ -1,4 +1,4 @@
-use crate::{Environment, Extend, Icon, IconMode, Pretty, Style as _, file};
+use crate::{Environment, Block, Icon, IconMode, Pretty, Style as _, file};
 use anyhow::{Context as _, Result};
 use memmap2::Mmap;
 use rustix::process::Signal;
@@ -545,15 +545,11 @@ impl From<&Environment> for Repo {
     }
 }
 
-impl Extend for Repo {
-    fn extend(self: Box<Self>) -> Box<dyn Pretty> {
-        self
-    }
-}
+impl Block for Repo {}
 
-impl Extend for Tree {
-    fn extend(self: Box<Self>) -> Box<dyn Pretty> {
-        let Some(self_ref) = *self else { return self };
+impl Block for Tree {
+    fn extend(&mut self) {
+        let Some(ref mut self_ref) = *self else { return };
 
         let parent_pid = rustix::process::getpid();
         // SAFETY: pre_exec only sets parent process death signal and does nothing more
@@ -573,9 +569,7 @@ impl Extend for Tree {
                 .output()
                 .ok()
         };
-        let Some(out) = out else {
-            return Box::new(self_ref);
-        };
+        let Some(out) = out else { return };
         let lines = out.stdout.split(|&c| c == b'\n');
 
         let mut unmerged = 0;
@@ -608,13 +602,10 @@ impl Extend for Tree {
             }
         }
 
-        Box::new(GitTree {
-            tree: self_ref.tree,
-            unmerged,
-            staged,
-            dirty,
-            untracked,
-        })
+        self_ref.unmerged = unmerged;
+        self_ref.staged = staged;
+        self_ref.dirty = dirty;
+        self_ref.untracked = untracked;
     }
 }
 

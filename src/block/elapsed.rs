@@ -1,18 +1,14 @@
-use crate::{Environment, Extend, Icon, IconMode, Pretty, Style as _};
+use crate::{Environment, Block, Icon, IconMode, Pretty, Style as _};
 
 pub struct Elapsed(u64);
 
 impl Elapsed {
-    pub fn new(env: &Environment) -> Box<dyn Extend> {
+    pub fn new(env: &Environment) -> Box<dyn Block> {
         Box::new(Elapsed(env.elapsed_time.unwrap_or_default()))
     }
 }
 
-impl Extend for Elapsed {
-    fn extend(self: Box<Self>) -> Box<dyn Pretty> {
-        self
-    }
-}
+impl Block for Elapsed {}
 
 impl Icon for Elapsed {
     fn icon(&self, mode: IconMode) -> &'static str {

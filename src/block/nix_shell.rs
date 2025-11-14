@@ -1,4 +1,4 @@
-use crate::{Environment, Extend, Icon, IconMode, Pretty, Style as _};
+use crate::{Environment, Block, Icon, IconMode, Pretty, Style as _};
 use std::{ffi::OsStr, path::Path};
 
 pub struct NixShell {
@@ -11,11 +11,7 @@ pub struct NixShell {
 
 pub type MaybeNixShell = Option<NixShell>;
 
-impl Extend for MaybeNixShell {
-    fn extend(self: Box<Self>) -> Box<dyn Pretty> {
-        self
-    }
-}
+impl Block for MaybeNixShell {}
 
 impl From<&Environment> for MaybeNixShell {
     fn from(_: &Environment) -> Self {

@@ -1,4 +1,4 @@
-use crate::{Environment, Extend, Icon, IconMode, Pretty, Style as _};
+use crate::{Environment, Block, Icon, IconMode, Pretty, Style as _};
 use anyhow::Result;
 use std::{
     ffi::OsStr,
@@ -14,11 +14,7 @@ pub struct Venv {
 
 pub type MaybeVenv = Option<Venv>;
 
-impl Extend for MaybeVenv {
-    fn extend(self: Box<Self>) -> Box<dyn Pretty> {
-        self
-    }
-}
+impl Block for MaybeVenv {}
 
 impl From<&Environment> for MaybeVenv {
     fn from(_: &Environment) -> Self {

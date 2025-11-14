@@ -1,16 +1,12 @@
-use crate::{Extend, Icon, IconMode, Pretty, Style as _};
+use crate::{Block, Icon, IconMode, Pretty, Style as _};
 use std::borrow::Cow;
 
 pub struct RootShell(bool, usize);
 
-impl Extend for RootShell {
-    fn extend(self: Box<Self>) -> Box<dyn Pretty> {
-        self
-    }
-}
+impl Block for RootShell {}
 
 impl RootShell {
-    pub fn new() -> Box<dyn Extend> {
+    pub fn new() -> Box<dyn Block> {
         Box::new(RootShell(
             rustix::process::getuid().is_root(),
             std::env::var("SHLVL")

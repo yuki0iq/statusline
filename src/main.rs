@@ -73,7 +73,7 @@ mod virt;
 mod workgroup;
 
 use crate::{
-    block::Extend,
+    block::Block,
     chassis::Chassis,
     icon::{Icon, IconMode, Pretty},
     style::Style,
@@ -299,7 +299,7 @@ fn print_statusline(run: Run) {
     let workdir = Workdir::new(&environ).pretty(mode).unwrap();
     let cont = Separator::continuation().pretty(mode).unwrap();
 
-    let line = [
+    let mut line = [
         HostUser::new(&environ),
         Ssh::new(),
         Box::new(GitRepo::from(&environ)),
@@ -352,7 +352,9 @@ fn print_statusline(run: Run) {
     rustix::stdio::dup2_stdout(rustix::fs::open("/dev/null", OFlags::RDWR, Mode::empty()).unwrap())
         .unwrap();
 
-    let line = line.map(Extend::extend);
+    for block in &mut line {
+        block.extend();
+    }
     eprint_top_part(pretty(&line, mode));
 }
 
@@ -375,7 +377,7 @@ fn make_title(env: &Environment) -> String {
     crate::style::title(&format!("{}@{}: {}", env.user, env.host, pwd))
 }
 
-fn pretty<T: Pretty + ?Sized, const N: usize>(line: &[Box<T>; N], mode: IconMode) -> String {
+fn pretty(line: &[Box<dyn Block>], mode: IconMode) -> String {
     line.iter()
         .filter_map(|x| x.as_ref().pretty(mode))
         .collect::<Vec<_>>()

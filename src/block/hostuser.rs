@@ -1,14 +1,10 @@
-use crate::{Chassis, Environment, Extend, Icon, IconMode, Pretty, Style as _};
+use crate::{Chassis, Environment, Block, Icon, IconMode, Pretty, Style as _};
 
 struct Host(Chassis, String);
 struct User(String);
 pub struct HostUser(User, Host);
 
-impl Extend for HostUser {
-    fn extend(self: Box<Self>) -> Box<dyn Pretty> {
-        self
-    }
-}
+impl Block for HostUser {}
 
 impl Host {
     fn new(env: &Environment) -> Self {
@@ -23,7 +19,7 @@ impl User {
 }
 
 impl HostUser {
-    pub fn new(env: &Environment) -> Box<dyn Extend> {
+    pub fn new(env: &Environment) -> Box<dyn Block> {
         Box::new(HostUser(User::new(env), Host::new(env)))
     }
 }

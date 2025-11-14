@@ -1,15 +1,11 @@
-use crate::{Environment, Extend, IconMode, Pretty, Style as _};
+use crate::{Environment, Block, IconMode, Pretty, Style as _};
 
 pub struct Jobs(usize);
 
-impl Extend for Jobs {
-    fn extend(self: Box<Self>) -> Box<dyn Pretty> {
-        self
-    }
-}
+impl Block for Jobs {}
 
 impl Jobs {
-    pub fn new(args: &Environment) -> Box<dyn Extend> {
+    pub fn new(args: &Environment) -> Box<dyn Block> {
         Box::new(Jobs(args.jobs_count))
     }
 }

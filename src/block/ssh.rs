@@ -1,5 +1,5 @@
 use crate::{
-    Extend, Icon, IconMode, Pretty, Style as _,
+    Block, Icon, IconMode, Pretty, Style as _,
     workgroup::{SshChain, WorkgroupKey},
 };
 
@@ -13,11 +13,7 @@ impl Ssh {
     }
 }
 
-impl Extend for Ssh {
-    fn extend(self: Box<Self>) -> Box<dyn Pretty> {
-        self
-    }
-}
+impl Block for Ssh {}
 
 impl Icon for Ssh {
     fn icon(&self, mode: IconMode) -> &'static str {

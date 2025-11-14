@@ -1,4 +1,4 @@
-use crate::{Environment, Extend, Icon, IconMode, Pretty, Style as _};
+use crate::{Environment, Block, Icon, IconMode, Pretty, Style as _};
 use linux_raw_sys::general::{_NSIG as SIGRTMAX, SIGRTMIN};
 use rustix::process::Signal;
 
@@ -9,14 +9,10 @@ pub enum ReturnCode {
     NotAvailable,
 }
 
-impl Extend for ReturnCode {
-    fn extend(self: Box<Self>) -> Box<dyn Pretty> {
-        self
-    }
-}
+impl Block for ReturnCode {}
 
 impl ReturnCode {
-    pub fn new(args: &Environment) -> Box<dyn Extend> {
+    pub fn new(args: &Environment) -> Box<dyn Block> {
         Box::new(match args.ret_code {
             Some(0) => Self::Ok,
             None => Self::NotAvailable,

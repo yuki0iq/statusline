@@ -1,16 +1,12 @@
-use crate::{Extend, IconMode, Pretty, Style as _};
+use crate::{Block, IconMode, Pretty, Style as _};
 use chrono::prelude::*;
 
 pub struct Time(DateTime<Local>);
 
-impl Extend for Time {
-    fn extend(self: Box<Self>) -> Box<dyn Pretty> {
-        self
-    }
-}
+impl Block for Time {}
 
 impl Time {
-    pub fn new() -> Box<dyn Extend> {
+    pub fn new() -> Box<dyn Block> {
         Box::new(Self(Local::now()))
     }
 }
