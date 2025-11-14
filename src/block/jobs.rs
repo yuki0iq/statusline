@@ -6,11 +6,12 @@ super::register_block!(Jobs);
 
 impl Block for Jobs {
     fn new(environ: &Environment) -> Option<Box<dyn Block>> {
-        let count = environ.jobs_count;
-        if count == 0 {
-            None
-        } else {
+        if let Some(count) = environ.jobs_count
+            && count != 0
+        {
             Some(Box::new(Jobs(count)))
+        } else {
+            None
         }
     }
 }

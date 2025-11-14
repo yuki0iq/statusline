@@ -152,7 +152,7 @@ struct Run {
 
     #[argh(option)]
     /// current background jobs count
-    jobs_count: usize,
+    jobs_count: Option<usize>,
 
     #[argh(option)]
     /// elapsed time to show, in seconds
@@ -172,7 +172,7 @@ pub struct Environment {
     /// Last command's return code
     pub ret_code: Option<u8>,
     /// Jobs currently running
-    pub jobs_count: usize,
+    pub jobs_count: Option<usize>,
     /// Last command's elapsed time, in us
     pub elapsed_time: Option<u64>,
     /// Working directory
