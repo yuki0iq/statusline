@@ -261,11 +261,11 @@ fn main() {
             );
             println!("{}", SshChain(ssh_chain).seal(&key));
         }
-        Command::Run(run) => print_statusline(run),
+        Command::Run(run) => run_statusline(run),
     }
 }
 
-fn print_statusline(run: Run) {
+fn run_statusline(run: Run) {
     use crate::block::*;
 
     if let Some(fd) = run.control_fd {
@@ -281,30 +281,20 @@ fn print_statusline(run: Run) {
         Some("minimal") => IconMode::MinimalIcons,
         _ => IconMode::Icons,
     };
+
     let environ: Environment = run.into();
 
-    let title = make_title(&environ);
+    let bottom = flatten_blocks([RootShell::new(&environ), Separator::new(&environ)]);
 
-    let bottom = pretty(&[RootShell::new(&environ), Separator::new(&environ)], mode);
+    let right = flatten_blocks([
+        Elapsed::new(&environ),
+        ReturnCode::new(&environ),
+        Time::new(&environ),
+    ]);
 
-    let right = pretty(
-        &[
-            Elapsed::new(&environ),
-            ReturnCode::new(&environ),
-            Time::new(&environ),
-        ],
-        mode,
-    );
+    let middle = flatten_blocks([Workdir::new(&environ)]);
 
-    let middle = pretty(&[Workdir::new(&environ)], mode);
-
-    let cont = if let IconMode::Text = mode {
-        ">"
-    } else {
-        "\u{f105}"
-    };
-
-    let mut line = [
+    let mut left = flatten_blocks([
         HostUser::new(&environ),
         Ssh::new(&environ),
         GitRepo::new(&environ),
@@ -314,7 +304,28 @@ fn print_statusline(run: Run) {
         Venv::new(&environ),
         Jobs::new(&environ),
         UnseenMail::new(&environ),
-    ];
+    ]);
+
+    print_statusline(mode, &environ, &mut left, &middle, &right, &bottom);
+}
+
+fn print_statusline(
+    mode: IconMode,
+    environ: &Environment,
+    left: &mut [Box<dyn Block>],
+    middle: &[Box<dyn Block>],
+    right: &[Box<dyn Block>],
+    bottom: &[Box<dyn Block>],
+) {
+    let middle = pretty(middle, mode);
+    let right = pretty(right, mode);
+    let bottom = pretty(bottom, mode);
+
+    let cont = if let IconMode::Text = mode {
+        ">"
+    } else {
+        "\u{f105}"
+    };
 
     let terminal_width: usize = terminal_size::terminal_size()
         .map_or(80, |(w, _h)| w.0)
@@ -327,10 +338,10 @@ fn print_statusline(run: Run) {
         horizontal_absolute(terminal_width.saturating_sub(right_length))
     );
 
-    let line_formatted = pretty(&line, mode);
+    let left_formatted = pretty(left, mode);
 
     let three_line_mode =
-        readline_width(&line_formatted) + readline_width(&middle) + right_length + 16
+        readline_width(&left_formatted) + readline_width(&middle) + right_length + 16
             >= terminal_width;
 
     let prologue = crate::style::prologue(three_line_mode);
@@ -344,23 +355,25 @@ fn print_statusline(run: Run) {
         }
     };
 
+    let title = make_title(environ);
     eprint!("{title}");
+
     if three_line_mode {
         eprint!("\n\n\n");
     } else {
         eprint!("\n\n");
     }
-    eprint_top_part(line_formatted);
+    eprint_top_part(left_formatted);
 
     print!("{bottom}");
     std::io::stdout().flush().unwrap();
     rustix::stdio::dup2_stdout(rustix::fs::open("/dev/null", OFlags::RDWR, Mode::empty()).unwrap())
         .unwrap();
 
-    for block in line.iter_mut().flatten() {
+    for block in left.iter_mut() {
         block.extend();
     }
-    eprint_top_part(pretty(&line, mode));
+    eprint_top_part(pretty(left, mode));
 }
 
 fn make_title(env: &Environment) -> String {
@@ -382,9 +395,12 @@ fn make_title(env: &Environment) -> String {
     crate::style::title(&format!("{}@{}: {}", env.user, env.host, pwd))
 }
 
-fn pretty(line: &[Option<Box<dyn Block>>], mode: IconMode) -> String {
+fn flatten_blocks<const N: usize>(list: [Option<Box<dyn Block>>; N]) -> Vec<Box<dyn Block>> {
+    list.into_iter().flatten().collect()
+}
+
+fn pretty(line: &[Box<dyn Block>], mode: IconMode) -> String {
     line.iter()
-        .flatten()
         .filter_map(|x| x.as_ref().pretty(mode))
         .collect::<Vec<_>>()
         .join(" ")
