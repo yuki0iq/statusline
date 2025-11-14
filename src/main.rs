@@ -296,7 +296,7 @@ fn print_statusline(run: Run) {
         mode,
     );
 
-    let workdir = Workdir::new(&environ).unwrap().pretty(mode).unwrap();
+    let middle = pretty(&[Workdir::new(&environ)], mode);
 
     let cont = if let IconMode::Text = mode {
         ">"
@@ -330,7 +330,7 @@ fn print_statusline(run: Run) {
     let line_formatted = pretty(&line, mode);
 
     let three_line_mode =
-        readline_width(&line_formatted) + readline_width(&workdir) + right_length + 16
+        readline_width(&line_formatted) + readline_width(&middle) + right_length + 16
             >= terminal_width;
 
     let prologue = crate::style::prologue(three_line_mode);
@@ -338,9 +338,9 @@ fn print_statusline(run: Run) {
 
     let eprint_top_part = |top| {
         if three_line_mode {
-            eprint!("{prologue}{top}{right_formatted}\n{cont} {workdir}{epilogue}");
+            eprint!("{prologue}{top}{right_formatted}\n{cont} {middle}{epilogue}");
         } else {
-            eprint!("{prologue}{top} {workdir}{right_formatted}{epilogue}");
+            eprint!("{prologue}{top} {middle}{right_formatted}{epilogue}");
         }
     };
 
