@@ -297,7 +297,12 @@ fn print_statusline(run: Run) {
     );
 
     let workdir = Workdir::new(&environ).unwrap().pretty(mode).unwrap();
-    let cont = Continuation.pretty(mode).unwrap();
+
+    let cont = if let IconMode::Text = mode {
+        ">"
+    } else {
+        "\u{f105}"
+    };
 
     let mut line = [
         HostUser::new(&environ),

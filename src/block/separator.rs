@@ -12,16 +12,3 @@ impl Pretty for Separator {
         Some(String::new())
     }
 }
-
-pub struct Continuation;
-
-impl Block for Continuation {
-    fn new(_: &Environment) -> Option<Box<dyn Block>> {
-        Some(Box::new(Self))
-    }
-}
-impl Pretty for Continuation {
-    fn pretty(&self, _: IconMode) -> Option<String> {
-        Some("\u{f105}".into())
-    }
-}

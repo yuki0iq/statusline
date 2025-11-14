@@ -25,7 +25,7 @@ pub use {
     nix_shell::NixShell,
     return_code::ReturnCode,
     root_shell::RootShell,
-    separator::{Continuation, Separator},
+    separator::Separator,
     ssh::Ssh,
     time::Time,
     venv::Venv,
