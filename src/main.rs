@@ -282,7 +282,7 @@ fn run_statusline(run: Run) {
 
     let environ: Environment = run.into();
 
-    let bottom = create_blocks(&["root_shell", "separator"], &environ);
+    let bottom = create_blocks(&["root_shell"], &environ);
 
     let right = create_blocks(&["elapsed", "return_code", "time"], &environ);
 
@@ -362,7 +362,7 @@ fn print_statusline(
     }
     eprint_top_part(left_formatted);
 
-    print!("{bottom}");
+    print!("{bottom} ");
     std::io::stdout().flush().unwrap();
     rustix::stdio::dup2_stdout(rustix::fs::open("/dev/null", OFlags::RDWR, Mode::empty()).unwrap())
         .unwrap();

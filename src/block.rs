@@ -12,7 +12,6 @@ mod mail;
 mod nix_shell;
 mod return_code;
 mod root_shell;
-mod separator;
 mod ssh;
 mod time;
 mod venv;
