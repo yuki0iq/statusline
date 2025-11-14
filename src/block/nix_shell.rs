@@ -9,6 +9,8 @@ pub struct NixShell {
     inputs: Vec<String>,
 }
 
+super::register_block!(NixShell);
+
 impl Block for NixShell {
     fn new(_: &Environment) -> Option<Box<dyn Block>> {
         let purity = match std::env::var("IN_NIX_SHELL").ok()?.as_ref() {

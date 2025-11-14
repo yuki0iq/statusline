@@ -9,6 +9,8 @@ pub enum ReturnCode {
     NotAvailable,
 }
 
+super::register_block!(ReturnCode);
+
 impl Block for ReturnCode {
     fn new(environ: &Environment) -> Option<Box<dyn Block>> {
         Some(Box::new(match environ.ret_code {

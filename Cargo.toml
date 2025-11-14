@@ -22,6 +22,7 @@ argh = "0.1"
 linux-raw-sys = "0.11"
 const_format = "0.2.35"
 memmap2 = "0.9.9"
+linkme = "0.3.35"
 
 [profile.release]
 codegen-units = 1

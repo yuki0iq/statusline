@@ -38,6 +38,8 @@ impl Display for Kind {
 
 pub struct BuildInfo(Vec<Kind>);
 
+super::register_block!(BuildInfo);
+
 impl Block for BuildInfo {
     fn new(environ: &Environment) -> Option<Box<dyn Block>> {
         let workdir = &environ.work_dir;

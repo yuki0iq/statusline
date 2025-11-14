@@ -466,6 +466,8 @@ pub struct GitRepo {
     ahead: usize,
 }
 
+super::register_block!(GitRepo);
+
 impl Block for GitRepo {
     fn new(environ: &Environment) -> Option<Box<dyn Block>> {
         let tree = environ.git_tree.as_ref()?.clone();
@@ -528,6 +530,8 @@ pub struct GitTree {
     dirty: usize,
     untracked: usize,
 }
+
+super::register_block!(GitTree);
 
 impl Block for GitTree {
     fn new(environ: &Environment) -> Option<Box<dyn Block>> {

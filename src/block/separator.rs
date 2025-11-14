@@ -2,6 +2,8 @@ use crate::{Block, Environment, IconMode, Pretty};
 
 pub struct Separator;
 
+super::register_block!(Separator);
+
 impl Block for Separator {
     fn new(_: &Environment) -> Option<Box<dyn Block>> {
         Some(Box::new(Self))

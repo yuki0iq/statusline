@@ -3,6 +3,8 @@ use std::borrow::Cow;
 
 pub struct RootShell(bool, usize);
 
+super::register_block!(RootShell);
+
 impl Block for RootShell {
     fn new(_: &Environment) -> Option<Box<dyn Block>> {
         Some(Box::new(RootShell(

@@ -12,6 +12,8 @@ pub struct Venv {
     version: String,
 }
 
+super::register_block!(Venv);
+
 impl Block for Venv {
     fn new(_: &Environment) -> Option<Box<dyn Block>> {
         let path = PathBuf::from(std::env::var("VIRTUAL_ENV").ok()?);

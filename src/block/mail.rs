@@ -5,6 +5,8 @@ pub struct UnseenMail {
     count: usize,
 }
 
+super::register_block!(UnseenMail);
+
 impl Block for UnseenMail {
     fn new(environ: &Environment) -> Option<Box<dyn Block>> {
         let maildir_path =

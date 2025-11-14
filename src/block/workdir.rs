@@ -107,6 +107,8 @@ pub struct Workdir {
     state: State,
 }
 
+super::register_block!(Workdir);
+
 impl Block for Workdir {
     fn new(environ: &Environment) -> Option<Box<dyn Block>> {
         let mut work_dir = environ.work_dir.clone();

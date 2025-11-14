@@ -5,6 +5,8 @@ use crate::{
 
 pub struct Ssh(String);
 
+super::register_block!(Ssh);
+
 impl Block for Ssh {
     fn new(_: &Environment) -> Option<Box<dyn Block>> {
         let chain = SshChain::open(WorkgroupKey::load().ok().as_ref()).0;

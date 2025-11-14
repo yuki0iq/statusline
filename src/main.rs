@@ -73,7 +73,7 @@ mod virt;
 mod workgroup;
 
 use crate::{
-    block::Block,
+    block::{Block, create_blocks},
     chassis::Chassis,
     icon::{Icon, IconMode, Pretty},
     style::Style,
@@ -266,8 +266,6 @@ fn main() {
 }
 
 fn run_statusline(run: Run) {
-    use crate::block::*;
-
     if let Some(fd) = run.control_fd {
         // SAFETY: This file descriptor is already open
         let controlling_fd = unsafe { OwnedFd::from_raw_fd(fd) };
@@ -284,27 +282,26 @@ fn run_statusline(run: Run) {
 
     let environ: Environment = run.into();
 
-    let bottom = flatten_blocks([RootShell::new(&environ), Separator::new(&environ)]);
+    let bottom = create_blocks(&["RootShell", "Separator"], &environ);
 
-    let right = flatten_blocks([
-        Elapsed::new(&environ),
-        ReturnCode::new(&environ),
-        Time::new(&environ),
-    ]);
+    let right = create_blocks(&["Elapsed", "ReturnCode", "Time"], &environ);
 
-    let middle = flatten_blocks([Workdir::new(&environ)]);
+    let middle = create_blocks(&["Workdir"], &environ);
 
-    let mut left = flatten_blocks([
-        HostUser::new(&environ),
-        Ssh::new(&environ),
-        GitRepo::new(&environ),
-        GitTree::new(&environ),
-        BuildInfo::new(&environ),
-        NixShell::new(&environ),
-        Venv::new(&environ),
-        Jobs::new(&environ),
-        UnseenMail::new(&environ),
-    ]);
+    let mut left = create_blocks(
+        &[
+            "HostUser",
+            "Ssh",
+            "GitRepo",
+            "GitTree",
+            "BuildInfo",
+            "NixShell",
+            "Venv",
+            "Jobs",
+            "UnseenMail",
+        ],
+        &environ,
+    );
 
     print_statusline(mode, &environ, &mut left, &middle, &right, &bottom);
 }
@@ -393,10 +390,6 @@ fn make_title(env: &Environment) -> String {
         Cow::from(env.work_dir.to_str().unwrap_or("<path>"))
     };
     crate::style::title(&format!("{}@{}: {}", env.user, env.host, pwd))
-}
-
-fn flatten_blocks<const N: usize>(list: [Option<Box<dyn Block>>; N]) -> Vec<Box<dyn Block>> {
-    list.into_iter().flatten().collect()
 }
 
 fn pretty(line: &[Box<dyn Block>], mode: IconMode) -> String {

@@ -2,6 +2,8 @@ use crate::{Block, Environment, IconMode, Pretty, Style as _};
 
 pub struct Jobs(usize);
 
+super::register_block!(Jobs);
+
 impl Block for Jobs {
     fn new(environ: &Environment) -> Option<Box<dyn Block>> {
         let count = environ.jobs_count;

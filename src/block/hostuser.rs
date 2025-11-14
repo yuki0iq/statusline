@@ -4,6 +4,8 @@ struct Host(Chassis, String);
 struct User(String);
 pub struct HostUser(User, Host);
 
+super::register_block!(HostUser);
+
 impl Host {
     fn new(env: &Environment) -> Self {
         Host(Chassis::get(), env.host.clone())

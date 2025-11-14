@@ -2,6 +2,8 @@ use crate::{Block, Environment, Icon, IconMode, Pretty, Style as _};
 
 pub struct Elapsed(u64);
 
+super::register_block!(Elapsed);
+
 impl Block for Elapsed {
     fn new(environ: &Environment) -> Option<Box<dyn Block>> {
         match environ.elapsed_time {
