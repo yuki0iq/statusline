@@ -41,38 +41,45 @@ impl Icon for User {
 }
 
 impl Pretty for Host {
-    fn pretty(&self, mode: IconMode) -> Option<String> {
-        Some(
+    fn pretty(&self, f: &mut std::fmt::Formatter<'_>, mode: IconMode) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
             format!("[{} {}]", self.icon(mode), self.1)
                 .visible()
                 .colorize_with(&self.1)
                 .invisible()
-                .to_string(),
         )
     }
 }
 
 impl Pretty for User {
-    fn pretty(&self, mode: IconMode) -> Option<String> {
-        Some(
+    fn pretty(&self, f: &mut std::fmt::Formatter<'_>, mode: IconMode) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
             format!("[{} {}]", self.icon(mode), self.0)
                 .visible()
                 .colorize_with(&self.0)
                 .invisible()
-                .to_string(),
         )
     }
 }
 
 impl Pretty for HostUser {
-    fn pretty(&self, mode: IconMode) -> Option<String> {
-        Some(
-            format!("{} {}", self.1.pretty(mode)?, self.0.pretty(mode)?)
-                .visible()
-                .bold()
-                .with_reset()
-                .invisible()
-                .to_string(),
+    fn pretty(&self, f: &mut std::fmt::Formatter<'_>, mode: IconMode) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            format!(
+                "{} {}",
+                crate::icon::display(&self.1, mode),
+                crate::icon::display(&self.0, mode)
+            )
+            .visible()
+            .bold()
+            .with_reset()
+            .invisible()
         )
     }
 }

@@ -46,7 +46,7 @@ impl Icon for ReturnCode {
 }
 
 impl Pretty for ReturnCode {
-    fn pretty(&self, mode: IconMode) -> Option<String> {
+    fn pretty(&self, f: &mut std::fmt::Formatter<'_>, mode: IconMode) -> std::fmt::Result {
         let icon = self.icon(mode);
         let text = match &self {
             Self::Ok | Self::NotAvailable => icon.into(),
@@ -56,11 +56,13 @@ impl Pretty for ReturnCode {
             Self::Signaled(sig) => format!("{icon}{sig}"),
         };
         if text.is_empty() {
-            None?;
+            return Ok(());
         }
         let text = text.visible();
 
-        Some(
+        write!(
+            f,
+            "{}",
             match &self {
                 Self::Ok => text.light_green(),
                 Self::Failed(..) => text.light_red(),
@@ -69,7 +71,6 @@ impl Pretty for ReturnCode {
             }
             .with_reset()
             .invisible()
-            .to_string(),
         )
     }
 }

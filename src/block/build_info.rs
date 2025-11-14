@@ -94,7 +94,7 @@ impl Block for BuildInfo {
 }
 
 impl Pretty for BuildInfo {
-    fn pretty(&self, _: IconMode) -> Option<String> {
+    fn pretty(&self, f: &mut std::fmt::Formatter<'_>, _: IconMode) -> std::fmt::Result {
         let Self(buildinfo) = &self;
         let text = "[".to_owned()
             + &buildinfo
@@ -103,6 +103,6 @@ impl Pretty for BuildInfo {
                 .collect::<Vec<_>>()
                 .join(" ")
             + "]";
-        Some(text.visible().purple().with_reset().invisible().to_string())
+        write!(f, "{}", text.visible().purple().with_reset().invisible())
     }
 }

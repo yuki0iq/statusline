@@ -41,15 +41,16 @@ impl Icon for State {
 }
 
 impl Pretty for State {
-    fn pretty(&self, mode: IconMode) -> Option<String> {
-        Some(
+    fn pretty(&self, f: &mut std::fmt::Formatter, mode: IconMode) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
             self.icon(mode)
                 .visible()
                 .red()
                 .italic()
                 .with_reset()
                 .invisible()
-                .to_string(),
         )
     }
 }
@@ -125,7 +126,7 @@ impl Block for Workdir {
 }
 
 impl Pretty for Workdir {
-    fn pretty(&self, mode: IconMode) -> Option<String> {
+    fn pretty(&self, f: &mut std::fmt::Formatter<'_>, mode: IconMode) -> std::fmt::Result {
         let (middle, highlighted) = match (&self.git_tree, &self.current_home) {
             (Some(git_root), Some((home_root, _))) => {
                 if home_root.starts_with(git_root) {
@@ -174,6 +175,6 @@ impl Pretty for Workdir {
             .join("/")
             + &highlighted_str.unwrap_or_default();
 
-        Some(format!("{}{}", self.state.pretty(mode).unwrap(), work_dir))
+        write!(f, "{}{}", crate::icon::display(&self.state, mode), work_dir)
     }
 }

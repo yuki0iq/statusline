@@ -84,7 +84,7 @@ use rustix::{
     fd::{FromRawFd as _, OwnedFd},
     fs::{Mode, OFlags},
 };
-use std::{borrow::Cow, io::Write as _, path::PathBuf};
+use std::{borrow::Cow, fmt::Write as _, io::Write as _, path::PathBuf};
 use style::horizontal_absolute;
 use unicode_width::UnicodeWidthStr as _;
 
@@ -393,8 +393,14 @@ fn make_title(env: &Environment) -> String {
 }
 
 fn pretty(line: &[Box<dyn Block>], mode: IconMode) -> String {
-    line.iter()
-        .filter_map(|x| x.as_ref().pretty(mode))
-        .collect::<Vec<_>>()
-        .join(" ")
+    let mut res = String::new();
+    for block in line {
+        let prev_len = res.len();
+        write!(res, "{}", crate::icon::display(block.as_ref(), mode)).unwrap();
+        if prev_len != res.len() {
+            res.push(' ');
+        }
+    }
+    res.pop();
+    res
 }

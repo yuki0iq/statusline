@@ -232,21 +232,22 @@ impl Icon for HeadKind {
 }
 
 impl Pretty for Head {
-    fn pretty(&self, mode: IconMode) -> Option<String> {
-        Some(match &self.kind {
+    fn pretty(&self, f: &mut std::fmt::Formatter<'_>, mode: IconMode) -> std::fmt::Result {
+        match &self.kind {
             branch @ (HeadKind::Branch(name) | HeadKind::Unborn(name)) => {
-                format!("{} {}", branch.icon(mode), name)
+                write!(f, "{} {}", branch.icon(mode), name)
             }
             oid @ HeadKind::Commit(id) => {
-                format!(
+                write!(
+                    f,
                     "{} {}",
                     oid.icon(mode),
                     &id[..abbrev_commit(&self.root, id)]
                 )
                 // TODO show tag?
             }
-            other => other.icon(mode).into(),
-        })
+            other => write!(f, "{}", other.icon(mode)),
+        }
     }
 }
 
@@ -367,17 +368,17 @@ impl Icon for State {
 }
 
 impl Pretty for State {
-    fn pretty(&self, mode: IconMode) -> Option<String> {
+    fn pretty(&self, f: &mut std::fmt::Formatter<'_>, mode: IconMode) -> std::fmt::Result {
         let icon = self.icon(mode);
-        Some(match self {
-            State::Bisecting => icon.into(),
+        match self {
+            State::Bisecting => write!(f, "{icon}"),
             State::CherryPicking { head } | State::Reverting { head } | State::Merging { head } => {
-                format!("{icon} {head}")
+                write!(f, "{icon} {head}")
             }
             State::Rebasing { done, todo } => {
-                format!("{icon} {}/{}", done, done + todo)
+                write!(f, "{icon} {}/{}", done, done + todo)
             }
-        })
+        }
     }
 }
 
@@ -605,15 +606,14 @@ impl Block for GitTree {
 }
 
 impl Pretty for GitRepo {
-    fn pretty(&self, mode: IconMode) -> Option<String> {
+    fn pretty(&self, f: &mut std::fmt::Formatter<'_>, mode: IconMode) -> std::fmt::Result {
         let mut res = vec![];
 
         if let Some(state) = &self.state {
-            res.push(format!("{}|", state.pretty(mode).unwrap_or_default()));
+            res.push(format!("{}|", crate::icon::display(state, mode)));
         }
 
-        let head = self.head.pretty(mode).unwrap_or_default();
-        res.push(head);
+        res.push(format!("{}", crate::icon::display(&self.head, mode)));
 
         if let HeadKind::Branch(local) = &self.head.kind
             && let Some(Remote { branch: remote, .. }) = &self.remote
@@ -637,19 +637,20 @@ impl Pretty for GitRepo {
         }
 
         let text = "[".to_owned() + &res.join("") + "]";
-        Some(
+        write!(
+            f,
+            "{}",
             text.visible()
                 .colorize_with(self.head.ref_name().as_ref()) //.pink()
                 .bold()
                 .with_reset()
-                .invisible()
-                .to_string(),
+                .invisible(),
         )
     }
 }
 
 impl Pretty for GitTree {
-    fn pretty(&self, mode: IconMode) -> Option<String> {
+    fn pretty(&self, f: &mut std::fmt::Formatter<'_>, mode: IconMode) -> std::fmt::Result {
         let vec = [
             (GitIcon::Conflict, self.unmerged),
             (GitIcon::Staged, self.staged),
@@ -662,11 +663,11 @@ impl Pretty for GitTree {
         .collect::<Vec<_>>();
 
         if vec.is_empty() {
-            None
-        } else {
-            let text = "[".to_owned() + &vec.join(" ") + "]";
-            Some(text.visible().pink().with_reset().invisible().to_string())
+            return Ok(());
         }
+
+        let text = "[".to_owned() + &vec.join(" ") + "]";
+        write!(f, "{}", text.visible().pink().with_reset().invisible())
     }
 }
 

@@ -27,14 +27,15 @@ impl Block for Venv {
 }
 
 impl Pretty for Venv {
-    fn pretty(&self, mode: IconMode) -> Option<String> {
-        Some(
+    fn pretty(&self, f: &mut std::fmt::Formatter, mode: IconMode) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
             format!("[{} {}|{}]", self.icon(mode), self.version, self.name)
                 .visible()
                 .yellow()
                 .with_reset()
                 .invisible()
-                .to_string(),
         )
     }
 }

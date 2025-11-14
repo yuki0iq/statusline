@@ -24,14 +24,15 @@ impl Icon for Elapsed {
 }
 
 impl Pretty for Elapsed {
-    fn pretty(&self, mode: IconMode) -> Option<String> {
-        Some(
+    fn pretty(&self, f: &mut std::fmt::Formatter<'_>, mode: IconMode) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
             format!("({} {})", self.icon(mode), microseconds_to_string(self.0))
                 .visible()
                 .cyan()
                 .with_reset()
                 .invisible()
-                .to_string(),
         )
     }
 }

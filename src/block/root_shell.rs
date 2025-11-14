@@ -24,7 +24,7 @@ impl Icon for RootShell {
 }
 
 impl Pretty for RootShell {
-    fn pretty(&self, mode: IconMode) -> Option<String> {
+    fn pretty(&self, f: &mut std::fmt::Formatter<'_>, mode: IconMode) -> std::fmt::Result {
         let icon = self.icon(mode);
         let shlvl = if self.1 > 0 {
             Cow::from((1 + self.1).to_string())
@@ -33,15 +33,16 @@ impl Pretty for RootShell {
         };
         let formatted = format!("{shlvl}{icon}");
         let formatted = formatted.visible();
-        Some(
+        write!(
+            f,
+            "{}",
             if self.0 {
                 formatted.red()
             } else {
                 formatted.green()
             }
             .with_reset()
-            .invisible()
-            .to_string(),
+            .invisible(),
         )
     }
 }

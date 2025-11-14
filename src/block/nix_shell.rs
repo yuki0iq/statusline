@@ -43,9 +43,11 @@ impl Block for NixShell {
 }
 
 impl Pretty for NixShell {
-    fn pretty(&self, mode: IconMode) -> Option<String> {
+    fn pretty(&self, f: &mut std::fmt::Formatter<'_>, mode: IconMode) -> std::fmt::Result {
         // I am not proud of the number of allocations here
-        Some(
+        write!(
+            f,
+            "{}",
             format!(
                 "[{}{} {}]",
                 if self.purity { "" } else { "!" },
@@ -56,7 +58,6 @@ impl Pretty for NixShell {
             .bright_blue()
             .with_reset()
             .invisible()
-            .to_string(),
         )
     }
 }

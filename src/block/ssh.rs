@@ -29,15 +29,13 @@ impl Icon for Ssh {
 }
 
 impl Pretty for Ssh {
-    fn pretty(&self, mode: IconMode) -> Option<String> {
+    fn pretty(&self, f: &mut std::fmt::Formatter<'_>, mode: IconMode) -> std::fmt::Result {
         let chain = &self.0;
         let icon = self.icon(mode);
-        Some(
-            format!("[{icon} {chain}]")
-                .visible()
-                .cyan()
-                .invisible()
-                .to_string(),
+        write!(
+            f,
+            "{}",
+            format!("[{icon} {chain}]").visible().cyan().invisible()
         )
     }
 }

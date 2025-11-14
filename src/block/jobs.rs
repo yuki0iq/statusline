@@ -17,17 +17,18 @@ impl Block for Jobs {
 }
 
 impl Pretty for Jobs {
-    fn pretty(&self, _: IconMode) -> Option<String> {
+    fn pretty(&self, f: &mut std::fmt::Formatter<'_>, _: IconMode) -> std::fmt::Result {
         let text = if self.0 == 1 { "job" } else { "jobs" };
 
-        Some(
+        write!(
+            f,
+            "{}",
             format!("[{} {text}]", self.0)
                 .visible()
                 .green()
                 .bold()
                 .with_reset()
-                .invisible()
-                .to_string(),
+                .invisible(),
         )
     }
 }

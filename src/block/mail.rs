@@ -33,14 +33,15 @@ impl Block for UnseenMail {
 }
 
 impl Pretty for UnseenMail {
-    fn pretty(&self, mode: IconMode) -> Option<String> {
-        Some(
+    fn pretty(&self, f: &mut std::fmt::Formatter<'_>, mode: IconMode) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
             format!("[{}{}]", self.icon(mode), self.count)
                 .visible()
                 .yellow()
                 .with_reset()
                 .invisible()
-                .to_string(),
         )
     }
 }
