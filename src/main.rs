@@ -282,23 +282,23 @@ fn run_statusline(run: Run) {
 
     let environ: Environment = run.into();
 
-    let bottom = create_blocks(&["RootShell", "Separator"], &environ);
+    let bottom = create_blocks(&["root_shell", "separator"], &environ);
 
-    let right = create_blocks(&["Elapsed", "ReturnCode", "Time"], &environ);
+    let right = create_blocks(&["elapsed", "return_code", "time"], &environ);
 
-    let middle = create_blocks(&["Workdir"], &environ);
+    let middle = create_blocks(&["workdir"], &environ);
 
     let mut left = create_blocks(
         &[
-            "HostUser",
-            "Ssh",
-            "GitRepo",
-            "GitTree",
-            "BuildInfo",
-            "NixShell",
-            "Venv",
-            "Jobs",
-            "UnseenMail",
+            "host_user",
+            "ssh",
+            "git_repo",
+            "git_tree",
+            "build_info",
+            "nix_shell",
+            "venv",
+            "jobs",
+            "unseen_mail",
         ],
         &environ,
     );

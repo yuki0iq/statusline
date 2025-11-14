@@ -1,4 +1,5 @@
 use crate::{Environment, Pretty};
+use heck::ToPascalCase as _;
 use linkme::distributed_slice;
 use std::{collections::HashMap, sync::LazyLock};
 
@@ -45,7 +46,12 @@ static BLOCK_KINDS_MAP: LazyLock<HashMap<&str, Constructor>> =
 pub fn create_blocks(names: &[&str], environ: &Environment) -> Vec<Box<dyn Block>> {
     names
         .iter()
-        .map(|name| BLOCK_KINDS_MAP.get(name).expect("block name should exist"))
+        .map(|name| name.to_pascal_case())
+        .map(|name| {
+            BLOCK_KINDS_MAP
+                .get(&*name)
+                .expect("block name should exist")
+        })
         .filter_map(|cons| cons(environ))
         .collect()
 }
