@@ -1,4 +1,4 @@
-use crate::{Environment, Block, Icon, IconMode, Pretty, Style as _};
+use crate::{Block, Environment, Icon, IconMode, Pretty, Style as _};
 use linux_raw_sys::general::{_NSIG as SIGRTMAX, SIGRTMIN};
 use rustix::process::Signal;
 
@@ -9,18 +9,16 @@ pub enum ReturnCode {
     NotAvailable,
 }
 
-impl Block for ReturnCode {}
-
-impl ReturnCode {
-    pub fn new(args: &Environment) -> Box<dyn Block> {
-        Box::new(match args.ret_code {
+impl Block for ReturnCode {
+    fn new(environ: &Environment) -> Option<Box<dyn Block>> {
+        Some(Box::new(match environ.ret_code {
             Some(0) => Self::Ok,
             None => Self::NotAvailable,
             Some(code) => match signal_name(code.wrapping_sub(128)) {
                 Some(sig) => Self::Signaled(sig),
                 None => Self::Failed(code),
             },
-        })
+        }))
     }
 }
 

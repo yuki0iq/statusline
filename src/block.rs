@@ -1,4 +1,4 @@
-use crate::Pretty;
+use crate::{Environment, Pretty};
 
 mod build_info;
 mod elapsed;
@@ -18,20 +18,23 @@ mod workdir;
 pub use {
     build_info::BuildInfo,
     elapsed::Elapsed,
-    git::{Repo as GitRepo, Tree as GitTree},
+    git::{GitRepo, GitTree},
     hostuser::HostUser,
     jobs::Jobs,
     mail::UnseenMail,
-    nix_shell::MaybeNixShell,
+    nix_shell::NixShell,
     return_code::ReturnCode,
     root_shell::RootShell,
-    separator::Separator,
+    separator::{Continuation, Separator},
     ssh::Ssh,
     time::Time,
-    venv::MaybeVenv,
+    venv::Venv,
     workdir::Workdir,
 };
 
 pub trait Block: Pretty {
+    fn new(environ: &Environment) -> Option<Box<dyn Block>>
+    where
+        Self: Sized;
     fn extend(&mut self) {}
 }

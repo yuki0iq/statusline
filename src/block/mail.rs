@@ -1,14 +1,12 @@
-use crate::{Environment, Block, Icon, IconMode, Pretty, Style as _};
+use crate::{Block, Environment, Icon, IconMode, Pretty, Style as _};
 use std::path::PathBuf;
 
 pub struct UnseenMail {
     count: usize,
 }
 
-impl Block for UnseenMail {}
-
-impl UnseenMail {
-    pub fn new(environ: &Environment) -> Box<dyn Block> {
+impl Block for UnseenMail {
+    fn new(environ: &Environment) -> Option<Box<dyn Block>> {
         let maildir_path =
             std::env::var("MAIL").unwrap_or_else(|_| format!("/var/spool/mail/{}", environ.user));
         let maildir = PathBuf::from(maildir_path);
@@ -23,22 +21,25 @@ impl UnseenMail {
                     .count()
             })
             .unwrap_or(0);
-        Box::new(UnseenMail {
-            count: unseen_count + unread_count,
-        })
+        let count = unseen_count + unread_count;
+        if count == 0 {
+            None
+        } else {
+            Some(Box::new(UnseenMail { count }))
+        }
     }
 }
 
 impl Pretty for UnseenMail {
     fn pretty(&self, mode: IconMode) -> Option<String> {
-        0.ne(&self.count).then(|| {
+        Some(
             format!("[{}{}]", self.icon(mode), self.count)
                 .visible()
                 .yellow()
                 .with_reset()
                 .invisible()
-                .to_string()
-        })
+                .to_string(),
+        )
     }
 }
 

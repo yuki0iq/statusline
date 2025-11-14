@@ -1,4 +1,4 @@
-use crate::{Environment, Block, Icon, IconMode, Pretty, Style as _, file};
+use crate::{Block, Environment, Icon, IconMode, Pretty, Style as _, file};
 use anyhow::{Context as _, Result};
 use memmap2::Mmap;
 use rustix::process::Signal;
@@ -466,33 +466,9 @@ pub struct GitRepo {
     ahead: usize,
 }
 
-pub type Repo = Option<GitRepo>;
-
-pub struct GitTree {
-    tree: PathBuf,
-    unmerged: usize,
-    staged: usize,
-    dirty: usize,
-    untracked: usize,
-}
-
-pub type Tree = Option<GitTree>;
-
-impl From<&Environment> for Tree {
-    fn from(env: &Environment) -> Tree {
-        let tree = env.git_tree.as_ref()?.clone();
-        Some(GitTree {
-            tree,
-            unmerged: 0,
-            staged: 0,
-            dirty: 0,
-            untracked: 0,
-        })
-    }
-}
-impl From<&Environment> for Repo {
-    fn from(env: &Environment) -> Repo {
-        let tree = env.git_tree.as_ref()?.clone();
+impl Block for GitRepo {
+    fn new(environ: &Environment) -> Option<Box<dyn Block>> {
+        let tree = environ.git_tree.as_ref()?.clone();
         let dotgit = tree.join(".git");
         let root = if dotgit.is_file() {
             tree.join(
@@ -534,29 +510,44 @@ impl From<&Environment> for Repo {
         let (ahead, behind) =
             get_ahead_behind(&tree, &head.kind, remote.as_ref()).unwrap_or((0, 0));
 
-        Some(GitRepo {
+        Some(Box::new(GitRepo {
             head,
             remote,
             stashes,
             state,
             behind,
             ahead,
-        })
+        }))
     }
 }
 
-impl Block for Repo {}
+pub struct GitTree {
+    tree: PathBuf,
+    unmerged: usize,
+    staged: usize,
+    dirty: usize,
+    untracked: usize,
+}
 
-impl Block for Tree {
+impl Block for GitTree {
+    fn new(environ: &Environment) -> Option<Box<dyn Block>> {
+        let tree = environ.git_tree.as_ref()?.clone();
+        Some(Box::new(GitTree {
+            tree,
+            unmerged: 0,
+            staged: 0,
+            dirty: 0,
+            untracked: 0,
+        }))
+    }
+
     fn extend(&mut self) {
-        let Some(ref mut self_ref) = *self else { return };
-
         let parent_pid = rustix::process::getpid();
         // SAFETY: pre_exec only sets parent process death signal and does nothing more
         let out = unsafe {
             Command::new("git")
                 .arg("-C")
-                .arg(&self_ref.tree)
+                .arg(&self.tree)
                 .arg("status")
                 .arg("--porcelain=2")
                 .pre_exec(move || -> IoResult<()> {
@@ -602,16 +593,10 @@ impl Block for Tree {
             }
         }
 
-        self_ref.unmerged = unmerged;
-        self_ref.staged = staged;
-        self_ref.dirty = dirty;
-        self_ref.untracked = untracked;
-    }
-}
-
-impl Pretty for Repo {
-    fn pretty(&self, mode: IconMode) -> Option<String> {
-        self.as_ref()?.pretty(mode)
+        self.unmerged = unmerged;
+        self.staged = staged;
+        self.dirty = dirty;
+        self.untracked = untracked;
     }
 }
 
@@ -656,12 +641,6 @@ impl Pretty for GitRepo {
                 .invisible()
                 .to_string(),
         )
-    }
-}
-
-impl Pretty for Tree {
-    fn pretty(&self, mode: IconMode) -> Option<String> {
-        self.as_ref()?.pretty(mode)
     }
 }
 

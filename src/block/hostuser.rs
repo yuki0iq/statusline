@@ -1,10 +1,8 @@
-use crate::{Chassis, Environment, Block, Icon, IconMode, Pretty, Style as _};
+use crate::{Block, Chassis, Environment, Icon, IconMode, Pretty, Style as _};
 
 struct Host(Chassis, String);
 struct User(String);
 pub struct HostUser(User, Host);
-
-impl Block for HostUser {}
 
 impl Host {
     fn new(env: &Environment) -> Self {
@@ -18,9 +16,9 @@ impl User {
     }
 }
 
-impl HostUser {
-    pub fn new(env: &Environment) -> Box<dyn Block> {
-        Box::new(HostUser(User::new(env), Host::new(env)))
+impl Block for HostUser {
+    fn new(environ: &Environment) -> Option<Box<dyn Block>> {
+        Some(Box::new(HostUser(User::new(environ), Host::new(environ))))
     }
 }
 

@@ -1,19 +1,20 @@
 use crate::{
-    Block, Icon, IconMode, Pretty, Style as _,
+    Block, Environment, Icon, IconMode, Pretty, Style as _,
     workgroup::{SshChain, WorkgroupKey},
 };
 
 pub struct Ssh(String);
 
-impl Ssh {
-    pub fn new() -> Box<Ssh> {
-        Box::new(Ssh(SshChain::open(WorkgroupKey::load().ok().as_ref())
-            .0
-            .join(" ")))
+impl Block for Ssh {
+    fn new(_: &Environment) -> Option<Box<dyn Block>> {
+        let chain = SshChain::open(WorkgroupKey::load().ok().as_ref()).0;
+        if chain.is_empty() {
+            None
+        } else {
+            Some(Box::new(Ssh(chain.join(" "))))
+        }
     }
 }
-
-impl Block for Ssh {}
 
 impl Icon for Ssh {
     fn icon(&self, mode: IconMode) -> &'static str {
@@ -28,10 +29,6 @@ impl Icon for Ssh {
 impl Pretty for Ssh {
     fn pretty(&self, mode: IconMode) -> Option<String> {
         let chain = &self.0;
-        if chain.is_empty() {
-            return None;
-        }
-
         let icon = self.icon(mode);
         Some(
             format!("[{icon} {chain}]")

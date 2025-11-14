@@ -1,4 +1,4 @@
-use crate::{Environment, Block, Icon, IconMode, Pretty, Style as _};
+use crate::{Block, Environment, Icon, IconMode, Pretty, Style as _};
 use anyhow::Result;
 use std::{
     ffi::OsStr,
@@ -12,32 +12,28 @@ pub struct Venv {
     version: String,
 }
 
-pub type MaybeVenv = Option<Venv>;
-
-impl Block for MaybeVenv {}
-
-impl From<&Environment> for MaybeVenv {
-    fn from(_: &Environment) -> Self {
+impl Block for Venv {
+    fn new(_: &Environment) -> Option<Box<dyn Block>> {
         let path = PathBuf::from(std::env::var("VIRTUAL_ENV").ok()?);
         let name = venv_name(&path).to_owned();
         let version = venv_ver(&path)
             .unwrap_or_default()
             .unwrap_or("<sys?>".to_owned());
 
-        Some(Venv { name, version })
+        Some(Box::new(Venv { name, version }))
     }
 }
 
-impl Pretty for MaybeVenv {
+impl Pretty for Venv {
     fn pretty(&self, mode: IconMode) -> Option<String> {
-        self.as_ref().map(|venv| {
-            format!("[{} {}|{}]", venv.icon(mode), venv.version, venv.name)
+        Some(
+            format!("[{} {}|{}]", self.icon(mode), self.version, self.name)
                 .visible()
                 .yellow()
                 .with_reset()
                 .invisible()
-                .to_string()
-        })
+                .to_string(),
+        )
     }
 }
 

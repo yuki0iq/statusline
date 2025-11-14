@@ -1,4 +1,4 @@
-use crate::{Environment, Block, Icon, IconMode, Pretty, Style as _};
+use crate::{Block, Environment, Icon, IconMode, Pretty, Style as _};
 use std::{ffi::OsStr, path::Path};
 
 pub struct NixShell {
@@ -9,12 +9,8 @@ pub struct NixShell {
     inputs: Vec<String>,
 }
 
-pub type MaybeNixShell = Option<NixShell>;
-
-impl Block for MaybeNixShell {}
-
-impl From<&Environment> for MaybeNixShell {
-    fn from(_: &Environment) -> Self {
+impl Block for NixShell {
+    fn new(_: &Environment) -> Option<Box<dyn Block>> {
         let purity = match std::env::var("IN_NIX_SHELL").ok()?.as_ref() {
             "impure" => false,
             "pure" => true,
@@ -40,26 +36,26 @@ impl From<&Environment> for MaybeNixShell {
             .map(|(h, p)| format!("{}:{p}", &h[..6]))
             .collect();
 
-        Some(NixShell { purity, inputs })
+        Some(Box::new(NixShell { purity, inputs }))
     }
 }
 
-impl Pretty for MaybeNixShell {
+impl Pretty for NixShell {
     fn pretty(&self, mode: IconMode) -> Option<String> {
         // I am not proud of the number of allocations here
-        self.as_ref().map(|ns| {
+        Some(
             format!(
                 "[{}{} {}]",
-                if ns.purity { "" } else { "!" },
-                ns.icon(mode),
-                ns.inputs.join(" ")
+                if self.purity { "" } else { "!" },
+                self.icon(mode),
+                self.inputs.join(" ")
             )
             .visible()
             .bright_blue()
             .with_reset()
             .invisible()
-            .to_string()
-        })
+            .to_string(),
+        )
     }
 }
 

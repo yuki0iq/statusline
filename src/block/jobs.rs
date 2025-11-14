@@ -1,21 +1,20 @@
-use crate::{Environment, Block, IconMode, Pretty, Style as _};
+use crate::{Block, Environment, IconMode, Pretty, Style as _};
 
 pub struct Jobs(usize);
 
-impl Block for Jobs {}
-
-impl Jobs {
-    pub fn new(args: &Environment) -> Box<dyn Block> {
-        Box::new(Jobs(args.jobs_count))
+impl Block for Jobs {
+    fn new(environ: &Environment) -> Option<Box<dyn Block>> {
+        let count = environ.jobs_count;
+        if count == 0 {
+            None
+        } else {
+            Some(Box::new(Jobs(count)))
+        }
     }
 }
 
 impl Pretty for Jobs {
     fn pretty(&self, _: IconMode) -> Option<String> {
-        if self.0 == 0 {
-            None?;
-        }
-
         let text = if self.0 == 1 { "job" } else { "jobs" };
 
         Some(

@@ -285,28 +285,28 @@ fn print_statusline(run: Run) {
 
     let title = make_title(&environ);
 
-    let bottom = pretty(&[RootShell::new(), Separator::empty()], mode);
+    let bottom = pretty(&[RootShell::new(&environ), Separator::new(&environ)], mode);
 
     let right = pretty(
         &[
             Elapsed::new(&environ),
             ReturnCode::new(&environ),
-            Time::new(),
+            Time::new(&environ),
         ],
         mode,
     );
 
-    let workdir = Workdir::new(&environ).pretty(mode).unwrap();
-    let cont = Separator::continuation().pretty(mode).unwrap();
+    let workdir = Workdir::new(&environ).unwrap().pretty(mode).unwrap();
+    let cont = Continuation.pretty(mode).unwrap();
 
     let mut line = [
         HostUser::new(&environ),
-        Ssh::new(),
-        Box::new(GitRepo::from(&environ)),
-        Box::new(GitTree::from(&environ)),
+        Ssh::new(&environ),
+        GitRepo::new(&environ),
+        GitTree::new(&environ),
         BuildInfo::new(&environ),
-        Box::new(MaybeNixShell::from(&environ)),
-        Box::new(MaybeVenv::from(&environ)),
+        NixShell::new(&environ),
+        Venv::new(&environ),
         Jobs::new(&environ),
         UnseenMail::new(&environ),
     ];
@@ -352,7 +352,7 @@ fn print_statusline(run: Run) {
     rustix::stdio::dup2_stdout(rustix::fs::open("/dev/null", OFlags::RDWR, Mode::empty()).unwrap())
         .unwrap();
 
-    for block in &mut line {
+    for block in line.iter_mut().flatten() {
         block.extend();
     }
     eprint_top_part(pretty(&line, mode));
@@ -377,8 +377,9 @@ fn make_title(env: &Environment) -> String {
     crate::style::title(&format!("{}@{}: {}", env.user, env.host, pwd))
 }
 
-fn pretty(line: &[Box<dyn Block>], mode: IconMode) -> String {
+fn pretty(line: &[Option<Box<dyn Block>>], mode: IconMode) -> String {
     line.iter()
+        .flatten()
         .filter_map(|x| x.as_ref().pretty(mode))
         .collect::<Vec<_>>()
         .join(" ")

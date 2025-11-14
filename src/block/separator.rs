@@ -1,21 +1,27 @@
-use crate::{Block, IconMode, Pretty};
+use crate::{Block, Environment, IconMode, Pretty};
 
-pub struct Separator(pub &'static str);
+pub struct Separator;
 
-impl Separator {
-    pub fn empty() -> Box<dyn Block> {
-        Box::new(Self(""))
-    }
-
-    pub fn continuation() -> Box<dyn Block> {
-        Box::new(Self("\u{f105}"))
+impl Block for Separator {
+    fn new(_: &Environment) -> Option<Box<dyn Block>> {
+        Some(Box::new(Self))
     }
 }
-
 impl Pretty for Separator {
     fn pretty(&self, _: IconMode) -> Option<String> {
-        Some(self.0.into())
+        Some(String::new())
     }
 }
 
-impl Block for Separator {}
+pub struct Continuation;
+
+impl Block for Continuation {
+    fn new(_: &Environment) -> Option<Box<dyn Block>> {
+        Some(Box::new(Self))
+    }
+}
+impl Pretty for Continuation {
+    fn pretty(&self, _: IconMode) -> Option<String> {
+        Some("\u{f105}".into())
+    }
+}

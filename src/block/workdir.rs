@@ -1,4 +1,4 @@
-use crate::{Environment, Block, Icon, IconMode, Pretty, Style as _};
+use crate::{Block, Environment, Icon, IconMode, Pretty, Style as _};
 use anyhow::{Context as _, Result, ensure};
 use rustix::fs::{Access, Stat};
 use std::{
@@ -107,20 +107,18 @@ pub struct Workdir {
     state: State,
 }
 
-impl Block for Workdir {}
-
-impl Workdir {
-    pub fn new(env: &Environment) -> Box<dyn Block> {
-        let mut work_dir = env.work_dir.clone();
-        let git_tree = env.git_tree.clone();
-        let current_home = env.current_home.clone();
+impl Block for Workdir {
+    fn new(environ: &Environment) -> Option<Box<dyn Block>> {
+        let mut work_dir = environ.work_dir.clone();
+        let git_tree = environ.git_tree.clone();
+        let current_home = environ.current_home.clone();
         let state = get_state(&mut work_dir);
-        Box::new(Workdir {
+        Some(Box::new(Workdir {
             work_dir,
             git_tree,
             current_home,
             state,
-        })
+        }))
     }
 }
 

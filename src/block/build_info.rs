@@ -1,4 +1,4 @@
-use crate::{Environment, Block, IconMode, Pretty, Style as _, file};
+use crate::{Block, Environment, IconMode, Pretty, Style as _, file};
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
 #[derive(Hash, PartialEq, Eq)]
@@ -38,11 +38,9 @@ impl Display for Kind {
 
 pub struct BuildInfo(Vec<Kind>);
 
-impl Block for BuildInfo {}
-
-impl BuildInfo {
-    pub fn new(env: &Environment) -> Box<dyn Block> {
-        let workdir = &env.work_dir;
+impl Block for BuildInfo {
+    fn new(environ: &Environment) -> Option<Box<dyn Block>> {
+        let workdir = &environ.work_dir;
         let mut bi = vec![];
 
         if file::points_to_file("default.nix") {
@@ -85,16 +83,17 @@ impl BuildInfo {
             bi.push(Kind::Gradle);
         }
 
-        Box::new(Self(bi))
+        if bi.is_empty() {
+            None
+        } else {
+            Some(Box::new(Self(bi)))
+        }
     }
 }
 
 impl Pretty for BuildInfo {
     fn pretty(&self, _: IconMode) -> Option<String> {
         let Self(buildinfo) = &self;
-        if buildinfo.is_empty() {
-            None?;
-        }
         let text = "[".to_owned()
             + &buildinfo
                 .iter()

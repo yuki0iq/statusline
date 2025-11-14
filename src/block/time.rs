@@ -1,13 +1,11 @@
-use crate::{Block, IconMode, Pretty, Style as _};
+use crate::{Block, Environment, IconMode, Pretty, Style as _};
 use chrono::prelude::*;
 
 pub struct Time(DateTime<Local>);
 
-impl Block for Time {}
-
-impl Time {
-    pub fn new() -> Box<dyn Block> {
-        Box::new(Self(Local::now()))
+impl Block for Time {
+    fn new(_: &Environment) -> Option<Box<dyn Block>> {
+        Some(Box::new(Self(Local::now())))
     }
 }
 
