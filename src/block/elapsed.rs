@@ -7,7 +7,7 @@ super::register_block!(Elapsed);
 impl Block for Elapsed {
     fn new(environ: &Environment) -> Option<Box<dyn Block>> {
         match environ.elapsed_time {
-            Some(elapsed) if elapsed > 100 => Some(Box::new(Elapsed(elapsed))),
+            Some(elapsed) if elapsed > 100_000 => Some(Box::new(Elapsed(elapsed))),
             _ => None,
         }
     }
