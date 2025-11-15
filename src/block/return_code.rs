@@ -72,15 +72,12 @@ impl Pretty for ReturnCode {
 }
 
 fn signal_name(sig: u8) -> Option<String> {
-    let sig = u32::from(sig);
-    if (SIGRTMIN..=SIGRTMAX).contains(&sig) {
-        Some(format!("RT{}", sig - SIGRTMIN))
-    } else if sig == 0 || sig > SIGRTMAX {
-        None
-    } else {
-        // SAFETY: No realtime signals are here; result is used only for pretty-printing
-        let sig = unsafe { Signal::from_raw_unchecked(sig.cast_signed()) };
-        let pretty = format!("{sig:?}"); // "Signal::TERM"
+    if let Some(sig) = Signal::from_named_raw(i32::from(sig)) {
+        let pretty = format!("{sig:?}"); // e.g. "Signal::TERM", including the quotes
         Some(pretty[9..pretty.len() - 1].to_ascii_uppercase())
+    } else if (SIGRTMIN..=SIGRTMAX).contains(&u32::from(sig)) {
+        Some(format!("RT{}", u32::from(sig) - SIGRTMIN))
+    } else {
+        None
     }
 }
