@@ -37,50 +37,33 @@ super::register_block!(BuildInfo);
 
 impl Block for BuildInfo {
     fn new(environ: &Environment) -> Option<Self> {
-        let workdir = &environ.work_dir;
-        let mut bi = vec![];
+        let mut kinds = vec![];
 
-        if file::points_to_file("default.nix") {
-            bi.push(Kind::Nix);
+        for (name, kind) in [
+            ("default.nix", Kind::Nix),
+            ("meson.build", Kind::Meson),
+            ("CMakeLists.txt", Kind::Cmake),
+            ("configure", Kind::Configure),
+            ("Makefile", Kind::Makefile),
+            ("jr", Kind::Jr),
+            ("gradle.properties", Kind::Gradle),
+        ] {
+            if file::points_to_file(name) {
+                kinds.push(kind);
+            }
         }
 
-        if file::points_to_file("meson.build") {
-            bi.push(Kind::Meson);
+        for (name, kind) in [
+            ("Cargo.toml", Kind::Cargo),
+            ("pyproject.toml", Kind::Pyproject),
+            (".kks-workspace", Kind::Kks),
+        ] {
+            if file::upfind(&environ.work_dir, name).is_some() {
+                kinds.push(kind);
+            }
         }
 
-        if file::points_to_file("CMakeLists.txt") {
-            bi.push(Kind::Cmake);
-        }
-
-        if file::points_to_file("configure") {
-            bi.push(Kind::Configure);
-        }
-
-        if file::points_to_file("Makefile") {
-            bi.push(Kind::Makefile);
-        }
-
-        if file::points_to_file("jr") {
-            bi.push(Kind::Jr);
-        }
-
-        if file::upfind(workdir, "Cargo.toml").is_some() {
-            bi.push(Kind::Cargo);
-        }
-
-        if file::upfind(workdir, "pyproject.toml").is_some() {
-            bi.push(Kind::Pyproject);
-        }
-
-        if file::upfind(workdir, ".kks-workspace").is_some() {
-            bi.push(Kind::Kks);
-        }
-
-        if file::points_to_file("gradle.properties") {
-            bi.push(Kind::Gradle);
-        }
-
-        (!bi.is_empty()).then_some(Self(bi))
+        (!kinds.is_empty()).then_some(Self(kinds))
     }
 }
 
