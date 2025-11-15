@@ -1,13 +1,17 @@
+use std::time::Duration;
+
 use crate::{Block, Color, Environment, Icon, IconMode, Pretty, Style, WithStyle as _};
 
-pub struct Elapsed(u64);
+pub struct Elapsed(Duration);
 
 super::register_block!(Elapsed);
 
 impl Block for Elapsed {
     fn new(environ: &Environment) -> Option<Box<dyn Block>> {
         match environ.elapsed_time {
-            Some(elapsed) if elapsed > 100_000 => Some(Box::new(Elapsed(elapsed))),
+            Some(elapsed) if elapsed > const { Duration::from_millis(100) } => {
+                Some(Box::new(Elapsed(elapsed)))
+            }
             _ => None,
         }
     }
@@ -30,14 +34,13 @@ impl Pretty for Elapsed {
                 f,
                 "({} {})",
                 self.icon(mode),
-                microseconds_to_string(self.0)
+                milliseconds_to_string(self.0.as_millis())
             )
         })
     }
 }
 
-fn microseconds_to_string(total: u64) -> String {
-    let (_usec, total) = (total % 1000, total / 1000);
+fn milliseconds_to_string(total: u128) -> String {
     let (msec, total) = (total % 1000, total / 1000);
     let (sec, total) = (total % 60, total / 60);
     let (min, total) = (total % 60, total / 60);

@@ -84,7 +84,7 @@ use rustix::{
     fd::{FromRawFd as _, OwnedFd},
     fs::{Mode, OFlags},
 };
-use std::{borrow::Cow, fmt::Write as _, io::Write as _, path::PathBuf};
+use std::{borrow::Cow, fmt::Write as _, io::Write as _, path::PathBuf, time::Duration};
 use unicode_width::UnicodeWidthStr as _;
 
 fn readline_width(s: &str) -> usize {
@@ -173,7 +173,7 @@ pub struct Environment {
     /// Jobs currently running
     pub jobs_count: Option<usize>,
     /// Last command's elapsed time, in us
-    pub elapsed_time: Option<u64>,
+    pub elapsed_time: Option<Duration>,
     /// Working directory
     pub work_dir: PathBuf,
     /// Git worktree path if any
@@ -190,7 +190,7 @@ impl From<Run> for Environment {
     fn from(other: Run) -> Environment {
         let ret_code = other.return_code;
         let jobs_count = other.jobs_count;
-        let elapsed_time = other.elapsed_time;
+        let elapsed_time = other.elapsed_time.map(Duration::from_micros);
 
         let work_dir = std::env::current_dir()
             .unwrap_or_else(|_| PathBuf::from(std::env::var("PWD").unwrap()));
