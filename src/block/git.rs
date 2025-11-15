@@ -535,9 +535,10 @@ impl Block for GitTree {
                 .arg("--porcelain=2")
                 .pre_exec(move || -> IoResult<()> {
                     rustix::process::set_parent_process_death_signal(Some(Signal::TERM))?;
-                    if Some(parent_pid) != rustix::process::getppid() {
-                        return Err(Error::other("Parent already dead"));
-                    }
+                    assert!(
+                        Some(parent_pid) == rustix::process::getppid(),
+                        "Parent already dead"
+                    );
                     Ok(())
                 })
                 .output()
