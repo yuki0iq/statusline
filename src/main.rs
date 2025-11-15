@@ -228,7 +228,7 @@ impl From<Run> for Environment {
 
 fn main() {
     let exec = std::fs::read_link("/proc/self/exe")
-        .map(|pb| String::from(pb.to_string_lossy()))
+        .map(|pb| pb.to_string_lossy().into_owned())
         .unwrap_or("<executable>".to_owned());
 
     let args: Arguments = argh::from_env();
