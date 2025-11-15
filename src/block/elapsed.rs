@@ -43,21 +43,18 @@ fn milliseconds_to_string(total: u128) -> String {
     let (hrs, total) = (total % 24, total / 24);
     let (day, week) = (total % 7, total / 7);
 
-    let times = [
+    [
         (week, "w"),
         (day, "d"),
         (hrs, "h"),
         (min, "m"),
         (sec, "s"),
         (msec, "ms"),
-    ];
-    let mut iter = times.iter().peekable();
-    while let Some((0, _)) = iter.peek() {
-        iter.next();
-    }
-
-    iter.take(2)
-        .map(|(val, ch)| val.to_string() + ch)
-        .collect::<Vec<_>>()
-        .join(" ")
+    ]
+    .iter()
+    .skip_while(|(val, _)| *val == 0)
+    .take(2)
+    .map(|(val, ch)| format!("{val}{ch}"))
+    .collect::<Vec<_>>()
+    .join(" ")
 }
