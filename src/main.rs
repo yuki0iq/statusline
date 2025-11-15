@@ -85,7 +85,10 @@ use rustix::{
     fd::{FromRawFd as _, OwnedFd},
     fs::{Mode, OFlags},
 };
-use std::{borrow::Cow, fmt::Write as _, io::Write as _, path::PathBuf, time::Duration};
+use std::{
+    borrow::Cow, fmt::Write as _, io::Write as _, os::fd::AsRawFd as _, path::PathBuf,
+    time::Duration,
+};
 use unicode_width::UnicodeWidthStr as _;
 
 fn readline_width(s: &str) -> usize {
@@ -275,10 +278,10 @@ fn main() {
 fn run_statusline(run: Run) {
     if let Some(fd) = run.control_fd {
         // SAFETY: This file descriptor is already open
-        let controlling_fd = unsafe { OwnedFd::from_raw_fd(fd) };
+        let fd = unsafe { OwnedFd::from_raw_fd(fd) };
         // SAFETY: This file descriptor is not reused for concurrently running invocations.
-        unsafe { libc::fcntl(fd, libc::F_SETOWN, rustix::process::getpid()) };
-        rustix::fs::fcntl_setfl(controlling_fd, OFlags::ASYNC).unwrap();
+        unsafe { libc::fcntl(fd.as_raw_fd(), libc::F_SETOWN, rustix::process::getpid()) };
+        rustix::fs::fcntl_setfl(fd, OFlags::ASYNC).unwrap();
     }
 
     let mode = match run.mode.as_deref() {
