@@ -8,13 +8,9 @@ pub struct Ssh(Vec<String>);
 super::register_block!(Ssh);
 
 impl Block for Ssh {
-    fn new(_: &Environment) -> Option<Box<dyn Block>> {
+    fn new(_: &Environment) -> Option<Self> {
         let chain = SshChain::open(WorkgroupKey::load().ok().as_ref()).0;
-        if chain.is_empty() {
-            None
-        } else {
-            Some(Box::new(Ssh(chain)))
-        }
+        (!chain.is_empty()).then_some(Ssh(chain))
     }
 }
 

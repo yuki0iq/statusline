@@ -8,14 +8,14 @@ pub struct RootShell {
 super::register_block!(RootShell);
 
 impl Block for RootShell {
-    fn new(_: &Environment) -> Option<Box<dyn Block>> {
-        Some(Box::new(RootShell {
+    fn new(_: &Environment) -> Option<Self> {
+        Some(RootShell {
             is_root: rustix::process::getuid().is_root(),
             depth: std::env::var("SHLVL")
                 .unwrap_or_default()
                 .parse()
                 .unwrap_or_default(),
-        }))
+        })
     }
 }
 

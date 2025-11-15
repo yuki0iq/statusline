@@ -19,8 +19,8 @@ impl User {
 }
 
 impl Block for HostUser {
-    fn new(environ: &Environment) -> Option<Box<dyn Block>> {
-        Some(Box::new(HostUser(User::new(environ), Host::new(environ))))
+    fn new(environ: &Environment) -> Option<Self> {
+        Some(HostUser(User::new(environ), Host::new(environ)))
     }
 }
 

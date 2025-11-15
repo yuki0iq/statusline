@@ -7,13 +7,9 @@ pub struct Elapsed(Duration);
 super::register_block!(Elapsed);
 
 impl Block for Elapsed {
-    fn new(environ: &Environment) -> Option<Box<dyn Block>> {
-        match environ.elapsed_time {
-            Some(elapsed) if elapsed > const { Duration::from_millis(100) } => {
-                Some(Box::new(Elapsed(elapsed)))
-            }
-            _ => None,
-        }
+    fn new(environ: &Environment) -> Option<Self> {
+        let elapsed = environ.elapsed_time.unwrap_or_default();
+        (elapsed > Duration::from_millis(100)).then_some(Elapsed(elapsed))
     }
 }
 

@@ -15,14 +15,14 @@ pub struct Venv {
 super::register_block!(Venv);
 
 impl Block for Venv {
-    fn new(_: &Environment) -> Option<Box<dyn Block>> {
+    fn new(_: &Environment) -> Option<Self> {
         let path = PathBuf::from(std::env::var("VIRTUAL_ENV").ok()?);
-        let name = venv_name(&path).to_owned();
-        let version = venv_ver(&path)
-            .unwrap_or_default()
-            .unwrap_or("<sys?>".to_owned());
-
-        Some(Box::new(Venv { name, version }))
+        Some(Venv {
+            name: venv_name(&path).to_owned(),
+            version: venv_ver(&path)
+                .unwrap_or_default()
+                .unwrap_or("<sys?>".to_owned()),
+        })
     }
 }
 

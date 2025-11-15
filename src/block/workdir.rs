@@ -104,17 +104,17 @@ pub struct Workdir {
 super::register_block!(Workdir);
 
 impl Block for Workdir {
-    fn new(environ: &Environment) -> Option<Box<dyn Block>> {
+    fn new(environ: &Environment) -> Option<Self> {
         let mut work_dir = environ.work_dir.clone();
         let git_tree = environ.git_tree.clone();
         let current_home = environ.current_home.clone();
         let state = get_state(&mut work_dir);
-        Some(Box::new(Workdir {
+        Some(Workdir {
             work_dir,
             git_tree,
             current_home,
             state,
-        }))
+        })
     }
 }
 

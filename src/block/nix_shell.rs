@@ -12,7 +12,7 @@ pub struct NixShell {
 super::register_block!(NixShell);
 
 impl Block for NixShell {
-    fn new(_: &Environment) -> Option<Box<dyn Block>> {
+    fn new(_: &Environment) -> Option<Self> {
         let purity = match std::env::var("IN_NIX_SHELL").ok()?.as_ref() {
             "impure" => false,
             "pure" => true,
@@ -38,7 +38,7 @@ impl Block for NixShell {
             .map(|(h, p)| format!("{}:{p}", &h[..6]))
             .collect();
 
-        Some(Box::new(NixShell { purity, inputs }))
+        Some(NixShell { purity, inputs })
     }
 }
 

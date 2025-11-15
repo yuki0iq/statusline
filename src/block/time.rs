@@ -6,8 +6,8 @@ pub struct Time(DateTime<Local>);
 super::register_block!(Time);
 
 impl Block for Time {
-    fn new(_: &Environment) -> Option<Box<dyn Block>> {
-        Some(Box::new(Self(Local::now())))
+    fn new(_: &Environment) -> Option<Self> {
+        Some(Self(Local::now()))
     }
 }
 

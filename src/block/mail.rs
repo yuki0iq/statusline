@@ -8,7 +8,7 @@ pub struct UnseenMail {
 super::register_block!(UnseenMail);
 
 impl Block for UnseenMail {
-    fn new(environ: &Environment) -> Option<Box<dyn Block>> {
+    fn new(environ: &Environment) -> Option<Self> {
         let maildir_path =
             std::env::var("MAIL").unwrap_or_else(|_| format!("/var/spool/mail/{}", environ.user));
         let maildir = PathBuf::from(maildir_path);
@@ -24,11 +24,7 @@ impl Block for UnseenMail {
             })
             .unwrap_or(0);
         let count = unseen_count + unread_count;
-        if count == 0 {
-            None
-        } else {
-            Some(Box::new(UnseenMail { count }))
-        }
+        (count > 0).then_some(UnseenMail { count })
     }
 }
 

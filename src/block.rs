@@ -18,7 +18,7 @@ mod venv;
 mod workdir;
 
 pub trait Block: Pretty {
-    fn new(environ: &Environment) -> Option<Box<dyn Block>>
+    fn new(environ: &Environment) -> Option<Self>
     where
         Self: Sized;
     fn extend(&mut self) {}
@@ -32,8 +32,11 @@ macro_rules! register_block {
     ($name:ident) => {
         const _: () = {
             #[linkme::distributed_slice($crate::block::BLOCK_KINDS)]
-            static _BLOCK_KIND: (&str, $crate::block::Constructor) =
-                (stringify!($name), <$name as $crate::block::Block>::new);
+            static _BLOCK_KIND: (&str, $crate::block::Constructor) = (stringify!($name), |env| {
+                <$name as $crate::block::Block>::new(env).map(|block| {
+                    ::std::boxed::Box::new(block) as ::std::boxed::Box<dyn $crate::block::Block>
+                })
+            });
         };
     };
 }

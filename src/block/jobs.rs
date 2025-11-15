@@ -5,14 +5,9 @@ pub struct Jobs(usize);
 super::register_block!(Jobs);
 
 impl Block for Jobs {
-    fn new(environ: &Environment) -> Option<Box<dyn Block>> {
-        if let Some(count) = environ.jobs_count
-            && count != 0
-        {
-            Some(Box::new(Jobs(count)))
-        } else {
-            None
-        }
+    fn new(environ: &Environment) -> Option<Self> {
+        let count = environ.jobs_count.unwrap_or_default();
+        (count > 0).then_some(Jobs(count))
     }
 }
 

@@ -36,7 +36,7 @@ pub struct BuildInfo(Vec<Kind>);
 super::register_block!(BuildInfo);
 
 impl Block for BuildInfo {
-    fn new(environ: &Environment) -> Option<Box<dyn Block>> {
+    fn new(environ: &Environment) -> Option<Self> {
         let workdir = &environ.work_dir;
         let mut bi = vec![];
 
@@ -80,11 +80,7 @@ impl Block for BuildInfo {
             bi.push(Kind::Gradle);
         }
 
-        if bi.is_empty() {
-            None
-        } else {
-            Some(Box::new(Self(bi)))
-        }
+        (!bi.is_empty()).then_some(Self(bi))
     }
 }
 

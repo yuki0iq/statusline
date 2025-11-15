@@ -470,7 +470,7 @@ pub struct GitRepo {
 super::register_block!(GitRepo);
 
 impl Block for GitRepo {
-    fn new(environ: &Environment) -> Option<Box<dyn Block>> {
+    fn new(environ: &Environment) -> Option<Self> {
         let tree = environ.git_tree.as_ref()?.clone();
         let dotgit = tree.join(".git");
         let root = if dotgit.is_file() {
@@ -513,14 +513,14 @@ impl Block for GitRepo {
         let (ahead, behind) =
             get_ahead_behind(&tree, &head.kind, remote.as_ref()).unwrap_or((0, 0));
 
-        Some(Box::new(GitRepo {
+        Some(GitRepo {
             head,
             remote,
             stashes,
             state,
             behind,
             ahead,
-        }))
+        })
     }
 }
 
@@ -535,15 +535,14 @@ pub struct GitTree {
 super::register_block!(GitTree);
 
 impl Block for GitTree {
-    fn new(environ: &Environment) -> Option<Box<dyn Block>> {
-        let tree = environ.git_tree.as_ref()?.clone();
-        Some(Box::new(GitTree {
-            tree,
+    fn new(environ: &Environment) -> Option<Self> {
+        Some(GitTree {
+            tree: environ.git_tree.as_ref()?.clone(),
             unmerged: 0,
             staged: 0,
             dirty: 0,
             untracked: 0,
-        }))
+        })
     }
 
     fn extend(&mut self) {

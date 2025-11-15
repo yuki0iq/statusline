@@ -12,16 +12,16 @@ pub enum ReturnCode {
 super::register_block!(ReturnCode);
 
 impl Block for ReturnCode {
-    fn new(environ: &Environment) -> Option<Box<dyn Block>> {
+    fn new(environ: &Environment) -> Option<Self> {
         // Additional codes worth considering: 126 not exec, 127 not found
-        Some(Box::new(match environ.ret_code {
+        Some(match environ.ret_code {
             Some(0) => Self::Ok,
             None => Self::NotAvailable,
             Some(code) => match signal_name(code.wrapping_sub(128)) {
                 Some(sig) => Self::Signaled(sig),
                 None => Self::Failed(code),
             },
-        }))
+        })
     }
 }
 
