@@ -80,6 +80,7 @@ use crate::{
     workgroup::{SshChain, WorkgroupKey},
 };
 use argh::FromArgs;
+use pwd::Passwd;
 use rustix::{
     fd::{FromRawFd as _, OwnedFd},
     fs::{Mode, OFlags},
@@ -197,9 +198,11 @@ impl From<Run> for Environment {
 
         let git_tree = file::upfind(&work_dir, ".git").map(|dg| dg.parent().unwrap().to_path_buf());
 
-        // XXX: This does not work well under Termux
-        let user = std::env::var("USER")
-            .unwrap_or_else(|_| format!("<user{}>", rustix::process::getuid().as_raw()));
+        // XXX: This probably does not work well under Termux
+        let user = Passwd::current_user()
+            .map(|entry| entry.name)
+            .or_else(|| std::env::var("USER").ok())
+            .unwrap_or_else(|| format!("<user{}>", rustix::process::getuid().as_raw()));
         let host = rustix::system::uname()
             .nodename()
             .to_string_lossy()
