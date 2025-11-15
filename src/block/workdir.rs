@@ -154,13 +154,13 @@ impl Pretty for Workdir {
             write!(f, "/")?;
         }
         if let Some(middle) = middle {
-            write!(f, "{}", middle.to_string_lossy())?;
+            write!(f, "{}", middle.display())?;
         }
 
         // Always add / before highlighted
         if let Some(high) = highlighted {
             f.with_style(Color::CYAN, Style::empty(), |f| {
-                write!(f, "/{}", high.to_string_lossy())
+                write!(f, "/{}", high.display())
             })?;
         }
 

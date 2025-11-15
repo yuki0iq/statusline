@@ -85,10 +85,7 @@ use rustix::{
     fd::{FromRawFd as _, OwnedFd},
     fs::{Mode, OFlags},
 };
-use std::{
-    borrow::Cow, fmt::Write as _, io::Write as _, os::fd::AsRawFd as _, path::PathBuf,
-    time::Duration,
-};
+use std::{fmt::Write as _, io::Write as _, os::fd::AsRawFd as _, path::PathBuf, time::Duration};
 use unicode_width::UnicodeWidthStr as _;
 
 fn readline_width(s: &str) -> usize {
@@ -385,18 +382,14 @@ fn print_statusline(
 
 fn make_title(env: &Environment) -> String {
     let pwd = if let Some((home, user)) = &env.current_home {
-        let wd = env
-            .work_dir
-            .strip_prefix(home)
-            .unwrap_or(&env.work_dir)
-            .to_string_lossy();
-        Cow::from(if wd.is_empty() {
-            format!("~{user}")
+        let wd = env.work_dir.strip_prefix(home).unwrap_or(&env.work_dir);
+        if wd.as_os_str().is_empty() {
+            format_args!("~{}", *user)
         } else {
-            format!("~{user}/{wd}")
-        })
+            format_args!("~{}/{}", *user, wd.display())
+        }
     } else {
-        env.work_dir.to_string_lossy()
+        format_args!("{}", env.work_dir.display())
     };
     crate::style::title(&format!("{}@{}: {}", env.user, env.host, pwd))
 }
