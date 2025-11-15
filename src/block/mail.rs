@@ -14,13 +14,7 @@ impl Block for UnseenMail {
         let maildir = PathBuf::from(maildir_path);
         let unseen_count = ignore_errors(maildir.join("new").read_dir()).count();
         let unread_count = ignore_errors(maildir.join("cur").read_dir())
-            .filter(|entry| {
-                entry
-                    .file_name()
-                    .to_str()
-                    .unwrap_or_default()
-                    .ends_with(":2,")
-            })
+            .filter(|entry| entry.file_name().as_encoded_bytes().ends_with(b":2,"))
             .count();
         let count = unseen_count + unread_count;
         (count > 0).then_some(UnseenMail { count })
