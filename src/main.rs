@@ -377,7 +377,7 @@ fn print_statusline(
     rustix::stdio::dup2_stdout(rustix::fs::open("/dev/null", OFlags::RDWR, Mode::empty()).unwrap())
         .unwrap();
 
-    for block in left.iter_mut() {
+    for block in &mut *left {
         block.extend();
     }
     eprint_top_part(pretty(left, mode));
@@ -389,15 +389,14 @@ fn make_title(env: &Environment) -> String {
             .work_dir
             .strip_prefix(home)
             .unwrap_or(&env.work_dir)
-            .to_str()
-            .unwrap_or("<path>");
+            .to_string_lossy();
         Cow::from(if wd.is_empty() {
             format!("~{user}")
         } else {
             format!("~{user}/{wd}")
         })
     } else {
-        Cow::from(env.work_dir.to_str().unwrap_or("<path>"))
+        env.work_dir.to_string_lossy()
     };
     crate::style::title(&format!("{}@{}: {}", env.user, env.host, pwd))
 }

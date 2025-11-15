@@ -252,7 +252,7 @@ impl Pretty for Head {
 }
 
 fn is_ref_existing(root: &Path, ref_name: &str) -> bool {
-    file::exists(&root.join(ref_name))
+    file::exists(root.join(ref_name))
         || File::open(root.join("packed-refs"))
             .ok()
             .map(BufReader::new)
@@ -311,7 +311,7 @@ impl State {
             })
         };
 
-        Some(if file::exists(&root.join("BISECT_LOG")) {
+        Some(if file::exists(root.join("BISECT_LOG")) {
             State::Bisecting
         } else if let Ok(head) = abbrev_head(&revert_head) {
             State::Reverting { head }
