@@ -12,20 +12,25 @@ impl Block for UnseenMail {
         let maildir_path =
             std::env::var("MAIL").unwrap_or_else(|_| format!("/var/spool/mail/{}", environ.user));
         let maildir = PathBuf::from(maildir_path);
-        let unseen_count = std::fs::read_dir(maildir.join("new"))
-            .map(Iterator::count)
-            .unwrap_or(0);
-        let unread_count = std::fs::read_dir(maildir.join("cur"))
-            .map(|iter| {
-                iter.map_while(Result::ok)
-                    .filter_map(|entry| entry.file_name().into_string().ok())
-                    .filter(|filename| filename.ends_with(":2,"))
-                    .count()
+        let unseen_count = ignore_errors(maildir.join("new").read_dir()).count();
+        let unread_count = ignore_errors(maildir.join("cur").read_dir())
+            .filter(|entry| {
+                entry
+                    .file_name()
+                    .to_str()
+                    .unwrap_or_default()
+                    .ends_with(":2,")
             })
-            .unwrap_or(0);
+            .count();
         let count = unseen_count + unread_count;
         (count > 0).then_some(UnseenMail { count })
     }
+}
+
+fn ignore_errors<T, E>(
+    res: Result<impl Iterator<Item = Result<T, E>>, E>,
+) -> impl Iterator<Item = T> {
+    res.into_iter().flatten().flatten()
 }
 
 impl Pretty for UnseenMail {
