@@ -1,4 +1,4 @@
-use crate::{Block, Environment, IconMode, Pretty, Style as _};
+use crate::{Block, Color, Environment, IconMode, Pretty, Style, WithStyle as _};
 
 pub struct Jobs(usize);
 
@@ -18,17 +18,9 @@ impl Block for Jobs {
 
 impl Pretty for Jobs {
     fn pretty(&self, f: &mut std::fmt::Formatter<'_>, _: IconMode) -> std::fmt::Result {
-        let text = if self.0 == 1 { "job" } else { "jobs" };
-
-        write!(
-            f,
-            "{}",
-            format!("[{} {text}]", self.0)
-                .visible()
-                .green()
-                .bold()
-                .with_reset()
-                .invisible(),
-        )
+        f.with_style(Color::GREEN, Style::BOLD, |f| {
+            let text = if self.0 == 1 { "job" } else { "jobs" };
+            write!(f, "[{} {text}]", self.0)
+        })
     }
 }

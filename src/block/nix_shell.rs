@@ -1,4 +1,4 @@
-use crate::{Block, Environment, Icon, IconMode, Pretty, Style as _};
+use crate::{Block, Color, Environment, Icon, IconMode, Pretty, Style, WithStyle as _};
 use std::{ffi::OsStr, path::Path};
 
 pub struct NixShell {
@@ -44,21 +44,15 @@ impl Block for NixShell {
 
 impl Pretty for NixShell {
     fn pretty(&self, f: &mut std::fmt::Formatter<'_>, mode: IconMode) -> std::fmt::Result {
-        // I am not proud of the number of allocations here
-        write!(
-            f,
-            "{}",
-            format!(
-                "[{}{} {}]",
-                if self.purity { "" } else { "!" },
-                self.icon(mode),
-                self.inputs.join(" ")
-            )
-            .visible()
-            .bright_blue()
-            .with_reset()
-            .invisible()
-        )
+        f.with_style(Color::BRIGHT_BLUE, Style::empty(), |f| {
+            let purity = if self.purity { "" } else { "!" };
+            write!(f, "[{purity}{}", self.icon(mode))?;
+            for input in &self.inputs {
+                write!(f, " {input}")?;
+            }
+            write!(f, "]")?;
+            Ok(())
+        })
     }
 }
 

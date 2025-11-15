@@ -1,9 +1,9 @@
 use crate::{
-    Block, Environment, Icon, IconMode, Pretty, Style as _,
+    Block, Color, Environment, Icon, IconMode, Pretty, Style, WithStyle as _,
     workgroup::{SshChain, WorkgroupKey},
 };
 
-pub struct Ssh(String);
+pub struct Ssh(Vec<String>);
 
 super::register_block!(Ssh);
 
@@ -13,7 +13,7 @@ impl Block for Ssh {
         if chain.is_empty() {
             None
         } else {
-            Some(Box::new(Ssh(chain.join(" "))))
+            Some(Box::new(Ssh(chain)))
         }
     }
 }
@@ -30,12 +30,12 @@ impl Icon for Ssh {
 
 impl Pretty for Ssh {
     fn pretty(&self, f: &mut std::fmt::Formatter<'_>, mode: IconMode) -> std::fmt::Result {
-        let chain = &self.0;
-        let icon = self.icon(mode);
-        write!(
-            f,
-            "{}",
-            format!("[{icon} {chain}]").visible().cyan().invisible()
-        )
+        f.with_style(Color::CYAN, Style::empty(), |f| {
+            write!(f, "[{}", self.icon(mode))?;
+            for link in &self.0 {
+                write!(f, " {link}")?;
+            }
+            write!(f, "]")
+        })
     }
 }

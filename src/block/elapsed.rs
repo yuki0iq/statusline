@@ -1,4 +1,4 @@
-use crate::{Block, Environment, Icon, IconMode, Pretty, Style as _};
+use crate::{Block, Color, Environment, Icon, IconMode, Pretty, Style, WithStyle as _};
 
 pub struct Elapsed(u64);
 
@@ -25,15 +25,14 @@ impl Icon for Elapsed {
 
 impl Pretty for Elapsed {
     fn pretty(&self, f: &mut std::fmt::Formatter<'_>, mode: IconMode) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            format!("({} {})", self.icon(mode), microseconds_to_string(self.0))
-                .visible()
-                .cyan()
-                .with_reset()
-                .invisible()
-        )
+        f.with_style(Color::CYAN, Style::empty(), |f| {
+            write!(
+                f,
+                "({} {})",
+                self.icon(mode),
+                microseconds_to_string(self.0)
+            )
+        })
     }
 }
 

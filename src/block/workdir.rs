@@ -1,4 +1,4 @@
-use crate::{Block, Environment, Icon, IconMode, Pretty, Style as _};
+use crate::{Block, Color, Environment, Icon, IconMode, Pretty, Style, WithStyle as _};
 use anyhow::{Context as _, Result, ensure};
 use rustix::fs::{Access, Stat};
 use std::{
@@ -42,16 +42,9 @@ impl Icon for State {
 
 impl Pretty for State {
     fn pretty(&self, f: &mut std::fmt::Formatter, mode: IconMode) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            self.icon(mode)
-                .visible()
-                .red()
-                .italic()
-                .with_reset()
-                .invisible()
-        )
+        f.with_style(Color::RED, Style::ITALIC, |f| {
+            write!(f, "{}", self.icon(mode))
+        })
     }
 }
 
@@ -146,35 +139,31 @@ impl Pretty for Workdir {
             (None, None) => (Some(self.work_dir.as_path()), None),
         };
 
-        let home_str = self.current_home.as_ref().map(|(_, user)| {
-            format!("~{user}")
-                .visible()
-                .yellow()
-                .bold()
-                .with_reset()
-                .invisible()
-                .to_string()
-        });
+        let middle = match middle {
+            Some(p) if p == "" => None,
+            otherwise => otherwise,
+        };
 
-        let middle_str = middle.and_then(Path::to_str).map(ToString::to_string);
+        write!(f, "{}", crate::icon::display(&self.state, mode))?;
 
-        let highlighted_str = highlighted.and_then(Path::to_str).map(|s| {
-            format!("/{s}")
-                .visible()
-                .cyan()
-                .with_reset()
-                .invisible()
-                .to_string()
-        });
+        if let Some((_, user)) = &self.current_home {
+            f.with_style(Color::YELLOW, Style::BOLD, |f| write!(f, "~{user}"))?;
+        }
+        // Add / between home and middle only if both are present
+        if self.current_home.is_some() && middle.is_some() {
+            write!(f, "/")?;
+        }
+        if let Some(middle) = middle {
+            write!(f, "{}", middle.to_string_lossy())?;
+        }
 
-        let work_dir = [home_str, middle_str]
-            .into_iter()
-            .filter(|x| matches!(x, Some(q) if !q.is_empty()))
-            .map(Option::unwrap)
-            .collect::<Vec<_>>()
-            .join("/")
-            + &highlighted_str.unwrap_or_default();
+        // Always add / before highlighted
+        if let Some(high) = highlighted {
+            f.with_style(Color::CYAN, Style::empty(), |f| {
+                write!(f, "/{}", high.to_string_lossy())
+            })?;
+        }
 
-        write!(f, "{}{}", crate::icon::display(&self.state, mode), work_dir)
+        Ok(())
     }
 }

@@ -1,5 +1,4 @@
-use crate::{Block, Environment, IconMode, Pretty, Style as _, file};
-use std::fmt::{Display, Formatter, Result as FmtResult};
+use crate::{Block, Color, Environment, IconMode, Pretty, Style, WithStyle as _, file};
 
 #[derive(Hash, PartialEq, Eq)]
 enum Kind {
@@ -15,24 +14,20 @@ enum Kind {
     Pyproject,
 }
 
-impl Display for Kind {
-    fn fmt(&self, f: &mut Formatter) -> FmtResult {
-        write!(
-            f,
-            "{}",
-            match *self {
-                Self::Cargo => "cargo",
-                Self::Cmake => "cmake",
-                Self::Configure => "./configure",
-                Self::Makefile => "make",
-                Self::Meson => "meson",
-                Self::Jr => "./jr",
-                Self::Nix => "nix",
-                Self::Kks => "kks",
-                Self::Gradle => "gradle",
-                Self::Pyproject => "uv",
-            }
-        )
+impl Kind {
+    fn as_str(&self) -> &'static str {
+        match *self {
+            Self::Cargo => "cargo",
+            Self::Cmake => "cmake",
+            Self::Configure => "./configure",
+            Self::Makefile => "make",
+            Self::Meson => "meson",
+            Self::Jr => "./jr",
+            Self::Nix => "nix",
+            Self::Kks => "kks",
+            Self::Gradle => "gradle",
+            Self::Pyproject => "uv",
+        }
     }
 }
 
@@ -95,14 +90,15 @@ impl Block for BuildInfo {
 
 impl Pretty for BuildInfo {
     fn pretty(&self, f: &mut std::fmt::Formatter<'_>, _: IconMode) -> std::fmt::Result {
-        let Self(buildinfo) = &self;
-        let text = "[".to_owned()
-            + &buildinfo
-                .iter()
-                .map(ToString::to_string)
-                .collect::<Vec<_>>()
-                .join(" ")
-            + "]";
-        write!(f, "{}", text.visible().purple().with_reset().invisible())
+        f.with_style(Color::PURPLE, Style::empty(), |f| {
+            write!(f, "[")?;
+            for (idx, kind) in self.0.iter().enumerate() {
+                if idx != 0 {
+                    write!(f, " ")?;
+                }
+                write!(f, "{}", kind.as_str())?;
+            }
+            write!(f, "]")
+        })
     }
 }

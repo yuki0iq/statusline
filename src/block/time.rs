@@ -1,4 +1,4 @@
-use crate::{Block, Environment, IconMode, Pretty, Style as _};
+use crate::{Block, Color, Environment, IconMode, Pretty, Style, WithStyle as _};
 use chrono::prelude::*;
 
 pub struct Time(DateTime<Local>);
@@ -13,15 +13,8 @@ impl Block for Time {
 
 impl Pretty for Time {
     fn pretty(&self, f: &mut std::fmt::Formatter<'_>, _: IconMode) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            self.0
-                .format("%a, %Y-%b-%d, %H:%M:%S in %Z")
-                .visible()
-                .gray()
-                .with_reset()
-                .invisible()
-        )
+        f.with_style(Color::GRAY, Style::empty(), |f| {
+            write!(f, "{}", self.0.format("%a, %Y-%b-%d, %H:%M:%S in %Z"))
+        })
     }
 }

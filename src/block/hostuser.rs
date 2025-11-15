@@ -1,4 +1,4 @@
-use crate::{Block, Chassis, Environment, Icon, IconMode, Pretty, Style as _};
+use crate::{Block, Chassis, Color, Environment, Icon, IconMode, Pretty, Style, WithStyle as _};
 
 struct Host(Chassis, String);
 struct User(String);
@@ -42,27 +42,17 @@ impl Icon for User {
 
 impl Pretty for Host {
     fn pretty(&self, f: &mut std::fmt::Formatter<'_>, mode: IconMode) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            format!("[{} {}]", self.icon(mode), self.1)
-                .visible()
-                .colorize_with(&self.1)
-                .invisible()
-        )
+        f.with_style(Color::of(&self.1), Style::BOLD, |f| {
+            write!(f, "[{} {}]", self.icon(mode), self.1)
+        })
     }
 }
 
 impl Pretty for User {
     fn pretty(&self, f: &mut std::fmt::Formatter<'_>, mode: IconMode) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            format!("[{} {}]", self.icon(mode), self.0)
-                .visible()
-                .colorize_with(&self.0)
-                .invisible()
-        )
+        f.with_style(Color::of(&self.0), Style::BOLD, |f| {
+            write!(f, "[{} {}]", self.icon(mode), self.0)
+        })
     }
 }
 
@@ -70,16 +60,9 @@ impl Pretty for HostUser {
     fn pretty(&self, f: &mut std::fmt::Formatter<'_>, mode: IconMode) -> std::fmt::Result {
         write!(
             f,
-            "{}",
-            format!(
-                "{} {}",
-                crate::icon::display(&self.1, mode),
-                crate::icon::display(&self.0, mode)
-            )
-            .visible()
-            .bold()
-            .with_reset()
-            .invisible()
+            "{} {}",
+            crate::icon::display(&self.1, mode),
+            crate::icon::display(&self.0, mode)
         )
     }
 }

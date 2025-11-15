@@ -1,48 +1,43 @@
-use crate::{Block, Environment, Icon, IconMode, Pretty, Style as _};
-use std::borrow::Cow;
+use crate::{Block, Color, Environment, Icon, IconMode, Pretty, Style, WithStyle as _};
 
-pub struct RootShell(bool, usize);
+pub struct RootShell {
+    is_root: bool,
+    depth: usize,
+}
 
 super::register_block!(RootShell);
 
 impl Block for RootShell {
     fn new(_: &Environment) -> Option<Box<dyn Block>> {
-        Some(Box::new(RootShell(
-            rustix::process::getuid().is_root(),
-            std::env::var("SHLVL")
+        Some(Box::new(RootShell {
+            is_root: rustix::process::getuid().is_root(),
+            depth: std::env::var("SHLVL")
                 .unwrap_or_default()
                 .parse()
                 .unwrap_or_default(),
-        )))
+        }))
     }
 }
 
 impl Icon for RootShell {
     fn icon(&self, _: IconMode) -> &'static str {
-        if self.0 { "#" } else { "$" }
+        if self.is_root { "#" } else { "$" }
     }
 }
 
 impl Pretty for RootShell {
     fn pretty(&self, f: &mut std::fmt::Formatter<'_>, mode: IconMode) -> std::fmt::Result {
-        let icon = self.icon(mode);
-        let shlvl = if self.1 > 0 {
-            Cow::from((1 + self.1).to_string())
+        let color = if self.is_root {
+            Color::RED
         } else {
-            Cow::from("")
+            Color::GREEN
         };
-        let formatted = format!("{shlvl}{icon}");
-        let formatted = formatted.visible();
-        write!(
-            f,
-            "{}",
-            if self.0 {
-                formatted.red()
-            } else {
-                formatted.green()
+
+        f.with_style(color, Style::empty(), |f| {
+            if self.depth > 0 {
+                write!(f, "{}", 1 + self.depth)?;
             }
-            .with_reset()
-            .invisible(),
-        )
+            write!(f, "{}", self.icon(mode))
+        })
     }
 }

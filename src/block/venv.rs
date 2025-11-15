@@ -1,4 +1,4 @@
-use crate::{Block, Environment, Icon, IconMode, Pretty, Style as _};
+use crate::{Block, Color, Environment, Icon, IconMode, Pretty, Style, WithStyle as _};
 use anyhow::Result;
 use std::{
     ffi::OsStr,
@@ -28,15 +28,9 @@ impl Block for Venv {
 
 impl Pretty for Venv {
     fn pretty(&self, f: &mut std::fmt::Formatter, mode: IconMode) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            format!("[{} {}|{}]", self.icon(mode), self.version, self.name)
-                .visible()
-                .yellow()
-                .with_reset()
-                .invisible()
-        )
+        f.with_style(Color::YELLOW, Style::empty(), |f| {
+            write!(f, "[{} {}|{}]", self.icon(mode), self.version, self.name)
+        })
     }
 }
 

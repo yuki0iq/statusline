@@ -76,7 +76,7 @@ use crate::{
     block::{Block, create_blocks},
     chassis::Chassis,
     icon::{Icon, IconMode, Pretty},
-    style::Style,
+    style::{Color, Style, WithStyle, horizontal_absolute},
     workgroup::{SshChain, WorkgroupKey},
 };
 use argh::FromArgs;
@@ -85,7 +85,6 @@ use rustix::{
     fs::{Mode, OFlags},
 };
 use std::{borrow::Cow, fmt::Write as _, io::Write as _, path::PathBuf};
-use style::horizontal_absolute;
 use unicode_width::UnicodeWidthStr as _;
 
 fn readline_width(s: &str) -> usize {
@@ -243,7 +242,12 @@ fn main() {
     };
 
     match command {
-        Command::Colorize(Colorize { what }) => println!("{}", what.colorize_with(&what).bold()),
+        Command::Colorize(Colorize { what }) => {
+            let mut res = String::new();
+            res.with_style(Color::of(&what), Style::BOLD, |f| write!(f, "{what}"))
+                .unwrap();
+            println!("{res}");
+        }
         Command::WorkgroupCreate(_) => {
             WorkgroupKey::create().expect("Could not create workgroup key");
         }

@@ -1,4 +1,4 @@
-use crate::{Block, Environment, Icon, IconMode, Pretty, Style as _};
+use crate::{Block, Color, Environment, Icon, IconMode, Pretty, Style, WithStyle as _};
 use linux_raw_sys::general::{_NSIG as SIGRTMAX, SIGRTMIN};
 use rustix::process::Signal;
 
@@ -13,6 +13,7 @@ super::register_block!(ReturnCode);
 
 impl Block for ReturnCode {
     fn new(environ: &Environment) -> Option<Box<dyn Block>> {
+        // Additional codes worth considering: 126 not exec, 127 not found
         Some(Box::new(match environ.ret_code {
             Some(0) => Self::Ok,
             None => Self::NotAvailable,
@@ -48,30 +49,25 @@ impl Icon for ReturnCode {
 impl Pretty for ReturnCode {
     fn pretty(&self, f: &mut std::fmt::Formatter<'_>, mode: IconMode) -> std::fmt::Result {
         let icon = self.icon(mode);
-        let text = match &self {
-            Self::Ok | Self::NotAvailable => icon.into(),
-            // 126 not exec
-            // 127 not found
-            Self::Failed(code) => format!("{code}{icon}"),
-            Self::Signaled(sig) => format!("{icon}{sig}"),
+
+        let color = match &self {
+            Self::Ok => Color::LIGHT_GREEN,
+            Self::Failed(..) => Color::LIGHT_RED,
+            Self::Signaled(..) => Color::TRUE_YELLOW,
+            Self::NotAvailable => Color::LIGHT_GRAY,
         };
-        if text.is_empty() {
+
+        if let Self::Ok | Self::NotAvailable = self
+            && icon.is_empty()
+        {
             return Ok(());
         }
-        let text = text.visible();
 
-        write!(
-            f,
-            "{}",
-            match &self {
-                Self::Ok => text.light_green(),
-                Self::Failed(..) => text.light_red(),
-                Self::Signaled(..) => text.true_color(255, 170, 0),
-                Self::NotAvailable => text.light_gray(),
-            }
-            .with_reset()
-            .invisible()
-        )
+        f.with_style(color, Style::empty(), |f| match &self {
+            Self::Ok | Self::NotAvailable => write!(f, "{icon}"),
+            Self::Failed(code) => write!(f, "{code}{icon}"),
+            Self::Signaled(sig) => write!(f, "{icon}{sig}"),
+        })
     }
 }
 

@@ -1,4 +1,4 @@
-use crate::{Block, Environment, Icon, IconMode, Pretty, Style as _, file};
+use crate::{Block, Color, Environment, Icon, IconMode, Pretty, Style, WithStyle as _, file};
 use anyhow::{Context as _, Result};
 use memmap2::Mmap;
 use rustix::process::Signal;
@@ -607,70 +607,73 @@ impl Block for GitTree {
 
 impl Pretty for GitRepo {
     fn pretty(&self, f: &mut std::fmt::Formatter<'_>, mode: IconMode) -> std::fmt::Result {
-        let mut res = vec![];
+        f.with_style(Color::of(&self.head.ref_name()), Style::BOLD, |f| {
+            write!(f, "[")?;
 
-        if let Some(state) = &self.state {
-            res.push(format!("{}|", crate::icon::display(state, mode)));
-        }
-
-        res.push(format!("{}", crate::icon::display(&self.head, mode)));
-
-        if let HeadKind::Branch(local) = &self.head.kind
-            && let Some(Remote { branch: remote, .. }) = &self.remote
-            && local != remote
-        {
-            res.push(format!(":{remote}"));
-        }
-
-        if let Some(Remote { exists: false, .. }) = &self.remote {
-            res.push("?".into());
-        }
-
-        for (icon, val) in [
-            (GitIcon::Stashes, self.stashes),
-            (GitIcon::Behind, self.behind),
-            (GitIcon::Ahead, self.ahead),
-        ] {
-            if val != 0 {
-                res.push(format!(" {}{}", icon.icon(mode), val));
+            if let Some(state) = &self.state {
+                write!(f, "{}|", crate::icon::display(state, mode))?;
             }
-        }
 
-        let text = "[".to_owned() + &res.join("") + "]";
-        write!(
-            f,
-            "{}",
-            text.visible()
-                .colorize_with(self.head.ref_name().as_ref()) //.pink()
-                .bold()
-                .with_reset()
-                .invisible(),
-        )
+            write!(f, "{}", crate::icon::display(&self.head, mode))?;
+
+            if let HeadKind::Branch(local) = &self.head.kind
+                && let Some(Remote { branch: remote, .. }) = &self.remote
+                && local != remote
+            {
+                write!(f, ":{remote}")?;
+            }
+
+            if let Some(Remote { exists: false, .. }) = &self.remote {
+                write!(f, "?")?;
+            }
+
+            for (icon, val) in [
+                (GitIcon::Stashes, self.stashes),
+                (GitIcon::Behind, self.behind),
+                (GitIcon::Ahead, self.ahead),
+            ] {
+                if val != 0 {
+                    write!(f, " {}{}", icon.icon(mode), val)?;
+                }
+            }
+
+            write!(f, "]")
+        })
     }
 }
 
 impl Pretty for GitTree {
     fn pretty(&self, f: &mut std::fmt::Formatter<'_>, mode: IconMode) -> std::fmt::Result {
-        let vec = [
-            (GitIcon::Conflict, self.unmerged),
-            (GitIcon::Staged, self.staged),
-            (GitIcon::Dirty, self.dirty),
-            (GitIcon::Untracked, self.untracked),
-        ]
-        .into_iter()
-        .filter(|(_, val)| *val != 0)
-        .map(|(s, val)| format!("{}{}", s.icon(mode), val))
-        .collect::<Vec<_>>();
-
-        if vec.is_empty() {
+        if self.unmerged == 0 && self.staged == 0 && self.dirty == 0 && self.untracked == 0 {
             return Ok(());
         }
 
-        let text = "[".to_owned() + &vec.join(" ") + "]";
-        write!(f, "{}", text.visible().pink().with_reset().invisible())
+        f.with_style(Color::PINK, Style::empty(), |f| {
+            write!(f, "[")?;
+
+            let mut first = true;
+            for (icon, val) in [
+                (GitIcon::Conflict, self.unmerged),
+                (GitIcon::Staged, self.staged),
+                (GitIcon::Dirty, self.dirty),
+                (GitIcon::Untracked, self.untracked),
+            ] {
+                if val != 0 {
+                    if first {
+                        first = false;
+                    } else {
+                        write!(f, " ")?;
+                    }
+                    write!(f, "{}{}", icon.icon(mode), val)?;
+                }
+            }
+
+            write!(f, "]")
+        })
     }
 }
 
+#[derive(PartialEq)]
 enum GitIcon {
     /// Git info: "ahead" the remote
     Ahead,

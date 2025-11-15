@@ -1,4 +1,4 @@
-use crate::{Block, Environment, Icon, IconMode, Pretty, Style as _};
+use crate::{Block, Color, Environment, Icon, IconMode, Pretty, Style, WithStyle as _};
 use std::path::PathBuf;
 
 pub struct UnseenMail {
@@ -34,15 +34,9 @@ impl Block for UnseenMail {
 
 impl Pretty for UnseenMail {
     fn pretty(&self, f: &mut std::fmt::Formatter<'_>, mode: IconMode) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            format!("[{}{}]", self.icon(mode), self.count)
-                .visible()
-                .yellow()
-                .with_reset()
-                .invisible()
-        )
+        f.with_style(Color::YELLOW, Style::empty(), |f| {
+            write!(f, "[{} {}]", self.icon(mode), self.count)
+        })
     }
 }
 
@@ -50,8 +44,8 @@ impl Icon for UnseenMail {
     fn icon(&self, mode: IconMode) -> &'static str {
         use IconMode::*;
         match &mode {
-            Text => "eml ",
-            Icons | MinimalIcons => "󰇰 ",
+            Text => "eml",
+            Icons | MinimalIcons => "󰇰",
         }
     }
 }
