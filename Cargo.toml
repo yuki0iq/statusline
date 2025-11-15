@@ -25,6 +25,7 @@ memmap2 = "0.9.9"
 linkme = "0.3.35"
 heck = "0.5.0"
 bitflags = "2.10.0"
+hex = "0.4.3"
 
 [profile.release]
 codegen-units = 1

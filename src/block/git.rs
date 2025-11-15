@@ -30,20 +30,11 @@ thanks to
     7 untracked   -> ?
 */
 
-fn parse_ref_by_name<T: AsRef<str>>(name: T, root: PathBuf) -> Head {
-    let kind = if let Some(name) = name.as_ref().trim().strip_prefix("refs/heads/") {
-        HeadKind::Branch(name.to_owned())
-    } else {
-        HeadKind::Unknown
-    };
-    Head { root, kind }
+fn lcp(left: &str, right: &str) -> Option<usize> {
+    std::iter::zip(left.chars(), right.chars()).position(|(a, b)| a != b)
 }
 
-fn lcp<T: AsRef<str>>(left: T, right: T) -> Option<usize> {
-    std::iter::zip(left.as_ref().chars(), right.as_ref().chars()).position(|(a, b)| a != b)
-}
-
-fn lcp_bytes(left: &[u8], right: &[u8]) -> Option<usize> {
+fn lcp_hex(left: &[u8], right: &[u8]) -> Option<usize> {
     let i = std::iter::zip(left.iter(), right.iter()).position(|(a, b)| a != b)?;
     Some(i * 2 + usize::from((left[i] >> 4) == (right[i] >> 4)))
 }
@@ -58,34 +49,18 @@ fn objects_dir_len(root: &Path, id: &str) -> Result<usize> {
     let (fanout, rest) = id.split_at(2);
 
     // Find len from ".git/objects/xx/..."
-    let best_lcp = load_objects(root, fanout)?
+    let max_lcp = load_objects(root, fanout)?
         .iter()
         .filter_map(|val| lcp(val.as_str(), rest))
         .max();
-    Ok(match best_lcp {
+    Ok(match max_lcp {
         None => 2,
         Some(val) => 3 + val,
     })
 }
 
-fn parse_oid_slow(hex: &[u8; 40]) -> [u8; 20] {
-    fn val(mut x: u8) -> u8 {
-        x -= b'0';
-        if x >= 10 {
-            x -= b'a' - (b'9' + 1);
-        }
-        x
-    }
-
-    let mut result = [0; 20];
-    for i in 0..20 {
-        result[i] = val(hex[2 * i]) << 4_i32 | val(hex[2 * i + 1]);
-    }
-    result
-}
-
-fn parse_oid_str(hex: &str) -> Option<[u8; 20]> {
-    Some(parse_oid_slow(hex.as_bytes().try_into().ok()?))
+fn parse_oid_str(oid: &str) -> Option<[u8; 20]> {
+    hex::FromHex::from_hex(oid).ok()
 }
 
 fn packed_objects_len(root: &Path, commit: &str) -> Result<usize> {
@@ -172,12 +147,12 @@ fn packed_objects_len(root: &Path, commit: &str) -> Result<usize> {
         let index = hashes.partition_point(|hash| hash < &commit);
         // eprintln!("got index {index}");
         if index > 0 {
-            res = res.max(lcp_bytes(&hashes[index - 1], &commit).unwrap());
+            res = res.max(lcp_hex(&hashes[index - 1], &commit).unwrap());
         }
         // Skip hashes[index] if it is an exact match
         let index = index + usize::from(hashes[index] == commit);
         if index < end - begin {
-            res = res.max(lcp_bytes(&hashes[index], &commit).unwrap());
+            res = res.max(lcp_hex(&hashes[index], &commit).unwrap());
         }
     }
     // eprintln!("packed: {res:?}");
@@ -251,18 +226,27 @@ impl Pretty for Head {
     }
 }
 
-fn is_ref_existing(root: &Path, ref_name: &str) -> bool {
+fn does_ref_exist(root: &Path, ref_name: &str) -> bool {
     file::exists(root.join(ref_name))
-        || File::open(root.join("packed-refs"))
-            .ok()
-            .map(BufReader::new)
-            .map(BufReader::lines)
-            .map(|lines| lines.map_while(Result::ok))
-            .and_then(|mut lines| lines.find(|line| line.contains(ref_name)))
-            .is_some()
+        || File::open(root.join("packed-refs")).is_ok_and(|file| {
+            BufReader::new(file)
+                .lines()
+                .map_while(Result::ok)
+                // FIXME: shouldn't trigger on substrings
+                .any(|line| line.contains(ref_name))
+        })
 }
 
 impl Head {
+    fn from_ref(name: &str, root: PathBuf) -> Self {
+        let kind = if let Some(name) = name.trim().strip_prefix("refs/heads/") {
+            HeadKind::Branch(name.to_owned())
+        } else {
+            HeadKind::Unknown
+        };
+        Self { root, kind }
+    }
+
     // Please WHY
     fn ref_name(&self) -> Cow<'_, str> {
         match &self.kind {
@@ -276,14 +260,12 @@ impl Head {
 
     // WHY WHY WHY send help
     fn refine_unborn(mut self) -> Self {
-        let root = &self.root;
-        self.kind = match self.kind {
-            HeadKind::Branch(name) if !is_ref_existing(root, &self.ref_name()) => {
-                HeadKind::Unborn(name)
-            }
-
-            _ => self.kind,
-        };
+        if let HeadKind::Branch(_) = self.kind
+            && !does_ref_exist(&self.root, &self.ref_name())
+            && let HeadKind::Branch(name) = self.kind
+        {
+            self.kind = HeadKind::Unborn(name);
+        }
         self
     }
 }
@@ -299,12 +281,9 @@ enum State {
 
 impl State {
     fn discover(root: &Path) -> Option<State> {
-        let revert_head = root.join("REVERT_HEAD");
-        let cherry_pick_head = root.join("CHERRY_PICK_HEAD");
-        let merge_head = root.join("MERGE_HEAD");
         let rebase_merge = root.join("rebase-merge");
 
-        let abbrev_head = |head: &Path| {
+        let abbrev_head = |head| {
             std::fs::read_to_string(head).map(|mut id| {
                 id.truncate(abbrev_commit(root, &id));
                 id
@@ -313,9 +292,9 @@ impl State {
 
         Some(if file::exists(root.join("BISECT_LOG")) {
             State::Bisecting
-        } else if let Ok(head) = abbrev_head(&revert_head) {
+        } else if let Ok(head) = abbrev_head(root.join("REVERT_HEAD")) {
             State::Reverting { head }
-        } else if let Ok(head) = abbrev_head(&cherry_pick_head) {
+        } else if let Ok(head) = abbrev_head(root.join("CHERRY_PICK_HEAD")) {
             State::CherryPicking { head }
         } else if file::exists(&rebase_merge) {
             let todo = match File::open(rebase_merge.join("git-rebase-todo")) {
@@ -331,7 +310,7 @@ impl State {
                 Err(_) => 0,
             };
             State::Rebasing { todo, done }
-        } else if let Ok(head) = abbrev_head(&merge_head) {
+        } else if let Ok(head) = abbrev_head(root.join("MERGE_HEAD")) {
             State::Merging { head }
         } else {
             None?
@@ -411,7 +390,7 @@ fn get_remote(head: &Head) -> Option<Remote> {
         }
     }
     let (name, branch) = (name?, branch?);
-    let exists = is_ref_existing(root, &format!("refs/remotes/{name}/{branch}"));
+    let exists = does_ref_exist(root, &format!("refs/remotes/{name}/{branch}"));
 
     Some(Remote {
         name,
@@ -496,11 +475,11 @@ impl Block for GitRepo {
         let head_path = root.join("HEAD");
 
         let head = if head_path.is_symlink() {
-            parse_ref_by_name(std::fs::read_link(head_path).ok()?.to_str()?, root)
+            Head::from_ref(std::fs::read_link(head_path).ok()?.to_str()?, root)
         } else {
             let head = std::fs::read_to_string(head_path).ok()?;
             if let Some(rest) = head.strip_prefix("ref:") {
-                parse_ref_by_name(rest, root)
+                Head::from_ref(rest, root)
             } else {
                 let kind = HeadKind::Commit(head.split_whitespace().next()?.to_owned());
                 Head { root, kind }
